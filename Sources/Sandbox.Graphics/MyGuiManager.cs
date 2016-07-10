@@ -171,15 +171,17 @@ namespace Sandbox.Graphics
             MyLog.Default.WriteLine("MyGuiManager2.LoadContent() - START");
             MyLog.Default.IncreaseIndent();
 
+            MyLog.Default.WriteLine("Loading mouse cursor...");
             var path = Path.Combine(MyFileSystem.ContentPath, Path.Combine("Textures", "GUI", "MouseCursorHW.png"));
             using (var stream = MyFileSystem.OpenRead(path))
             {
                 m_mouseCursorBitmap = System.Drawing.Bitmap.FromStream(stream) as System.Drawing.Bitmap;
             }
+            MyLog.Default.WriteLine("Setting mouse cursor...");
             SetMouseCursorTexture(MyGuiConstants.CURSOR_ARROW);
-            SetHWCursorBitmap(m_mouseCursorBitmap);            
+            SetHWCursorBitmap(m_mouseCursorBitmap);
 
-           
+            MyLog.Default.WriteLine("Creating texture screen...");
             m_backgroundScreenTextures = new List<MyGuiTextureScreen>
             {
                 new MyGuiTextureScreen(MyGuiConstants.TEXTURE_SCREEN_BACKGROUND.Texture,
@@ -187,13 +189,16 @@ namespace Sandbox.Graphics
                                        (int)MyGuiConstants.TEXTURE_SCREEN_BACKGROUND.SizePx.Y),
             };
 
+            MyLog.Default.WriteLine("Loading fonts...");
             foreach (var font in fonts)
             {
                 m_fontsById[(int)font.Id] = new VRageRender.MyFont(font.Path);
                 VRageRender.MyRenderProxy.CreateFont((int)font.Id, font.Path, font.IsDebug);
             }
 
+            MyLog.Default.WriteLine("Preloading GUI icons...");
             VRageRender.MyRenderProxy.PreloadTextures(@"Textures\GUI\Icons", true);
+            MyLog.Default.WriteLine("Preloading GUI controls...");
             VRageRender.MyRenderProxy.PreloadTextures(@"Textures\GUI\Controls", true);
 
             MouseCursorPosition = new Vector2(0.5f, 0.5f);// new MyMwcVector2Int(MySandboxGame.ScreenSizeHalf.X, MySandboxGame.ScreenSizeHalf.Y);
