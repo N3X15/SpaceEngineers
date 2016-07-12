@@ -45,7 +45,7 @@ namespace SpaceEngineers.Game
         {
             MyPerGameSettings.BasicGameInfo.GameVersion = SE_VERSION;
 
-            MyPerGameSettings.BasicGameInfo.GameName = "Space Engineers";
+            MyPerGameSettings.BasicGameInfo.GameName = "Space Engineers: Community Edition";
             MyPerGameSettings.BasicGameInfo.GameNameSafe = "SpaceEngineers";
             MyPerGameSettings.BasicGameInfo.ApplicationName = "SpaceEngineers";
             MyPerGameSettings.BasicGameInfo.GameAcronym = "SE";
@@ -56,7 +56,6 @@ namespace SpaceEngineers.Game
         public static void SetupPerGameSettings()
         {
             MyPerGameSettings.Game = GameEnum.SE_GAME;
-            MyPerGameSettings.GameName = "Space Engineers: Community Edition";
             MyPerGameSettings.GameIcon = "SpaceEngineers.ico";
             MyPerGameSettings.EnableGlobalGravity = false;
             MyPerGameSettings.GameModAssembly = "SpaceEngineers.Game.dll";

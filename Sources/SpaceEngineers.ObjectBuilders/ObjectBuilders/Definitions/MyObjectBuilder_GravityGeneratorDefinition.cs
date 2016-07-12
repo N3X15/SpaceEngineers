@@ -11,6 +11,9 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
     public class MyObjectBuilder_GravityGeneratorDefinition : MyObjectBuilder_GravityProviderDefinition
     {
         [ProtoMember]
+        public string ResourceSinkGroup;
+
+        [ProtoMember]
         public float RequiredPowerInput;
 
         [ProtoMember]

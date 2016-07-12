@@ -1,6 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')"/>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\x64\Debug\</OutputPath>
@@ -86,10 +85,10 @@
     <OutputType>Library</OutputType>
     <ProjectGuid>{9F620AAB-5008-4D91-8D8F-8BE6CF26F926}</ProjectGuid>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
+    <TargetFrameworkProfile/>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject />
+    <StartupObject/>
   </PropertyGroup>
   <PropertyGroup>
     <HavokDir>HavokWrapper_SE</HavokDir>
@@ -101,131 +100,123 @@
     <RootNamespace>SpaceEngineers.Game</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="HavokWrapper">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(HavokWrapperFullPath)</HintPath>
-    </Reference>
-    <Reference Include="SteamSDK">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\3rd\SteamSDK\$(Configuration)\$(Platform)\SteamSDK.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
+    <Reference Include="System"/>
+    <Reference Include="System.Core"/>
+    <Reference Include="System.Xml.Linq"/>
+    <Reference Include="System.Data.DataSetExtensions"/>
+    <Reference Include="Microsoft.CSharp"/>
+    <Reference Include="System.Data"/>
+    <Reference Include="System.Xml"/>
+  <Reference Include="HavokWrapper"><HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\HavokWrapper.dll</HintPath></Reference><Reference Include="SharpDX.DirectInput"><HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.DirectInput.dll</HintPath></Reference><Reference Include="SharpDX.Toolkit"><HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Toolkit.dll</HintPath></Reference><Reference Include="SteamSDK"><HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SteamSDK.dll</HintPath></Reference><Reference Include="VRage.Native"><HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Native.dll</HintPath></Reference><Reference Include="VRage.OpenVRWrapper"><HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.OpenVRWrapper.dll</HintPath></Reference><Reference Include="VRage.Scripting"><HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Scripting.dll</HintPath></Reference></ItemGroup>
   <ItemGroup>
-    <Compile Include="AI\MySpaceBotFactory.cs" />
-    <Compile Include="AI\MyCyberhoundActions.cs" />
-    <Compile Include="AI\MySpiderActions.cs" />
-    <Compile Include="AI\MyCyberhoundLogic.cs" />
-    <Compile Include="AI\MySpiderLogic.cs" />
-    <Compile Include="AI\MyCyberhoundTarget.cs" />
-    <Compile Include="AI\MySpiderTarget.cs" />
-    <Compile Include="AI\MySpaceFaunaComponent.cs" />
-    <Compile Include="Definitions\MyDemoComponentDefinition.cs" />
-    <Compile Include="Definitions\MyUpgradeModuleDefinition.cs" />
-    <Compile Include="Entities\Blocks\MyAirVent.cs" />
-    <Compile Include="Entities\Blocks\MyButtonPanel.cs" />
-    <Compile Include="Entities\Blocks\MyControlPanel.cs" />
-    <Compile Include="Entities\Blocks\MyGravityGenerator.cs" />
-    <Compile Include="Entities\Blocks\MyGravityGeneratorBase.cs" />
-    <Compile Include="Entities\Blocks\MyGravityGeneratorSphere.cs" />
-    <Compile Include="Entities\Blocks\MyInteriorLight.cs" />
-    <Compile Include="Entities\Blocks\MyLandingGear.cs" />
-    <Compile Include="Entities\Blocks\MyMedicalRoom.cs" />
-    <Compile Include="Entities\Blocks\MyOxygenFarm.cs" />
-    <Compile Include="Entities\Blocks\MyShipMergeBlock.cs" />
-    <Compile Include="Entities\Blocks\MyShipWelder.cs" />
-    <Compile Include="Entities\Blocks\MySolarPanel.cs" />
-    <Compile Include="Entities\Blocks\MySoundBlock.cs" />
-    <Compile Include="Entities\Blocks\MySpaceBall.cs" />
-    <Compile Include="Entities\Blocks\MyTimerBlock.cs" />
-    <Compile Include="Entities\Blocks\MyUpgradeModule.cs" />
-    <Compile Include="Entities\Blocks\MyVirtualMass.cs" />
-    <Compile Include="Entities\Cube\MyUseObjectPanelButton.cs" />
-    <Compile Include="Entities\MyPlanetSectorReplicable.cs" />
-    <Compile Include="Entities\Blocks\MySpaceProjector.cs" />
-    <Compile Include="Entities\MySpaceBuildComponent.cs" />
-    <Compile Include="Entities\UseObjects\MyUseObjectInventory.cs" />
-    <Compile Include="Entities\UseObjects\MyUseObjectMedicalRoom.cs" />
-    <Compile Include="Entities\UseObjects\MyUseObjectWardrobe.cs" />
-    <Compile Include="Entities\Weapons\MyCubePlacer.cs" />
-    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentGravityGenerator.cs" />
-    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentGravityGeneratorSphere.cs" />
-    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentLandingGear.cs" />
-    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentShipMergeBlock.cs" />
-    <Compile Include="EntityComponents\Renders\MyRenderComponentLargeTurret.cs" />
-    <Compile Include="GUI\MyGuiScreenCreateOrEditFactionSpace.cs" />
-    <Compile Include="GUI\MyGuiScreenMedicals.cs" />
-    <Compile Include="GUI\MyGuiScreenOptionsGraphics.cs" />
-    <Compile Include="GUI\MyGuiScreenOptionsSpace.cs" />
-    <Compile Include="GUI\MyGuiScreenOptionsVideoSpace.cs" />
-    <Compile Include="ModAPI\IMyAirVent.cs" />
-    <Compile Include="ModAPI\IMyButtonPanel.cs" />
-    <Compile Include="ModAPI\IMyControlPanel.cs" />
-    <Compile Include="ModAPI\IMyGravityGenerator.cs" />
-    <Compile Include="ModAPI\IMyGravityGeneratorBase.cs" />
-    <Compile Include="ModAPI\IMyGravityGeneratorSphere.cs" />
-    <Compile Include="ModAPI\IMyInteriorLight.cs" />
-    <Compile Include="ModAPI\IMyLandingGear.cs" />
-    <Compile Include="ModAPI\IMyLargeConveyorTurretBase.cs" />
-    <Compile Include="ModAPI\IMyLargeGatlingTurret.cs" />
-    <Compile Include="ModAPI\IMyLargeInteriorTurret.cs" />
-    <Compile Include="ModAPI\IMyLargeMissileTurret.cs" />
-    <Compile Include="ModAPI\IMyMedicalRoom.cs" />
-    <Compile Include="ModAPI\IMyOxygenFarm.cs" />
-    <Compile Include="ModAPI\IMyShipMergeBlock.cs" />
-    <Compile Include="ModAPI\IMySolarPanel.cs" />
-    <Compile Include="ModAPI\IMySoundBlock.cs" />
-    <Compile Include="ModAPI\IMySpaceBall.cs" />
-    <Compile Include="ModAPI\IMyTimerBlock.cs" />
-    <Compile Include="ModAPI\IMyUpgradeModule.cs" />
-    <Compile Include="ModAPI\IMyVirtualMass.cs" />
-    <Compile Include="ModAPI\Ingame\IMyAirVent.cs" />
-    <Compile Include="ModAPI\Ingame\IMyButtonPanel.cs" />
-    <Compile Include="ModAPI\Ingame\IMyControlPanel.cs" />
-    <Compile Include="ModAPI\Ingame\IMyGravityGenerator.cs" />
-    <Compile Include="ModAPI\Ingame\IMyGravityGeneratorBase.cs" />
-    <Compile Include="ModAPI\Ingame\IMyGravityGeneratorSphere.cs" />
-    <Compile Include="ModAPI\Ingame\IMyInteriorLight.cs" />
-    <Compile Include="ModAPI\Ingame\IMyLandingGear.cs" />
-    <Compile Include="ModAPI\Ingame\IMyLargeConveyorTurretBase.cs" />
-    <Compile Include="ModAPI\Ingame\IMyLargeGatlingTurret.cs" />
-    <Compile Include="ModAPI\Ingame\IMyLargeInteriorTurret.cs" />
-    <Compile Include="ModAPI\Ingame\IMyLargeMissileTurret.cs" />
-    <Compile Include="ModAPI\Ingame\IMyMedicalRoom.cs" />
-    <Compile Include="ModAPI\Ingame\IMyOxygenFarm.cs" />
-    <Compile Include="ModAPI\Ingame\IMyShipMergeBlock.cs" />
-    <Compile Include="ModAPI\Ingame\IMySolarPanel.cs" />
-    <Compile Include="ModAPI\Ingame\IMySoundBlock.cs" />
-    <Compile Include="ModAPI\Ingame\IMySpaceBall.cs" />
-    <Compile Include="ModAPI\Ingame\IMyTimerBlock.cs" />
-    <Compile Include="ModAPI\Ingame\IMyUpgradeModule.cs" />
-    <Compile Include="ModAPI\Ingame\IMyVirtualMass.cs" />
-    <Compile Include="Multiplayer\MySpaceClientState.cs" />
-    <Compile Include="MySpaceGameCustomInitialization.cs" />
-    <Compile Include="SessionComponents\DemoComponent.cs" />
-    <Compile Include="SpaceEngineersGame.Secrets.cs" />
-    <Compile Include="SpaceEngineersGame.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utils\MySpaceControlMenuInitializer.cs" />
-    <Compile Include="VoiceChat\MyVoiceChatLogic.cs" />
-    <Compile Include="Weapons\Guns\Barrels\MyLargeGatlingBarrel.cs" />
-    <Compile Include="Weapons\Guns\Barrels\MyLargeInteriorBarrel.cs" />
-    <Compile Include="Weapons\Guns\Barrels\MyLargeMissileBarrel.cs" />
-    <Compile Include="Weapons\Guns\MyLargeConveyorTurretBase.cs" />
-    <Compile Include="Weapons\Guns\MyLargeGatlingTurret.cs" />
-    <Compile Include="Weapons\Guns\MyLargeInteriorTurret.cs" />
-    <Compile Include="Weapons\Guns\MyLargeMissileTurret.cs" />
-    <Compile Include="World\Environment\MyEnvironmentalParticleLogicSpace.cs" />
-    <Compile Include="World\Generator\MyShipStartingState.cs" />
-    <Compile Include="World\Generator\MySpaceWorldGenerator.cs" />
-    <Compile Include="World\MySpaceRespawnComponent.cs" />
-    <Compile Include="World\MySpaceSessionCompatHelper.cs" />
+    <Compile Include="AI\MySpaceBotFactory.cs"/>
+    <Compile Include="AI\MyCyberhoundActions.cs"/>
+    <Compile Include="AI\MySpiderActions.cs"/>
+    <Compile Include="AI\MyCyberhoundLogic.cs"/>
+    <Compile Include="AI\MySpiderLogic.cs"/>
+    <Compile Include="AI\MyCyberhoundTarget.cs"/>
+    <Compile Include="AI\MySpiderTarget.cs"/>
+    <Compile Include="AI\MySpaceFaunaComponent.cs"/>
+    <Compile Include="Definitions\MyDemoComponentDefinition.cs"/>
+    <Compile Include="Definitions\MyUpgradeModuleDefinition.cs"/>
+    <Compile Include="Entities\Blocks\MyAirVent.cs"/>
+    <Compile Include="Entities\Blocks\MyButtonPanel.cs"/>
+    <Compile Include="Entities\Blocks\MyControlPanel.cs"/>
+    <Compile Include="Entities\Blocks\MyGravityGenerator.cs"/>
+    <Compile Include="Entities\Blocks\MyGravityGeneratorBase.cs"/>
+    <Compile Include="Entities\Blocks\MyGravityGeneratorSphere.cs"/>
+    <Compile Include="Entities\Blocks\MyInteriorLight.cs"/>
+    <Compile Include="Entities\Blocks\MyLandingGear.cs"/>
+    <Compile Include="Entities\Blocks\MyMedicalRoom.cs"/>
+    <Compile Include="Entities\Blocks\MyOxygenFarm.cs"/>
+    <Compile Include="Entities\Blocks\MyShipMergeBlock.cs"/>
+    <Compile Include="Entities\Blocks\MyShipWelder.cs"/>
+    <Compile Include="Entities\Blocks\MySolarPanel.cs"/>
+    <Compile Include="Entities\Blocks\MySoundBlock.cs"/>
+    <Compile Include="Entities\Blocks\MySpaceBall.cs"/>
+    <Compile Include="Entities\Blocks\MyTimerBlock.cs"/>
+    <Compile Include="Entities\Blocks\MyUpgradeModule.cs"/>
+    <Compile Include="Entities\Blocks\MyVirtualMass.cs"/>
+    <Compile Include="Entities\Cube\MyUseObjectPanelButton.cs"/>
+    <Compile Include="Entities\MyPlanetSectorReplicable.cs"/>
+    <Compile Include="Entities\Blocks\MySpaceProjector.cs"/>
+    <Compile Include="Entities\MySpaceBuildComponent.cs"/>
+    <Compile Include="Entities\UseObjects\MyUseObjectInventory.cs"/>
+    <Compile Include="Entities\UseObjects\MyUseObjectMedicalRoom.cs"/>
+    <Compile Include="Entities\UseObjects\MyUseObjectWardrobe.cs"/>
+    <Compile Include="Entities\Weapons\MyCubePlacer.cs"/>
+    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentGravityGenerator.cs"/>
+    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentGravityGeneratorSphere.cs"/>
+    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentLandingGear.cs"/>
+    <Compile Include="EntityComponents\DebugRenders\MyDebugRenderComponentShipMergeBlock.cs"/>
+    <Compile Include="EntityComponents\Renders\MyRenderComponentLargeTurret.cs"/>
+    <Compile Include="GUI\MyGuiScreenCreateOrEditFactionSpace.cs"/>
+    <Compile Include="GUI\MyGuiScreenMedicals.cs"/>
+    <Compile Include="GUI\MyGuiScreenOptionsGraphics.cs"/>
+    <Compile Include="GUI\MyGuiScreenOptionsSpace.cs"/>
+    <Compile Include="GUI\MyGuiScreenOptionsVideoSpace.cs"/>
+    <Compile Include="ModAPI\IMyAirVent.cs"/>
+    <Compile Include="ModAPI\IMyButtonPanel.cs"/>
+    <Compile Include="ModAPI\IMyControlPanel.cs"/>
+    <Compile Include="ModAPI\IMyGravityGenerator.cs"/>
+    <Compile Include="ModAPI\IMyGravityGeneratorBase.cs"/>
+    <Compile Include="ModAPI\IMyGravityGeneratorSphere.cs"/>
+    <Compile Include="ModAPI\IMyInteriorLight.cs"/>
+    <Compile Include="ModAPI\IMyLandingGear.cs"/>
+    <Compile Include="ModAPI\IMyLargeConveyorTurretBase.cs"/>
+    <Compile Include="ModAPI\IMyLargeGatlingTurret.cs"/>
+    <Compile Include="ModAPI\IMyLargeInteriorTurret.cs"/>
+    <Compile Include="ModAPI\IMyLargeMissileTurret.cs"/>
+    <Compile Include="ModAPI\IMyMedicalRoom.cs"/>
+    <Compile Include="ModAPI\IMyOxygenFarm.cs"/>
+    <Compile Include="ModAPI\IMyShipMergeBlock.cs"/>
+    <Compile Include="ModAPI\IMySolarPanel.cs"/>
+    <Compile Include="ModAPI\IMySoundBlock.cs"/>
+    <Compile Include="ModAPI\IMySpaceBall.cs"/>
+    <Compile Include="ModAPI\IMyTimerBlock.cs"/>
+    <Compile Include="ModAPI\IMyUpgradeModule.cs"/>
+    <Compile Include="ModAPI\IMyVirtualMass.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyAirVent.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyButtonPanel.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyControlPanel.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyGravityGenerator.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyGravityGeneratorBase.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyGravityGeneratorSphere.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyInteriorLight.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyLandingGear.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyLargeConveyorTurretBase.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyLargeGatlingTurret.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyLargeInteriorTurret.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyLargeMissileTurret.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyMedicalRoom.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyOxygenFarm.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyShipMergeBlock.cs"/>
+    <Compile Include="ModAPI\Ingame\IMySolarPanel.cs"/>
+    <Compile Include="ModAPI\Ingame\IMySoundBlock.cs"/>
+    <Compile Include="ModAPI\Ingame\IMySpaceBall.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyTimerBlock.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyUpgradeModule.cs"/>
+    <Compile Include="ModAPI\Ingame\IMyVirtualMass.cs"/>
+    <Compile Include="Multiplayer\MySpaceClientState.cs"/>
+    <Compile Include="MySpaceGameCustomInitialization.cs"/>
+    <Compile Include="SessionComponents\DemoComponent.cs"/>
+    <Compile Include="SpaceEngineersGame.Secrets.cs"/>
+    <Compile Include="SpaceEngineersGame.cs"/>
+    <Compile Include="Properties\AssemblyInfo.cs"/>
+    <Compile Include="Utils\MySpaceControlMenuInitializer.cs"/>
+    <Compile Include="VoiceChat\MyVoiceChatLogic.cs"/>
+    <Compile Include="Weapons\Guns\Barrels\MyLargeGatlingBarrel.cs"/>
+    <Compile Include="Weapons\Guns\Barrels\MyLargeInteriorBarrel.cs"/>
+    <Compile Include="Weapons\Guns\Barrels\MyLargeMissileBarrel.cs"/>
+    <Compile Include="Weapons\Guns\MyLargeConveyorTurretBase.cs"/>
+    <Compile Include="Weapons\Guns\MyLargeGatlingTurret.cs"/>
+    <Compile Include="Weapons\Guns\MyLargeInteriorTurret.cs"/>
+    <Compile Include="Weapons\Guns\MyLargeMissileTurret.cs"/>
+    <Compile Include="World\Environment\MyEnvironmentalParticleLogicSpace.cs"/>
+    <Compile Include="World\Generator\MyShipStartingState.cs"/>
+    <Compile Include="World\Generator\MySpaceWorldGenerator.cs"/>
+    <Compile Include="World\MySpaceRespawnComponent.cs"/>
+    <Compile Include="World\MySpaceSessionCompatHelper.cs"/>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sandbox.Common\Sandbox.Common.csproj">
@@ -260,26 +251,22 @@
       <Project>{40ce67d5-c89f-4a56-ae52-85db1bea07fe}</Project>
       <Name>VRage.Math</Name>
     </ProjectReference>
-    <ProjectReference Include="..\VRage.Scripting\VRage.Scripting.csproj">
-      <Project>{47e07dc1-03cb-4668-a031-71816def8955}</Project>
-      <Name>VRage.Scripting</Name>
-    </ProjectReference>
     <ProjectReference Include="..\VRage\VRage.csproj">
       <Project>{1c814936-c9a7-4faf-b543-28f021d98b6c}</Project>
       <Name>VRage</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="ModAPI\Interfaces\" />
-    <Folder Include="Players\" />
+    <Folder Include="ModAPI\Interfaces\"/>
+    <Folder Include="Players\"/>
   </ItemGroup>
   <ItemGroup>
-    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}"/>
   </ItemGroup>
   <ItemGroup>
-    <None Include="ClassDiagram1.cd" />
+    <None Include="ClassDiagram1.cd"/>
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

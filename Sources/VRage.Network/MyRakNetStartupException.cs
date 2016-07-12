@@ -8,7 +8,7 @@ namespace VRage.Network
 {
     public class MyRakNetStartupException : Exception
     {
-#if !XB1
+#if RAKNET
         public readonly StartupResultEnum StartupResult;
 
         public MyRakNetStartupException(string message, StartupResultEnum startupResult, Exception innerException = null)

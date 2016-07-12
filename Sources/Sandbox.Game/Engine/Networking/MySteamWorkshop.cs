@@ -959,7 +959,7 @@ namespace Sandbox.Engine.Networking
             if (!Directory.Exists(m_workshopModsPath))
                 Directory.CreateDirectory(m_workshopModsPath);
 
-            m_asyncDownloadScreen = new CEGuiScreenUGCDownloadProgress(MyCommonTexts.ProgressTextCheckingModsFormatted,
+            m_asyncDownloadScreen = new CEGuiScreenUGCDownloadProgress(MySpaceTexts.ProgressTextCheckingModsFormatted,
                 MyCommonTexts.Cancel,
                 (Action<ulong, ulong> onProgress) => new DownloadModsResult(mods, onFinishedCallback, onProgress),
                 endActionDownloadMods);
@@ -1039,9 +1039,7 @@ namespace Sandbox.Engine.Networking
             long startTime = Stopwatch.GetTimestamp();
             Parallel.ForEach<SubscribedItem>(mods, delegate(SubscribedItem mod)
             {
-                var mod = mods[i];
-
-                m_asyncDownloadScreen.SetText(MySpaceTexts.ProgressTextCheckingModsFormatted,DownloadUnits.Discrete,(ulong)(i+1), (ulong)mods.Count);
+                m_asyncDownloadScreen.SetText(MySpaceTexts.ProgressTextCheckingModsFormatted,DownloadUnits.Discrete,(ulong)(counter+1), (ulong)mods.Count);
 
                 if (!MySteam.IsOnline)
                 {
@@ -1069,7 +1067,7 @@ namespace Sandbox.Engine.Networking
                 if (!IsModUpToDateBlocking(localPackedModFullPath, mod, true))
                 {
                     // If the mod fails to download, we need to flag it for failure, log it, then stop
-                    if (!DownloadItemBlocking(localPackedModFullPath, mod.UGCHandle, onProgressCallback))
+                    if (!DownloadItemBlocking(localPackedModFullPath, mod.UGCHandle, onDownloadProgress))
                     {
                         failedMods.Add(mod);
                         downloadingFailed = true;
@@ -1087,8 +1085,8 @@ namespace Sandbox.Engine.Networking
                     {
                         counter++;
                         m_asyncDownloadScreen.ProgressTextString = MyTexts.GetString(MyCommonTexts.ProgressTextDownloadingMods) + " " + counter.ToString() + " of " + numMods;
-            }
-        }
+                    }
+                }
                 
             });
 

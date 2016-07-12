@@ -18,6 +18,7 @@ using VRage.ModAPI;
 using VRage.Trace;
 using VRageMath;
 using VRageRender;
+using Sandbox.Definitions;
 
 namespace SpaceEngineers.Game.Entities.Blocks
 {

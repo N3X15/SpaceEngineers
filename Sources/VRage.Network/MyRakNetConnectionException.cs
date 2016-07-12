@@ -7,7 +7,7 @@ namespace VRage.Network
 {
     public class MyRakNetConnectionException : Exception
     {
-#if !XB1
+#if RAKNET
 		public readonly ConnectionAttemptResultEnum ConnectionResult;
 
         public MyRakNetConnectionException(string message, ConnectionAttemptResultEnum connectionResult, Exception innerException = null)

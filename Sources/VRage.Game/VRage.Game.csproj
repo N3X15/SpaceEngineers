@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -125,10 +125,6 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="HavokWrapper">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(HavokWrapperFullPath)</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
@@ -137,6 +133,27 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+    <Reference Include="HavokWrapper">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\HavokWrapper.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.DirectInput">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.DirectInput.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Toolkit">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Toolkit.dll</HintPath>
+    </Reference>
+    <Reference Include="SteamSDK">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SteamSDK.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Native">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Native.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.OpenVRWrapper">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.OpenVRWrapper.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Scripting">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Scripting.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AI\MyBehaviorTreeActionAttribute.cs" />
@@ -615,8 +632,6 @@
     <Compile Include="ObjectBuilders\MyObjectBuilder_FunctionalBlock.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_GlobalEventBase.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_GlobalEvents.cs" />
-    <Compile Include="ObjectBuilders\Definitions\MyObjectBuilder_GravityProviderDefinition.cs" />
-    <Compile Include="ObjectBuilders\MyObjectBuilder_GravityProvider.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_GunBase.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_HandToolBase.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_Identity.cs" />
