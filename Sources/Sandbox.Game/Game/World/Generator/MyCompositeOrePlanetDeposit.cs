@@ -35,8 +35,8 @@ namespace Sandbox.Game.World.Generator
         Dictionary<Vector3I, MyCompositeShapeOreDeposit> m_deposits = new Dictionary<Vector3I, MyCompositeShapeOreDeposit>();
         Dictionary<string, List<MyVoxelMaterialDefinition>> m_materialsByOreType = new Dictionary<string, List<MyVoxelMaterialDefinition>>();
 
-        public MyCompositeOrePlanetDeposit(MyCsgShapeBase baseShape, int seed, float minDepth, float maxDepth, MyOreProbability[] oreProbabilties) :
-            base(baseShape, null)
+        public MyCompositeOrePlanetDeposit(MyCsgShapeBase baseShape, int seed, float minDepth, float maxDepth, MyOreProbability[] oreProbabilties, MyVoxelMaterialDefinition material) :
+            base(baseShape, material)
         {
 
             m_minDepth = minDepth;
@@ -46,7 +46,7 @@ namespace Sandbox.Game.World.Generator
             double depositVolume = (4.0 * MathHelper.Pi * Math.Pow(DEPOSIT_MAX_SIZE, 3.0f)) / 3.0;
             double volume = outherSphereVolume - innerSphereVolume;
 
-            m_numDeposits = (int)Math.Floor((volume * 0.4f) / depositVolume);
+            m_numDeposits = oreProbabilties.Length > 0 ? (int)Math.Floor((volume * 0.4f) / depositVolume) : 0;
 
             int numSectors = (int)(minDepth / DEPOSIT_MAX_SIZE);
 
@@ -90,11 +90,6 @@ namespace Sandbox.Game.World.Generator
             }
 
             return null;
-        }
-
-        public override bool SpawnsFlora()
-        {
-            return false;
         }
 
         private MyOreProbability GetOre(float probability, MyOreProbability[] probalities)

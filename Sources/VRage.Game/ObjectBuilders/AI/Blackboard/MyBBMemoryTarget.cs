@@ -1,11 +1,7 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using VRageMath;
 
-namespace Sandbox.Common.ObjectBuilders.AI
+namespace VRage.Game
 {
     [ProtoContract]
     public class MyBBMemoryTarget : MyBBMemoryValue
@@ -22,11 +18,20 @@ namespace Sandbox.Common.ObjectBuilders.AI
 		[ProtoMember]
 		public int? TreeId = null;
 
+        [ProtoMember]
+        public ushort? CompoundId = null;
+
         public Vector3I BlockPosition { get { return Vector3I.Round(Position.Value); } }
         public Vector3I VoxelPosition { get { return Vector3I.Round(Position.Value); } }
 
         public MyBBMemoryTarget()
         {
+        }
+
+        public static void UnsetTarget(ref MyBBMemoryTarget target)
+        {
+            if (target == null) target = new MyBBMemoryTarget();
+            target.TargetType = MyAiTargetEnum.NO_TARGET;
         }
 
         public static void SetTargetEntity(ref MyBBMemoryTarget target, MyAiTargetEnum targetType, long entityId, Vector3D? position = null)
@@ -47,11 +52,11 @@ namespace Sandbox.Common.ObjectBuilders.AI
             target.Position = position;
         }
 
-        public static void SetTargetCube(ref MyBBMemoryTarget target, Vector3I blockPosition, long entityId)
+        public static void SetTargetCube(ref MyBBMemoryTarget target, Vector3I blockPosition, long gridEntityId)
         {
             if (target == null) target = new MyBBMemoryTarget();
             target.TargetType = MyAiTargetEnum.CUBE;
-            target.EntityId = entityId;
+            target.EntityId = gridEntityId;
             target.TreeId = null;
             target.Position = new Vector3D(blockPosition);
         }
@@ -73,5 +78,14 @@ namespace Sandbox.Common.ObjectBuilders.AI
             target.TreeId = treeId;
             target.Position = treePosition;
 		}
+
+        public static void SetTargetCompoundBlock(ref MyBBMemoryTarget target, Vector3I blockPosition, long entityId, ushort compoundId)
+        {
+            if (target == null) target = new MyBBMemoryTarget();
+            target.TargetType = MyAiTargetEnum.COMPOUND_BLOCK;
+            target.EntityId = entityId;
+            target.CompoundId = compoundId;
+            target.Position = blockPosition;
+        }
     }
 }

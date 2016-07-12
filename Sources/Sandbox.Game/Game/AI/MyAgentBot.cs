@@ -1,27 +1,24 @@
-﻿using Sandbox.Common.AI;
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.AI.Bot;
-using Sandbox.Common.ObjectBuilders.Definitions;
-using Sandbox.Definitions;
-using Sandbox.Game.AI;
-using Sandbox.Game.AI.BehaviorTree;
+﻿using Sandbox.Definitions;
+using Sandbox.Game.AI.Actions;
 using Sandbox.Game.AI.Logic;
+using Sandbox.Game.AI.Navigation;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using VRage;
-using VRage.Library.Utils;
+using VRage.Utils;
 using VRageMath;
+using VRage.Game;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.AI
 {
-    [BehaviorType(typeof(MyObjectBuilder_AgentDefinition))]
+    [MyBotType(typeof(MyObjectBuilder_AgentBot))]
     public class MyAgentBot : IMyEntityBot
     {
         protected MyPlayer m_player;
@@ -42,25 +39,9 @@ namespace Sandbox.Game.AI
         }
         public MyEntity BotEntity { get { return AgentEntity; } }
 
-        protected MyBehaviorTree m_behaviorTree;
-        public MyBehaviorTree BehaviorTree
-        {
-            get { return m_behaviorTree; }
-            set 
-            { 
-                m_behaviorTree = value;
-                if (m_behaviorTree != null)
-                    BehaviorSubtypeName = m_behaviorTree.BehaviorTreeName;
-                else
-                    BehaviorSubtypeName = null;
-            }
-        }
-
-        private string m_behaviorTreeName;
         public string BehaviorSubtypeName 
         {
-            get { return m_behaviorTreeName; }
-            set { m_behaviorTreeName = value; }
+            get { return MyAIComponent.Static.BehaviorTrees.GetBehaviorName(this); }
         }
 
         protected ActionCollection m_actionCollection;
@@ -69,18 +50,30 @@ namespace Sandbox.Game.AI
         protected MyBotMemory m_botMemory;
         public MyBotMemory BotMemory { get { return m_botMemory; } }
 
-        protected MyAgentBotActionProxy m_actions;
-        public MyAgentBotActionProxy AgentActions
+        private MyBotMemory m_LastBotMemory = null;
+        public MyBotMemory LastBotMemory
+        { 
+            get{ return m_LastBotMemory; } 
+            set{ m_LastBotMemory = value; } 
+        }
+        public void ReturnToLastMemory()
+        {
+            if ( m_LastBotMemory != null )
+                m_botMemory = m_LastBotMemory;
+        }
+
+        protected MyAgentActions m_actions;
+        public MyAgentActions AgentActions
         {
             get { return m_actions; }
         }
-        public MyAbstractBotActionProxy BotActions
+        public MyBotActionsBase BotActions
         {
             get { return m_actions; }
             set
             {
-                Debug.Assert(value is MyAgentBotActionProxy, "Invalid action proxy type");
-                m_actions = value as MyAgentBotActionProxy;
+                Debug.Assert(value is MyAgentActions, "Invalid action proxy type");
+                m_actions = value as MyAgentActions;
             }
         }
 
@@ -93,9 +86,56 @@ namespace Sandbox.Game.AI
         public MyAgentLogic AgentLogic { get { return m_botLogic; } }
         public bool HasLogic { get { return m_botLogic != null; } }
 
+        private int m_deathCountdownMs;
+        private int m_lastCountdownTime;
+
         private bool m_respawnRequestSent;
-        private long m_deathTimestamp;
         private bool m_removeAfterDeath;
+        private bool m_botRemoved;
+        private bool m_joinRequestSent;
+
+        public class SLastRunningState
+        {
+            public string actionName;
+            public int counter;
+        }
+
+        public class MyLastActions
+        {
+            private List<SLastRunningState> m_LastActions = new List<SLastRunningState>();
+            int MaxActionsCount = 5;
+            string GetLastAction() { return m_LastActions.Last().actionName; }
+            public void AddLastAction(string lastAction)
+            {
+                if (m_LastActions.Count != 0)
+                {
+                    if (lastAction == GetLastAction())
+                    {
+                        m_LastActions.Last().counter++;
+                        return;
+                    }
+                    if (m_LastActions.Count == MaxActionsCount)
+                    {
+                        // we should remove first
+                        m_LastActions.RemoveAt(0);
+                    }
+                }
+                m_LastActions.Add(new SLastRunningState() { actionName = lastAction, counter = 1 });
+            }
+            public void Clear() { m_LastActions.Clear(); }
+            public string GetLastActionsString()
+            {
+                StringBuilder res = new StringBuilder();
+                for ( int i=0; i<m_LastActions.Count; i++ )
+                {
+                    res.AppendFormat("{0}-{1}", m_LastActions[i].counter, m_LastActions[i].actionName);
+                    if (i != m_LastActions.Count - 1)
+                        res.AppendFormat(", ");
+                }
+                return res.ToString();
+            }
+        }
+        public MyLastActions LastActions = new MyLastActions();
 
         public virtual bool ShouldFollowPlayer
         { // MW:TODO remove hack
@@ -110,7 +150,7 @@ namespace Sandbox.Game.AI
                 return m_player != null
                     && m_player.Controller.ControlledEntity != null
                     && m_player.Controller.ControlledEntity.Entity != null
-                    && !AgentEntity.IsDead;
+                    && AgentEntity != null && !AgentEntity.IsDead;
             }
         }
 
@@ -128,20 +168,32 @@ namespace Sandbox.Game.AI
             m_botMemory = new MyBotMemory(this);
             m_botDefinition = botDefinition as MyAgentDefinition;
 
+            m_removeAfterDeath = m_botDefinition.RemoveAfterDeath;
+            m_respawnRequestSent = false;
+            m_botRemoved = false;
+
             m_player.Controller.ControlledEntityChanged += Controller_ControlledEntityChanged;
             m_navigation.ChangeEntity(m_player.Controller.ControlledEntity);
+
+            Sandbox.Game.Gui.MyCestmirDebugInputComponent.PlacedAction += DebugGoto;
         }
 
         protected virtual void Controller_ControlledEntityChanged(IMyControllableEntity oldEntity, IMyControllableEntity newEntity)
         {
-            if (oldEntity == null && newEntity is MyCharacter)
-            {
-                m_deathTimestamp = 0;
-                m_respawnRequestSent = false;
-            }
+            if (oldEntity == null && newEntity is MyCharacter) EraseRespawn();
 
             m_navigation.ChangeEntity(newEntity);
-            m_navigation.ResetAiming(true);
+            m_navigation.AimWithMovement();
+
+	        var newCharacter = newEntity as MyCharacter;
+            if (newCharacter != null)
+            {
+                var character = m_player.Controller.ControlledEntity as MyCharacter;
+	            var jetpack = newCharacter.JetpackComp;
+				if(jetpack != null)
+					jetpack.TurnOnJetpack(false);
+            }
+
             if (HasLogic)
                 m_botLogic.OnControlledEntityChanged(newEntity);
         }
@@ -152,11 +204,23 @@ namespace Sandbox.Game.AI
             if (ob == null)
                 return;
 
+            m_deathCountdownMs = ob.RespawnCounter;
+
+            if (AgentDefinition.FactionTag != null)
+            {
+                var faction = MySession.Static.Factions.TryGetOrCreateFactionByTag(AgentDefinition.FactionTag);
+                if (faction != null)
+                {
+                    MyFactionCollection.SendJoinRequest(faction.FactionId, Player.Identity.IdentityId);
+                    m_joinRequestSent = true;
+                }
+            }
+
             if (ob.AiTarget != null)
-                AgentActions.AiTarget.Init(ob.AiTarget);
+                AgentActions.AiTargetBase.Init(ob.AiTarget);
             if (botBuilder.BotMemory != null)
                 m_botMemory.Init(botBuilder.BotMemory);
-            BehaviorSubtypeName = ob.LastBehaviorTree;
+            MyAIComponent.Static.BehaviorTrees.SetBehaviorName(this, ob.LastBehaviorTree);
         }
 
         public virtual void InitActions(ActionCollection actionCollection)
@@ -185,7 +249,7 @@ namespace Sandbox.Game.AI
                 {
                     m_respawnRequestSent = true;
                     ProfilerShort.Begin("Bot.RespawnRequest");
-                    MyPlayerCollection.RespawnRequest(false, false, 0, null, m_player.Id.SerialId, spawnPosition);
+                    MyPlayerCollection.RespawnRequest(false, false, 0, null, m_player.Id.SerialId, spawnPosition, BotDefinition.Id);
                     ProfilerShort.End();
                 }
             }
@@ -193,6 +257,8 @@ namespace Sandbox.Game.AI
 
         public virtual void Cleanup()
         {
+            Sandbox.Game.Gui.MyCestmirDebugInputComponent.PlacedAction -= DebugGoto;
+
             m_navigation.Cleanup();
             if (HasLogic)
                 m_botLogic.Cleanup();
@@ -204,44 +270,98 @@ namespace Sandbox.Game.AI
         {
             if (m_player.Controller.ControlledEntity != null)
             {
-                if (AgentEntity.IsDead && !m_respawnRequestSent)
+                if (AgentEntity != null && AgentEntity.IsDead && !m_respawnRequestSent)
                 {
                     HandleDeadBot();
                 }
                 else
                 {
+                    if (AgentEntity != null && !AgentEntity.IsDead && m_respawnRequestSent) EraseRespawn();
                     UpdateInternal();
                 }
             }
-            else if (m_deathTimestamp != 0 && !m_respawnRequestSent)
+            else if (!m_respawnRequestSent)
             {
                 HandleDeadBot();
             }
         }
 
+        private void StartRespawn()
+        {
+            m_lastCountdownTime = MySandboxGame.TotalGamePlayTimeInMilliseconds;
+            if (m_removeAfterDeath) m_deathCountdownMs = AgentDefinition.RemoveTimeMs;
+            else m_deathCountdownMs = AgentDefinition.RemoveTimeMs;
+        }
+
+        private void EraseRespawn()
+        {
+            m_deathCountdownMs = 0;
+            m_respawnRequestSent = false;
+        }
+
         protected virtual void UpdateInternal()
         {
-            m_navigation.Update();
-            AgentActions.AiTarget.Update();
+            m_navigation.Update(m_botMemory.TickCounter);
             m_botLogic.Update();
+
+            if (m_joinRequestSent == false && m_botDefinition.FactionTag != null && m_botDefinition.FactionTag.Length > 0)
+            {
+                var upper = m_botDefinition.FactionTag.ToUpperInvariant();
+                var desiredFaction = MySession.Static.Factions.TryGetFactionByTag(upper);
+                if (desiredFaction == null) return;
+
+                var identityId = AgentEntity.ControllerInfo.ControllingIdentityId;
+                var faction = MySession.Static.Factions.TryGetPlayerFaction(identityId);
+                if (faction == null && !m_joinRequestSent)
+                {
+                    MyFactionCollection.SendJoinRequest(desiredFaction.FactionId, identityId);
+                    m_joinRequestSent = true;
+                }
+            }
         }
 
         public virtual void Reset()
         {
-            if (BehaviorTree != null)
-                BotMemory.ResetMemory(BehaviorTree, true); 
+            BotMemory.ResetMemory(true); 
             m_navigation.StopImmediate(true);
-            AgentActions.AiTarget.UnsetTarget();
+            AgentActions.AiTargetBase.UnsetTarget();
         }
 
-        public virtual MyObjectBuilder_Bot GetBotData()
+        public virtual MyObjectBuilder_Bot GetObjectBuilder()
         {
-            MyObjectBuilder_AgentBot botData = new MyObjectBuilder_AgentBot(); // MW:TODO replace with proper object builders
+            MyObjectBuilder_AgentBot botData = MyAIComponent.BotFactory.GetBotObjectBuilder(this) as MyObjectBuilder_AgentBot;
             botData.BotDefId = BotDefinition.Id;
-            botData.AiTarget = AgentActions.AiTarget.GetObjectBuilder();
+            botData.AiTarget = AgentActions.AiTargetBase.GetObjectBuilder();
             botData.BotMemory = m_botMemory.GetObjectBuilder();
             botData.LastBehaviorTree = BehaviorSubtypeName;
+            botData.RemoveAfterDeath = m_removeAfterDeath;
+            botData.RespawnCounter = m_deathCountdownMs;
             return botData;
+        }
+
+        private void HandleDeadBot()
+        {
+            if (m_deathCountdownMs <= 0)
+            {
+                Vector3D spawnPosition = Vector3D.Zero;
+                if (!m_removeAfterDeath && MyAIComponent.BotFactory.GetBotSpawnPosition(BotDefinition.BehaviorType, out spawnPosition))
+                {
+                    MyPlayerCollection.RespawnRequest(false, false, 0, null, Player.Id.SerialId, spawnPosition, BotDefinition.Id);
+                    m_respawnRequestSent = true;
+                }
+                else if (!m_botRemoved)
+                {
+                    m_botRemoved = true;
+                    MyAIComponent.Static.RemoveBot(Player.Id.SerialId);
+                }
+            }
+            else
+            {
+                var currentTime = MySandboxGame.TotalGamePlayTimeInMilliseconds;
+                m_deathCountdownMs -= currentTime - m_lastCountdownTime;
+                m_lastCountdownTime = currentTime;
+
+            }
         }
 
         public virtual void DebugDraw()
@@ -250,49 +370,74 @@ namespace Sandbox.Game.AI
 
             m_navigation.DebugDraw();
 
-            var aiTarget = m_actions.AiTarget as MyAiTargetBase;
+            var aiTarget = m_actions.AiTargetBase as MyAiTargetBase;
             if (aiTarget != null)
             {
                 if (aiTarget.HasTarget())
+                {
                     VRageRender.MyRenderProxy.DebugDrawPoint(aiTarget.TargetPosition, Color.Aquamarine, false);
+                    if (BotEntity != null && aiTarget.TargetEntity != null)
+                    {
+                        string text = null;
+                        if (aiTarget.TargetType == MyAiTargetEnum.CUBE)
+                        {
+                            text = string.Format("Target:{0}", aiTarget.GetTargetBlock());
+                        }
+                        else
+                        {
+                            text = string.Format("Target:{0}", aiTarget.TargetEntity.ToString());
+                        }
+
+                        var markerPos = BotEntity.PositionComp.WorldAABB.Center;
+                        markerPos.Y += BotEntity.PositionComp.WorldAABB.HalfExtents.Y + 0.2f;
+                        VRageRender.MyRenderProxy.DebugDrawText3D(markerPos, text, Color.Red, 1f, false, MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_TOP);
+                    }
+
+                }
             }
 
             m_botLogic.DebugDraw();
         }
 
-        private void HandleDeadBot()
+        public virtual void DebugGoto(Vector3D point, MyEntity entity = null)
         {
-            const long TIME_TO_RESPAWN = 10; // s
-            const long TIME_TO_REMOVE = 30; // s
-            if (m_deathTimestamp == 0)
-            {
-                m_removeAfterDeath = !(MyAIComponent.BotFactory.CanCreateBotOfType(BotDefinition.BehaviorType, false));
-                if (m_removeAfterDeath)
-                    m_deathTimestamp = (long)(Stopwatch.GetTimestamp() + (TIME_TO_REMOVE * Stopwatch.Frequency));
-                else
-                    m_deathTimestamp = (long)(Stopwatch.GetTimestamp() + (TIME_TO_RESPAWN * Stopwatch.Frequency));
-            }
-            else if (Stopwatch.GetTimestamp() > m_deathTimestamp)
-            {
-                if (m_removeAfterDeath)
+            if (m_player.Id.SerialId == 0) return;
+
+            /*{
+                var path = MyAIComponent.Static.Pathfinding.FindPathGlobal(m_navigation.PositionAndOrientation.Translation, point, entity);
+                Navigation.FollowPath(path);
+
+                var statues = MyBarbarianComponent.Static.GetAllStatues();
+                double closestSq = double.MaxValue;
+                MyEntity closestStatue = null;
+                Vector3D currentPos = Navigation.PositionAndOrientation.Translation;
+                foreach (var statue in statues)
                 {
-                    MyAIComponent.Static.RemoveBot(Player.Id.SerialId);
-                }
-                else
-                {
-                    Vector3D spawnPosition = Vector3D.Zero;
-                    if (MyAIComponent.BotFactory.GetBotSpawnPosition(BotDefinition.BehaviorType, out spawnPosition))
+                    double dsq = Vector3D.DistanceSquared(currentPos, statue.WorldMatrix.Translation);
+                    if (dsq < closestSq)
                     {
-                        MyPlayerCollection.RespawnRequest(false, false, 0, null, Player.Id.SerialId, spawnPosition);
-                        m_respawnRequestSent = true;
+                        closestSq = dsq;
+                        closestStatue = statue;
                     }
-                    else
+                    if (
+
+                    if (statue.CubeGrid == targetGrid)
                     {
-                        MyAIComponent.Static.RemoveBot(Player.Id.SerialId);
+                        inoutTarget.SetTargetCube(statue.SlimBlock.Position, statue.CubeGrid.EntityId);
+                        return MyBehaviorTreeState.SUCCESS;
                     }
                 }
-                m_deathTimestamp = 0;
-            }
+
+                if (closestStatue == null) return;
+
+                //MyBBMemoryTarget target = new MyBBMemoryTarget();
+                var target = HumanoidActions.AiTarget as MyAiTarget;
+                target.SetTargetEntity(closestStatue);
+                target.GotoTarget(m_navigation);
+            }*/
+            m_navigation.AimWithMovement();
+            m_navigation.GotoNoPath(point, 0.0f, entity);
+            //m_navigation.Goto(point, 0.0f, entity);
         }
     }
 }

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using Sandbox.ModAPI;
 using Sandbox.Game.World;
+using VRage.Game;
+using VRage.Game.ModAPI;
 
 namespace Sandbox.Game.Multiplayer
 {
@@ -30,6 +32,24 @@ namespace Sandbox.Game.Multiplayer
             return TryGetPlayerFaction(playerId);
         }
 
+        IMyFaction IMyFactionCollection.TryGetFactionByTag(string tag)
+        {
+            return TryGetFactionByTag(tag);
+        }
+
+        IMyFaction IMyFactionCollection.TryGetFactionByName(string name)
+        {
+            foreach (var entry in m_factions)
+            {
+                var faction = entry.Value;
+
+                if (string.Equals(name, faction.Name, StringComparison.OrdinalIgnoreCase))
+                    return faction;
+            }
+
+            return null;
+        }
+
         void IMyFactionCollection.AddPlayerToFaction(long playerId, long factionId)
         {
             AddPlayerToFaction(playerId, factionId);
@@ -40,7 +60,7 @@ namespace Sandbox.Game.Multiplayer
             KickPlayerFromFaction(playerId);
         }
 
-        Common.MyRelationsBetweenFactions IMyFactionCollection.GetRelationBetweenFactions(long factionId1, long factionId2)
+        MyRelationsBetweenFactions IMyFactionCollection.GetRelationBetweenFactions(long factionId1, long factionId2)
         {
             return GetRelationBetweenFactions(factionId1, factionId2);
         }
@@ -147,7 +167,7 @@ namespace Sandbox.Game.Multiplayer
             remove { FactionCreated -= value; }
         }
 
-        Common.ObjectBuilders.MyObjectBuilder_FactionCollection IMyFactionCollection.GetObjectBuilder()
+        MyObjectBuilder_FactionCollection IMyFactionCollection.GetObjectBuilder()
         {
             return GetObjectBuilder();
         }

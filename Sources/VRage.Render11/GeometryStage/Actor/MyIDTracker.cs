@@ -13,7 +13,7 @@ namespace VRageRender
         internal uint ID { get { return m_ID; } }
         internal T Value { get { return m_value; } }
 
-        static Dictionary<uint, MyIDTracker<T>> m_dict = new Dictionary<uint, MyIDTracker<T>>();
+        static readonly Dictionary<uint, MyIDTracker<T>> m_dict = new Dictionary<uint, MyIDTracker<T>>();
 
         static internal T FindByID(uint id)
         {
@@ -35,6 +35,13 @@ namespace VRageRender
         internal void Deregister()
         {
             m_dict.Remove(m_ID);
+            m_value = null;
+        }
+
+        internal void Clear()
+        {
+            Deregister();
+            m_ID = uint.MaxValue;
         }
     }
 }

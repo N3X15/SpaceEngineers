@@ -6,9 +6,12 @@ using System.Reflection;
 using System.Text;
 using Sandbox.Common;
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.Components;
+
+using VRage.Game;
 using VRage.Plugins;
 using VRage.ObjectBuilders;
+using VRage.Game.Common;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.Entities.Cube
 {
@@ -38,7 +41,11 @@ namespace Sandbox.Game.Entities.Cube
         public static object CreateCubeBlock(MyObjectBuilder_CubeBlock builder)
         {
             var obj = m_objectFactory.CreateInstance(builder.TypeId);
-            MyEntityFactory.AddScriptGameLogic(obj as MyEntity, builder.TypeId, builder.SubtypeName);
+            var entity = obj as MyEntity; // Some are SlimBlocks
+            if (entity != null)
+            {
+                MyEntityFactory.AddScriptGameLogic(entity, builder.TypeId, builder.SubtypeName);
+            }
             return obj;
         }
 

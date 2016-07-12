@@ -1,8 +1,7 @@
 ﻿using ProtoBuf;
-using VRage;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -25,5 +24,8 @@ namespace Sandbox.Common.ObjectBuilders
 
         [ProtoMember]
         public SerializableVector3 FogColor;
+
+        [ProtoMember]
+        public SerializableDefinitionId EnvironmentDefinition = new SerializableDefinitionId(typeof(MyObjectBuilder_EnvironmentDefinition), "Default");
     }
 }

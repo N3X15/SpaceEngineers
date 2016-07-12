@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using VRageMath;
-using VRage.Components;
 using VRage.ModAPI;
+using System.Diagnostics;
 
-namespace VRage.Components
+namespace VRage.Game.Components
 {
     public class MyHierarchyComponentBase : MyEntityComponentBase
     {
-        private List<MyHierarchyComponentBase> m_children = new List<MyHierarchyComponentBase>();
+        protected List<MyHierarchyComponentBase> m_children = new List<MyHierarchyComponentBase>();
+
+        public event Action<IMyEntity> OnChildRemoved;
 
         /// <summary>
         /// Return top most parent of this entity
@@ -28,6 +28,13 @@ namespace VRage.Components
             return parent;
         }
 
+        /**
+         * Identifier for the parent hierarchy.
+         * 
+         * This is should be reliably unique within a hierarchy level but only usable by the parent.
+         */
+        public long ChildId;
+
         /// <summary>
         /// Gets the childs collection.
         /// </summary>
@@ -39,8 +46,46 @@ namespace VRage.Components
             }
         }
 
+        MyEntityComponentContainer m_parentContainer;
+        MyHierarchyComponentBase m_parent;
+        public MyHierarchyComponentBase Parent
+        {
+            get { return m_parent; }
+            set
+            {
+                if (m_parentContainer != null)
+                {
+                    m_parentContainer.ComponentAdded -= Container_ComponentAdded;
+                    m_parentContainer.ComponentRemoved -= Container_ComponentRemoved;
+                    m_parentContainer = null;
+                }
 
-        public MyHierarchyComponentBase Parent { get; set; }
+                m_parent = value;
+
+                if (m_parent != null)
+                {
+                    Debug.Assert(m_parent.Container != null);
+                    m_parentContainer = m_parent.Container;
+
+                    m_parentContainer.ComponentAdded += Container_ComponentAdded;
+                    m_parentContainer.ComponentRemoved += Container_ComponentRemoved;
+                }
+            }
+        }
+
+        void Container_ComponentRemoved(Type arg1, MyEntityComponentBase arg2)
+        {
+            if (arg2 == m_parent)
+                m_parent = null;
+        }
+
+        void Container_ComponentAdded(Type arg1, MyEntityComponentBase arg2)
+        {
+            if (typeof(MyHierarchyComponentBase).IsAssignableFrom(arg1))
+            {
+                m_parent = arg2 as MyHierarchyComponentBase;
+            }
+        }
 
         /// <summary>
         /// Adds the child.
@@ -60,7 +105,7 @@ namespace VRage.Components
 
                 this.Children.Add(childHierarchy);
 
-                child.WorldMatrix = tmpWorldMatrix;
+                child.PositionComp.SetWorldMatrix(tmpWorldMatrix, Entity, true);
             }
             else
             {
@@ -116,8 +161,10 @@ namespace VRage.Components
 
             if (child.InScene)
                 child.OnRemovedFromScene(this);
-        }
 
+            if (OnChildRemoved != null)
+                OnChildRemoved(child);
+        }
         public void GetChildrenRecursive(HashSet<IMyEntity> result)
         {
             for (int i = 0; i < Children.Count; i++)
@@ -126,6 +173,25 @@ namespace VRage.Components
                 result.Add(entity.Container.Entity);
                 entity.GetChildrenRecursive(result);
             }
+        }
+
+        public override string ComponentTypeDebugString
+        {
+            get { return "Hierarchy"; }
+        }
+
+        public override void OnBeforeRemovedFromContainer()
+        {
+            if (m_parentContainer != null)
+            {
+                m_parentContainer.ComponentAdded -= Container_ComponentAdded;
+                m_parentContainer.ComponentRemoved -= Container_ComponentRemoved;
+                m_parentContainer = null;
+            }
+
+            m_parent = null;
+
+            base.OnBeforeRemovedFromContainer();
         }
     }
 }

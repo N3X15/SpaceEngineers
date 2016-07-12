@@ -738,6 +738,7 @@
             <Z>0.0</Z>
           </Position>
           <Speed>0</Speed>
+          <PlaceToGridOrigin>true</PlaceToGridOrigin>
         </Prefab>
       </Prefabs>
       <Voxels>
@@ -768,6 +769,7 @@
             <Z>0.0</Z>
           </Position>
           <Speed>0</Speed>
+          <PlaceToGridOrigin>true</PlaceToGridOrigin>
         </Prefab>
       </Prefabs>
       <Voxels>
@@ -798,6 +800,7 @@
             <Z>0.0</Z>
           </Position>
           <Speed>0</Speed>
+          <PlaceToGridOrigin>true</PlaceToGridOrigin>
         </Prefab>
       </Prefabs>
       <Voxels>
@@ -867,6 +870,7 @@
             <Z>0.0</Z>
           </Position>
           <Speed>0</Speed>
+          <PlaceToGridOrigin>true</PlaceToGridOrigin>
         </Prefab>
       </Prefabs>
       <Voxels>
@@ -1039,7 +1043,6 @@
         </Prefab>
       </Prefabs>
     </SpawnGroup>
-    
     <SpawnGroup>
       <Id>
         <TypeId>SpawnGroupDefinition</TypeId>
@@ -1157,6 +1160,25 @@
     <SpawnGroup>
       <Id>
         <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>The_Pilgrims_Curiosity</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <Frequency>0.5</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="The_Pilgrims_Curiosity">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>The Pilgrims Curiosity</BeaconText>
+          <Speed>30.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
         <SubtypeId>Trade1</SubtypeId>
       </Id>
       <Icon>Textures\GUI\Icons\Fake.dds</Icon>
@@ -1211,5 +1233,447 @@
         </Prefab>
       </Prefabs>
     </SpawnGroup>
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Eradicator_mk.1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+	    <IsPirate>true</IsPirate>
+      <Frequency>0.05</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Eradicator_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Eradicator_mk.1</BeaconText>
+          <Speed>2.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Incisor_mk.1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+	    <IsPirate>true</IsPirate>
+      <Frequency>0.3</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Incisor_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Incisor_mk.1</BeaconText>
+          <Speed>10.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Informant_mk.1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsPirate>true</IsPirate>
+      <Frequency>0.6</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Informant_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Informant_mk.1</BeaconText>
+          <Speed>10.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+<SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Raiding_Station_-_Scourge</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>true</IsEncounter>
+      <IsPirate>true</IsPirate>
+	<ReactorsOn>true</ReactorsOn>
+      <Frequency>300.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Raiding_Station_-_Scourge">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+	  <BeaconText>Raiding Station</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+<SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Raiding_Outpost_mk.1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>true</IsEncounter>
+      <IsPirate>true</IsPirate>
+	<ReactorsOn>true</ReactorsOn>
+      <Frequency>500.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Raiding_Outpost_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+	  <BeaconText>Raiding Outpost</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Assailant_mk.1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsPirate>true</IsPirate>
+      <Frequency>0.5</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Assailant_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Assailant</BeaconText>
+          <Speed>10.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Dyad_mk.1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsPirate>true</IsPirate>
+      <Frequency>0.5</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Dyad_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Dyad</BeaconText>
+          <Speed>10.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Barb_mk.1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsPirate>true</IsPirate>
+      <Frequency>0.5</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Barb_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Barb</BeaconText>
+          <Speed>10.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>IMDC_Vulture_Fighter_Bomber</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsPirate>true</IsPirate>
+      <Frequency>0.5</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="IMDC_Vulture_Fighter_Bomber">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>IMDC Vulture Fighter Bomber</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Weapon Platform Gatling1</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsPirate>true</IsPirate>
+      <Frequency>0.5</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Weapon_Platform_Gatling_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Weapon Platform Gatling</BeaconText>
+          <Speed>10.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>PirateCarrier</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <Frequency>0.5</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Argentavis_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Argentavis</BeaconText>
+          <Speed>10.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>IMDC_Cerberus_Destroyer_Mk.3</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>true</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>50.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="IMDC_Cerberus_Destroyer_Mk.3">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>IMDC_Cerberus_Destroyer</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>DriftingPursuant</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>false</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>300.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Drifting_Pursuant_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Drifting Pursuant</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>FleetingRival</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>false</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>500.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Fleeting_Rival_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Fleeting Rival</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>SpitefulAggressor</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>false</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>100.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Spiteful_Aggressor_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Spiteful Aggressor</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>StingingAdversary</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>false</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>400.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Stinging_Adversary_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Stinging Adversary</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+    <Id>
+      <TypeId>SpawnGroupDefinition</TypeId>
+      <SubtypeId>Spur</SubtypeId>
+    </Id>
+    <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+    <IsEncounter>false</IsEncounter>
+    <IsPirate>true</IsPirate>
+    <ReactorsOn>true</ReactorsOn>
+    <Frequency>400.0</Frequency>
+    <Prefabs>
+      <Prefab SubtypeId="Spur_mk.1">
+        <Position>
+          <X>0.0</X>
+          <Y>0.0</Y>
+          <Z>0.0</Z>
+        </Position>
+        <BeaconText>Spur</BeaconText>
+        <Speed>0.0</Speed>
+      </Prefab>
+    </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Tusk</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>false</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>500.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Tusk_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Tusk</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>Molar</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>false</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>200.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="Molar_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>Molar</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+
+    <SpawnGroup>
+      <Id>
+        <TypeId>SpawnGroupDefinition</TypeId>
+        <SubtypeId>KingMolar</SubtypeId>
+      </Id>
+      <Icon>Textures\GUI\Icons\Fake.dds</Icon>
+      <IsEncounter>false</IsEncounter>
+      <IsPirate>true</IsPirate>
+      <ReactorsOn>true</ReactorsOn>
+      <Frequency>100.0</Frequency>
+      <Prefabs>
+        <Prefab SubtypeId="King_Molar_mk.1">
+          <Position>
+            <X>0.0</X>
+            <Y>0.0</Y>
+            <Z>0.0</Z>
+          </Position>
+          <BeaconText>King Molar</BeaconText>
+          <Speed>0.0</Speed>
+        </Prefab>
+      </Prefabs>
+    </SpawnGroup>
+    
   </SpawnGroups>
 </Definitions>
+

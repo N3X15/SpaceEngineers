@@ -1,16 +1,10 @@
-﻿using Sandbox.Common.ObjectBuilders.Definitions;
+﻿using System.Diagnostics;
 using Sandbox.Definitions;
-using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
-using SpaceEngineers.Game.Players;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
+using VRage.Game;
 using VRageMath;
 
-namespace SpaceEngineers.Game.World
+namespace SpaceEngineers.Game.World.Generator
 {
     [MyWorldGenerator.StartingStateType(typeof(MyObjectBuilder_WorldGeneratorPlayerStartingState_RespawnShip))]
     public class MyRespawnShipState : MyWorldGeneratorStartingStateBase
@@ -40,10 +34,12 @@ namespace SpaceEngineers.Game.World
             if (!MyDefinitionManager.Static.HasRespawnShip(m_respawnShipId))
                 respawnShipId = MyDefinitionManager.Static.GetFirstRespawnShip();
 
-            Debug.Assert(MySession.LocalHumanPlayer != null, "Local controller does not exist!");
-            if (MySession.LocalHumanPlayer == null) return;
+            Debug.Assert(MySession.Static.LocalHumanPlayer != null, "Local controller does not exist!");
+            if (MySession.Static.LocalHumanPlayer == null) return;
 
-            MySpaceRespawnComponent.Static.SpawnAtShip(MySession.LocalHumanPlayer, respawnShipId);
+            this.CreateAndSetPlayerFaction();
+
+            MySpaceRespawnComponent.Static.SpawnAtShip(MySession.Static.LocalHumanPlayer, respawnShipId, null);
         }
 
         public override Vector3D? GetStartingLocation()

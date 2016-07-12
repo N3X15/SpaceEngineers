@@ -1,13 +1,14 @@
 ﻿using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Conveyors;
 using Sandbox.Definitions;
 using Sandbox.Engine.Utils;
 using Sandbox.Game.Entities;
+using Sandbox.Game.EntityComponents;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using VRage.Algorithms;
 using VRage.Collections;
+using VRage.Game;
 using VRageMath;
 using VRageRender;
 
@@ -153,6 +154,7 @@ namespace Sandbox.Game.GameSystems.Conveyors
         private int m_length;
         private MyCubeGrid m_cubeGrid;
 
+        [ThreadStatic]
         private static bool m_invertedConductivity = false;
 
         public class InvertedConductivity : IDisposable
@@ -603,7 +605,7 @@ namespace Sandbox.Game.GameSystems.Conveyors
             float cubeSize = MyDefinitionManager.Static.GetCubeSize(definition.CubeSize);
             Vector3 blockCenter = new Vector3(definition.Size) * 0.5f * cubeSize;
 
-            var finalModel = Engine.Models.MyModels.GetModelOnlyDummies(block.BlockDefinition.Model);
+            var finalModel = VRage.Game.Models.MyModels.GetModelOnlyDummies(block.BlockDefinition.Model);
 
             int count = 0;
             foreach (var dummy in finalModel.Dummies)
@@ -1383,7 +1385,8 @@ namespace Sandbox.Game.GameSystems.Conveyors
             }
 
             var grid = GetGrid();
-            m_isWorking = grid.GridSystems.ConveyorSystem.PowerReceiver.IsPowered;
+            //grid.GridSystems.ConveyorSystem.ResourceSink.Update();
+            m_isWorking = grid.GridSystems.ConveyorSystem.ResourceSink.IsPoweredByType(MyResourceDistributorComponent.ElectricityId);
         }
 
         private bool UpdateIsFunctionalInternal()
@@ -1444,7 +1447,7 @@ namespace Sandbox.Game.GameSystems.Conveyors
 
         public void DebugDraw(MyCubeGrid grid)
         {
-            if (!MyDebugDrawSettings.DEBUG_DRAW_CONVEYORS_LINE_CAPSULES) return;
+            //if (!MyDebugDrawSettings.DEBUG_DRAW_CONVEYORS_LINE_CAPSULES) return;
 
             Vector3 pos = new Vector3(m_endpointPosition1.LocalGridPosition) * grid.GridSize;
             Vector3 pos2 = new Vector3(m_endpointPosition2.LocalGridPosition) * grid.GridSize;
@@ -1460,6 +1463,8 @@ namespace Sandbox.Game.GameSystems.Conveyors
             text += m_conductivity.ToString();
 
             MyRenderProxy.DebugDrawText3D((pos + pos2) * 0.5f, text, Color.Blue, 1.0f, false);
+            var col = IsFunctional? Color.Green : Color.Red;
+            MyRenderProxy.DebugDrawLine3D(pos, pos2, col, col, false);
 
 //            MyRenderProxy.DebugDrawCapsule(pos, pos2, 0.1f, Color.DarkOliveGreen, false);
         }

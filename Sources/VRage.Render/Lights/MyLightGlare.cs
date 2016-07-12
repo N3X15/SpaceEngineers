@@ -257,7 +257,7 @@ namespace VRageRender.Lights
              //   drawingRadius = radius;
 
             var color = m_parent.Color;
-            color.A = 0;
+            //color.A = 0;
             //alpha = 0;
 
             MyTransparentGeometry.AddBillboardOriented(
@@ -280,11 +280,9 @@ namespace VRageRender.Lights
 
             float drawingRadius = radius;
 
-            Debug.Assert(MyRender.CurrentRenderSetup.LodTransitionBackgroundStart != null, "lod transition is not set in render setup");
-            var startFadeout = MyRender.CurrentRenderSetup.LodTransitionBackgroundStart.Value;
+            var startFadeout = MyRenderCamera.NEAR_PLANE_FOR_BACKGROUND;
 
-            Debug.Assert(MyRender.CurrentRenderSetup.LodTransitionBackgroundEnd != null, "lod transition is not set in render setup");
-            var endFadeout = MyRender.CurrentRenderSetup.LodTransitionBackgroundEnd.Value;
+            var endFadeout = MyRenderCamera.FAR_PLANE_FOR_BACKGROUND;
 
             if (distance > startFadeout)
             {
@@ -296,7 +294,7 @@ namespace VRageRender.Lights
                 return;
 
             var color = m_parent.Color;
-            color.A = 0;
+            //color.A = 0;
 
             var material = (Type == MyGlareTypeEnum.Distant && distance > MyRenderConstants.MAX_GPU_OCCLUSION_QUERY_DISTANCE) ? "LightGlareDistant" : "LightGlare";
             //var material = MyTransparentMaterials.GetMaterial("LightGlare");

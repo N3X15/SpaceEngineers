@@ -1,38 +1,25 @@
 ﻿#region Using
 
-using System;
+using Sandbox.Common;
+using Sandbox.Common.ObjectBuilders;
+using Sandbox.Definitions;
+using Sandbox.Engine.Utils;
+using Sandbox.Game.World;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using Sandbox.Common;
-
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Definitions;
-using Sandbox.Definitions;
-using Sandbox.Engine.Models;
-using Sandbox.Engine.Utils;
-using Sandbox.Game.Entities.Character;
-using Sandbox.Game.Entities.Cube;
-using Sandbox.Game.Gui;
-using Sandbox.Game.Screens.Helpers;
-using Sandbox.Game.World;
-using Sandbox.Graphics;
-using Sandbox.Graphics.GUI;
-using Sandbox.Graphics.TransparentGeometry;
-using VRage;
+using VRage.Game;
+using VRage.Game.Models;
 using VRage.Import;
-using VRage.Utils;
 using VRageMath;
 using VRageRender;
 using ModelId = System.Int32;
-using Sandbox.Game.GUI;
+
 
 #endregion
 
 namespace Sandbox.Game.Entities.Cube
 {
-    class MyBlockBuilderRenderData
+    public class MyBlockBuilderRenderData
     {
         private class MyBuilderInstanceData
         {
@@ -95,7 +82,7 @@ namespace Sandbox.Game.Entities.Cube
             {
                 builderInstanceData.InstanceData.Add(new MyCubeInstanceData()
                 {
-                    ColorMaskHSV = new Vector4(MyToolbar.ColorMaskHSV, 0),
+                    ColorMaskHSV = new Vector4(MyPlayer.SelectedColor, 0),
                     EnableSkinning = false,
                     LocalMatrix = localMatrix
                 });
@@ -104,7 +91,7 @@ namespace Sandbox.Game.Entities.Cube
             {
                 var cubeInstance = new MyCubeInstanceData()
                 {
-                    ColorMaskHSV = new Vector4(MyToolbar.ColorMaskHSV, 0),
+					ColorMaskHSV = new Vector4(MyPlayer.SelectedColor, 0),
                     EnableSkinning = true,
                     LocalMatrix = localMatrix,
                 };
@@ -148,7 +135,7 @@ namespace Sandbox.Game.Entities.Cube
             m_tmpInstanceData.Clear();
         }
 
-        public void UpdateRenderEntitiesData(MatrixD gridWorldMatrix, bool useTransparency)
+        public void UpdateRenderEntitiesData(MatrixD gridWorldMatrix, bool useTransparency, float rescale=1)
         {
             // Create/Remove/Update render objects
             foreach (var item in m_instanceInfo)
@@ -171,9 +158,10 @@ namespace Sandbox.Game.Entities.Cube
                         flags,
                         CullingOptions.Default,
                         Vector3.One,
-                        MyToolbar.ColorMaskHSV,
-                        useTransparency ? Transparency : 0,
-                        item.Value.MaxViewDistance
+						MyPlayer.SelectedColor,
+                        dithering: useTransparency ? Transparency : 0,
+                        maxViewDistance: item.Value.MaxViewDistance,
+                        rescale: rescale
                     );
 
                     m_instanceGroupRenderObjects[item.Key] = renderObjectId;
@@ -189,7 +177,7 @@ namespace Sandbox.Game.Entities.Cube
 
                 if (hasAnyInstances)
                 {
-                    MyRenderProxy.UpdateRenderEntity(renderObjectId, Color.White, MyToolbar.ColorMaskHSV, useTransparency ? Transparency : 0);
+					MyRenderProxy.UpdateRenderEntity(renderObjectId, Color.White, MyPlayer.SelectedColor, useTransparency ? Transparency : 0);
                     MyRenderProxy.UpdateRenderObject(renderObjectId, ref gridWorldMatrix, false);
                     MyRenderProxy.SetInstanceBuffer(renderObjectId, item.Value.InstanceBufferId, item.Value.InstanceStart, item.Value.InstanceCount, m_cubeBuilderAABB);
                 }

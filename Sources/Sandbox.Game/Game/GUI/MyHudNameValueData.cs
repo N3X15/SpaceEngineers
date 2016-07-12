@@ -9,6 +9,7 @@ using Sandbox.Game.Gui;
 using VRage;
 using VRageMath;
 using Sandbox.Graphics;
+using VRage.Game;
 using VRage.Utils;
 
 namespace Sandbox.Game.Gui
@@ -178,7 +179,7 @@ namespace Sandbox.Game.Gui
                 var size = new Vector2(Math.Abs(namesTopLeft.X - valuesTopRight.X),
                                        LineSpacing);
 
-                MyGuiScreenHudBase.DrawFog(ref center, ref size);
+                MyGuiTextShadows.DrawShadow(ref center, ref size);
 
                 namesTopLeft.Y   += lineOffset;
                 valuesTopRight.Y += lineOffset;

@@ -109,6 +109,12 @@ echo     ^</Reference^>>>%scriptProjectFile%
 echo     ^<Reference Include="VRage.Math"^>>>%scriptProjectFile%
 echo       ^<HintPath^>%appdir%\VRage.Math.dll^</HintPath^>>>%scriptProjectFile%
 echo     ^</Reference^>>> %scriptProjectFile%
+echo     ^<Reference Include="VRage.Game"^>>>%scriptProjectFile%
+echo       ^<HintPath^>%appdir%\VRage.Game.dll^</HintPath^>>>%scriptProjectFile%
+echo     ^</Reference^>>> %scriptProjectFile%
+echo     ^<Reference Include="SpaceEngineers.ObjectBuilders"^>>>%scriptProjectFile%
+echo       ^<HintPath^>%appdir%\SpaceEngineers.ObjectBuilders.dll^</HintPath^>>>%scriptProjectFile%
+echo     ^</Reference^>>> %scriptProjectFile%
 echo   ^</ItemGroup^>>>%scriptProjectFile%
 echo ^<ItemGroup^>>>%scriptProjectFile%
 echo     ^<Compile Include="ModAPISample.cs" /^> >>%scriptProjectFile% 
@@ -178,7 +184,7 @@ echo using System.Text;>>%scriptFile%
 echo using System.Threading.Tasks;>>%scriptFile%
 
 echo using Sandbox.Common;>>%scriptFile%
-echo using Sandbox.Common.Components;>>%scriptFile%
+echo using VRage.Game.Components;>>%scriptFile%
 echo using Sandbox.Common.ObjectBuilders;>>%scriptFile%
 echo using Sandbox.Definitions;>>%scriptFile%
 echo using Sandbox.Engine;>>%scriptFile%
@@ -186,6 +192,11 @@ echo using Sandbox.Game;>>%scriptFile%
 echo using Sandbox.ModAPI;>>%scriptFile%
 echo using Sandbox.ModAPI.Ingame;>>%scriptFile%
 echo using Sandbox.ModAPI.Interfaces;>>%scriptFile%
+echo using VRage.Game;>>%scriptFile%
+echo using VRage.Game.Components;>>%scriptFile%
+echo using VRage.ObjectBuilders;>>%scriptFile%
+echo using VRage.ModAPI;>>%scriptFile%
+echo using VRage;>>%scriptFile%
 echo.>>%scriptFile%
 echo /*  >>%scriptFile%
 echo   Welcome to Modding API. This is second of two sample scripts that you can modify for your needs,>>%scriptFile%

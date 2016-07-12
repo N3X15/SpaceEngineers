@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace VRage.ModAPI
+﻿namespace VRage.ModAPI
 {
     public interface IMyRemapHelper
     {
@@ -12,6 +7,11 @@ namespace VRage.ModAPI
         /// The function will return the same new entityId only if the saveMapping argument is set to true.
         /// </summary>
         long RemapEntityId(long oldEntityId);
+
+        /// <summary>
+        /// Returns a new ID for the given old ID for specific group (multiblockIDs, ...).
+        /// </summary>
+        int RemapGroupId(string group, int oldValue);
 
         /// <summary>
         /// Clears all the saved mappings from the remap helper and gets it ready for the next remapping operation.

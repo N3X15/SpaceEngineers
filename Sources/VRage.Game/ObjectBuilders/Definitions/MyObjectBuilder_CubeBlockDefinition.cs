@@ -1,20 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Serialization;
 using ProtoBuf;
-using Sandbox.Common.ObjectBuilders.VRageData;
-using Sandbox.Common.ObjectBuilders.AI;
-using VRageMath;
 using VRage.Data;
+using VRage.Game.ObjectBuilders.Definitions.SessionComponents;
 using VRage.ObjectBuilders;
-using VRage;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
+    public enum MyCubeSize : byte
+    {
+        Large = 0,
+        Small = 1,
+    }
+
+    public enum MyBlockTopology : byte
+    {
+        Cube = 0,
+        TriangleMesh = 1,
+    }
+
+    [ProtoContract]
+    public struct BoneInfo
+    {
+        [ProtoMember]
+        public SerializableVector3I BonePosition;
+
+        [ProtoMember]
+        public SerializableVector3UByte BoneOffset;
+    }
+
     public enum MyCubeTopology
     {
         Box,
@@ -56,7 +72,6 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         Convex,
     }
 
-    // Enum used to index mount point sides.
     public enum BlockSideEnum
     {
         Right = 0,
@@ -136,11 +151,19 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         Both = Horizontal | Vertical,
     }
 
+    public struct VoxelPlacementOverride
+    {
+        public VoxelPlacementSettings StaticMode;
+        public VoxelPlacementSettings DynamicMode;
+    }
 
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_CubeBlockDefinition : MyObjectBuilder_PhysicalModelDefinition
     {
+
+        #region Properties Definitions
+
         [ProtoContract]
         public class MountPoint
         {
@@ -186,8 +209,8 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
             [XmlAttribute, ProtoMember, DefaultValue(0)]
             public byte PropertiesMask = 0;
 
-			[XmlAttribute, ProtoMember, DefaultValue(true)]
-			public bool Enabled = true;
+            [XmlAttribute, ProtoMember, DefaultValue(true)]
+            public bool Enabled = true;
         }
 
         [ProtoContract]
@@ -202,6 +225,9 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
             [XmlAttribute]
             [ProtoMember]
             public UInt16 Count;
+
+            [ProtoMember]
+            public SerializableDefinitionId DeconstructId;
         }
 
         [ProtoContract]
@@ -287,42 +313,14 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
             [ProtoMember, DefaultValue(false)]
             public bool RandomOrientation;
 
-			[ProtoMember]
-			[XmlArray("MountPointOverrides")]
-			[XmlArrayItem("MountPoint"), DefaultValue(null)]
-			public MountPoint[] MountPoints;
+            [ProtoMember]
+            [XmlArray("MountPointOverrides")]
+            [XmlArrayItem("MountPoint"), DefaultValue(null)]
+            public MountPoint[] MountPoints;
 
             [XmlAttribute]
             [ProtoMember, DefaultValue(true)]
             public bool Visible = true;
-        }
-
-        [ProtoContract]
-        public class MyAdditionalModelDefinition
-        {
-            [XmlAttribute]
-            [ProtoMember]
-            public string Type;
-
-            [XmlAttribute]
-            [ProtoMember]
-            [ModdableContentFile("mwm")]
-            public string File;
-
-            [XmlAttribute]
-            [ProtoMember, DefaultValue(false)]
-            public bool EnablePhysics = false;
-        }
-
-        [ProtoContract]
-        public class MyGeneratedBlockDefinition
-        {
-            [XmlAttribute]
-            [ProtoMember]
-            public string Type;
-
-            [ProtoMember]
-            public SerializableDefinitionId Id;
         }
 
         [ProtoContract]
@@ -335,6 +333,77 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
             [ProtoMember]
             public SerializableDefinitionId Id;
         }
+
+        [ProtoContract]
+        public class EntityComponentDefinition
+        {
+            [XmlAttribute]
+            [ProtoMember]
+            public string ComponentType;
+
+            [XmlAttribute]
+            [ProtoMember]
+            public string BuilderType;
+        }
+
+        [ProtoContract]
+        public class CubeBlockEffectBase
+        {
+            [XmlAttribute]
+            [ProtoMember]
+            public string Name = "";
+
+            [XmlAttribute]
+            [ProtoMember]
+            public float ParameterMin = float.MinValue;
+
+            [XmlAttribute]
+            [ProtoMember]
+            public float ParameterMax = float.MaxValue;
+
+            [XmlArrayItem("ParticleEffect")]
+            [ProtoMember]
+            public CubeBlockEffect[] ParticleEffects;
+        }
+
+        [ProtoContract]
+        public class CubeBlockEffect
+        {
+            [XmlAttribute]
+            [ProtoMember]
+            public string Name = "";
+
+            [XmlAttribute]
+            [ProtoMember]
+            public string Origin = "";
+
+            [XmlAttribute]
+            [ProtoMember]
+            public float Delay = 0f;
+
+            [XmlAttribute]
+            [ProtoMember]
+            public float Duration = 0f;
+
+            [XmlAttribute]
+            [ProtoMember]
+            public bool Loop = false;
+
+            [XmlAttribute]
+            [ProtoMember]
+            public float SpawnTimeMin = 0f;
+
+            [XmlAttribute]
+            [ProtoMember]
+            public float SpawnTimeMax = 0f;
+        }
+
+        #endregion
+
+        public VoxelPlacementOverride? VoxelPlacement = null;
+
+        [ProtoMember, DefaultValue(false)]
+        public bool SilenceableByShipSoundSystem;
 
         [ProtoMember]
         public MyCubeSize CubeSize;
@@ -358,6 +427,10 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         [XmlArrayItem("Component")]
         [ProtoMember]
         public CubeBlockComponent[] Components;
+        
+        [XmlArrayItem("Effect")]
+        [ProtoMember]
+        public CubeBlockEffectBase[] Effects;
 
         [ProtoMember]
         public CriticalPart CriticalComponent;
@@ -367,6 +440,10 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public Variant[] Variants;
+
+        [XmlArrayItem("Component")]
+        [ProtoMember]
+        public EntityComponentDefinition[] EntityComponents;
 
         [ProtoMember, DefaultValue(MyPhysicsOption.Box)]
         public MyPhysicsOption PhysicsOption = MyPhysicsOption.Box;
@@ -418,12 +495,21 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         [ProtoMember]
         public string PrimarySound;
 
+        [ProtoMember]
+        public string ActionSound;
+
         [ProtoMember, DefaultValue(null)] 
         public string BuildType = null;
+
+        [ProtoMember, DefaultValue(null)]
+        public string BuildMaterial = null;
 
         [XmlArrayItem("Template")]
         [ProtoMember, DefaultValue(null)]
         public string[] CompoundTemplates = null;
+
+        [ProtoMember, DefaultValue(true)]
+        public bool CompoundEnabled = true;
 
         [XmlArrayItem("Definition")]
         [ProtoMember, DefaultValue(null)]
@@ -457,12 +543,12 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         [ProtoMember, DefaultValue(null)]
         public string GeneratedBlockType = null;
 
-        // Defines if the block is mirrored version of some other block (mirrored block is usually used as block stage)
+        // Defines if the block is mirrored version of some other block (mirrored block is usually used as block variant)
         [ProtoMember, DefaultValue(false)]
         public bool Mirrored = false;
 
-        [ProtoMember, DefaultValue(null)]
-        public int DamageEffectId;
+        [ProtoMember, DefaultValue(0)]
+        public int DamageEffectId = 0;
 
         // Defines if the block is deformed by a skeleton by default (round blocks)
         [ProtoMember, DefaultValue(null)]
@@ -484,5 +570,11 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember, DefaultValue(1)]
         public float BuildProgressToPlaceGeneratedBlocks = 1;
+
+        [ProtoMember, DefaultValue(null)]
+        public string DamagedSound = null;
+
+        [ProtoMember, DefaultValue(true)]
+        public bool CreateFracturedPieces = true;
     }
 }

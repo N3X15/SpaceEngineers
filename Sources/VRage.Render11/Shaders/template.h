@@ -1,4 +1,6 @@
-#include <common.h>
+#ifndef TEMPLATE_H
+#define TEMPLATE_H
+
 #include <frame.h>
 
 #if defined(USE_MERGE_INSTANCING) || defined(USE_CUBE_INSTANCING) || defined(USE_DEFORMED_CUBE_INSTANCING) || defined(USE_GENERIC_INSTANCING)
@@ -24,34 +26,56 @@ float4x4 get_view_proj_matrix()
 	return projection_.view_proj_matrix;
 }
 
-float4 world_to_clip(float3 p)
+float4 WorldToClip(float3 worldPosition)
 {
-    return mul(float4(p, 1), projection_.view_proj_matrix);
+    return mul(float4(worldPosition, 1), projection_.view_proj_matrix);
 }
 
-#define MATERIAL_FLAG_RGB_COLORING 1
+#define MATERIAL_FLAG_COLORING (MATERIAL_FLAG_COLORING_RGB|MATERIAL_FLAG_HAS_KEYCOLOR)
+
+#define MATERIAL_FLAG_COLORING_RGB 1
+#define MATERIAL_FLAG_NO_KEYCOLOR 2
 
 struct ObjectConstants
 {
-	float4 	matrix_row0;
-	float4 	matrix_row1;
-	float4 	matrix_row2;
-	float3 	key_color;	// color mask, can be hsv offset or rgb (depends on type of coloring)
-	float 	custom_alpha; // used for dithering, default = 0
+#ifdef USE_MERGE_INSTANCING
+    int instanceIndex;
+    int startIndex;
+    float __p1, __p2;
+#else
 
-	float3 	color_mul; 	// mostly for emissive, default = 1
-	float 	emissive;		// default = 0
-	uint 	material_index; // 0-255 material id (mostly for brdf etc), we pack it in gbuffer!
-	uint 	material_flags;
+#ifndef USE_VOXEL_DATA
+    float   facing;
+    float2 	windScaleAndFreq;
+    float 	__paddingNonVoxelData;
+    float3 CenterOffset;
+    float __paddingNonVoxelData2;
+#elif defined(USE_VOXEL_DATA)
+    float   voxelLodSize;
+    float3 	voxel_offset;
+    float4 	massive_center_radius;
+    float3 	voxel_scale;
+    float 	__padding3;
+#endif
+    float4 	matrix_row0;
+    float4 	matrix_row1;
+    float4 	matrix_row2;
 
-	float2 	__padding0;
-	float3 	voxel_offset;
-	float 	__padding1;
-	float3 	voxel_scale;
-	float 	__padding2;
+    float3 	key_color;	// color mask, can be hsv offset or rgb (depends on type of coloring)
+    float 	custom_alpha; // used for dithering, default = 0
+
+    float3 	color_mul; 	// mostly for emissive, default = 1
+    float 	emissive;		// default = 0
+
+    uint 	material_index; // 0-255 material id (mostly for brdf etc), we pack it in gbuffer!
+    uint 	material_flags;
+	uint	depth_bias;
+    float   _____padding;
 
 #ifdef USE_SKINNING
-	matrix bone_matrix[60];
+    matrix bone_matrix[60];
+#endif
+
 #endif
 };
 
@@ -60,7 +84,13 @@ cbuffer Object : register( MERGE(b,OBJECT_SLOT) )
 	ObjectConstants object_;
 };
 
+#ifndef USE_MERGE_INSTANCING
+
 matrix get_object_matrix()
 {
 	return transpose(matrix(object_.matrix_row0, object_.matrix_row1, object_.matrix_row2, float4(0,0,0,1)));
 }
+
+#endif
+
+#endif

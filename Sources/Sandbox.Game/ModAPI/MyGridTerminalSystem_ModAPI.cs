@@ -5,39 +5,13 @@ using Sandbox.Game.Entities.Cube;
 using VRage.Collections;
 using System.Diagnostics;
 using Sandbox.ModAPI.Ingame;
+using VRage.Game.ModAPI.Ingame;
+using VRageMath;
 
 namespace Sandbox.Game.GameSystems
 {
-    partial class MyGridTerminalSystem : IMyGridTerminalSystem
+    partial class MyGridTerminalSystem : ModAPI.IMyGridTerminalSystem
     {
-        List<IMyTerminalBlock> IMyGridTerminalSystem.Blocks
-        {
-            get 
-            {
-                List<IMyTerminalBlock> ret = new List<IMyTerminalBlock>();
-                foreach (var block in m_blocks)
-                {
-                    if (block.IsAccessibleForProgrammableBlock)
-                    {
-                        ret.Add(block);
-                    }
-                }
-                return ret; 
-            }
-        }
-        List<IMyBlockGroup> IMyGridTerminalSystem.BlockGroups
-        {
-            get 
-            {
-                var result = new List<IMyBlockGroup>(BlockGroups.Count);
-                foreach (var group in BlockGroups)
-                {
-                    result.Add(group);
-                }
-                return result;
-            }
-        }
-
         void IMyGridTerminalSystem.GetBlocks(List<IMyTerminalBlock> blocks)
         {
             blocks.Clear();
@@ -50,42 +24,86 @@ namespace Sandbox.Game.GameSystems
             }
         }
 
-        void IMyGridTerminalSystem.GetBlockGroups(List<IMyBlockGroup> blockGroups)
+        void IMyGridTerminalSystem.GetBlockGroups(List<IMyBlockGroup> blockGroups, Func<IMyBlockGroup, bool> collect)
         {
-            blockGroups.Clear();
-            foreach (var group in BlockGroups)
+            // Allow a pure collect search by allowing a null block list
+            if (blockGroups != null)
             {
-                blockGroups.Add(group);
+                blockGroups.Clear();
+            }
+            for (var index = 0; index < BlockGroups.Count; index++)
+            {
+                var blockGroup = BlockGroups[index];
+                if (collect != null && !collect(blockGroup))
+                    continue;
+                if (blockGroups != null)
+                {
+                    blockGroups.Add(blockGroup);
+                }
             }
         }
 
-        void IMyGridTerminalSystem.GetBlocksOfType<T>(List<IMyTerminalBlock> blocks, Func<IMyTerminalBlock, bool> collect = null)
+        void IMyGridTerminalSystem.GetBlocksOfType<T>(List<T> blocks, Func<T, bool> collect)
         {
-            blocks.Clear();
+            // Allow a pure collect search by allowing a null block list
+            if (blocks != null)
+            {
+                blocks.Clear();
+            }
             foreach (var block in m_blocks)
             {
-                if (block is T)
+                var typedBlock = block as T;
+                if (typedBlock == null || !block.IsAccessibleForProgrammableBlock || (collect != null && !collect(typedBlock)))
                 {
-                    if (block.IsAccessibleForProgrammableBlock == false || (collect != null && collect(block) == false))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
+                if (blocks != null)
+                {
+                    blocks.Add(typedBlock);
+                }
+            }
+        }
+
+        void IMyGridTerminalSystem.GetBlocksOfType<T>(List<IMyTerminalBlock> blocks, Func<IMyTerminalBlock, bool> collect)
+        {
+            // Allow a pure collect search by allowing a null block list
+            if (blocks != null)
+            {
+                blocks.Clear();
+            }
+            foreach (var block in m_blocks)
+            {
+                var typedBlock = block as T;
+                if (typedBlock == null || !block.IsAccessibleForProgrammableBlock || (collect != null && !collect(block)))
+                {
+                    continue;
+                }
+                if (blocks != null)
+                {
                     blocks.Add(block);
                 }
             }
         }
 
-        void IMyGridTerminalSystem.SearchBlocksOfName(string name, List<IMyTerminalBlock> blocks, Func<IMyTerminalBlock, bool> collect = null)
+        void IMyGridTerminalSystem.SearchBlocksOfName(string name, List<IMyTerminalBlock> blocks, Func<IMyTerminalBlock, bool> collect)
         {
-            blocks.Clear();
+            // Allow a pure collect search by allowing a null block list
+            if (blocks != null)
+            {
+                blocks.Clear();
+            }
             foreach (var block in m_blocks)
             {
-                if (block.CustomName.ToString().Contains(name,StringComparison.OrdinalIgnoreCase))
+                if (!block.CustomName.ToString().Contains(name, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (block.IsAccessibleForProgrammableBlock == false || (collect != null && collect(block) == false))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
+                if (!block.IsAccessibleForProgrammableBlock || (collect != null && !collect(block)))
+                {
+                    continue;
+                }
+                if (blocks != null)
+                {
                     blocks.Add(block);
                 }
             }
@@ -95,12 +113,112 @@ namespace Sandbox.Game.GameSystems
         {
             foreach (var block in m_blocks)
             {
-                if (block.CustomName.ToString() == name&& block.IsAccessibleForProgrammableBlock )
+                if (block.CustomName.CompareTo(name) == 0 && block.IsAccessibleForProgrammableBlock)
                 {
                     return block;
                 }
             }
             return null;
         }
+
+        IMyBlockGroup IMyGridTerminalSystem.GetBlockGroupWithName(string name)
+        {
+            for (var i = 0; i < BlockGroups.Count; i++)
+            {
+                var group = BlockGroups[i];
+                if (group.Name.CompareTo(name) != 0)
+                {
+                    continue;
+                }
+                return group;
+            }
+            return null;
+        }
+
+        IMyTerminalBlock IMyGridTerminalSystem.GetBlockWithId(long id)
+        {
+            MyTerminalBlock block;
+            if (m_blockTable.TryGetValue(id, out block) && block.IsAccessibleForProgrammableBlock)
+            {
+                return block;
+            }
+            return null;
+        }
+
+        #region ModAPI
+        void ModAPI.IMyGridTerminalSystem.GetBlocks(List<ModAPI.IMyTerminalBlock> blocks)
+        {
+            blocks.Clear();
+            foreach (var block in m_blocks)
+            {
+                blocks.Add(block);
+            }
+        }
+
+        void ModAPI.IMyGridTerminalSystem.GetBlockGroups(List<ModAPI.IMyBlockGroup> blockGroups)
+        {
+            blockGroups.Clear();
+            foreach (var group in BlockGroups)
+            {
+                blockGroups.Add(group);
+            }
+        }
+
+        void ModAPI.IMyGridTerminalSystem.GetBlocksOfType<T>(List<ModAPI.IMyTerminalBlock> blocks, Func<ModAPI.IMyTerminalBlock, bool> collect)
+        {
+            blocks.Clear();
+            foreach (var block in m_blocks)
+            {
+                if (block is T)
+                {
+                    if (collect != null && collect(block) == false)
+                    {
+                        continue;
+                    }
+                    blocks.Add(block);
+                }
+            }
+        }
+
+        void ModAPI.IMyGridTerminalSystem.SearchBlocksOfName(string name, List<ModAPI.IMyTerminalBlock> blocks, Func<ModAPI.IMyTerminalBlock, bool> collect)
+        {
+            blocks.Clear();
+            foreach (var block in m_blocks)
+            {
+                if (block.CustomName.ToString().Contains(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (collect != null && collect(block) == false)
+                    {
+                        continue;
+                    }
+                    blocks.Add(block);
+                }
+            }
+        }
+
+        ModAPI.IMyTerminalBlock ModAPI.IMyGridTerminalSystem.GetBlockWithName(string name)
+        {
+            foreach (var block in m_blocks)
+            {
+                if (block.CustomName.ToString() == name)
+                {
+                    return block;
+                }
+            }
+            return null;
+        }
+
+        ModAPI.IMyBlockGroup ModAPI.IMyGridTerminalSystem.GetBlockGroupWithName(string name)
+        {
+            foreach (var group in BlockGroups)
+            {
+                if (group.Name.ToString() == name)
+                {
+                    return group;
+                }
+            }
+            return null;
+        }
+        #endregion
     }
 }

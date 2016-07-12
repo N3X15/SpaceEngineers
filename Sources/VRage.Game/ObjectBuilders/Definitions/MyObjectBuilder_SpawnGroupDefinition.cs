@@ -4,7 +4,7 @@ using System.Xml.Serialization;
 using VRage.ObjectBuilders;
 using VRageMath;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -25,6 +25,12 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
             [ProtoMember, DefaultValue(10.0f)]
             public float Speed = 10.0f;
+
+            [ProtoMember, DefaultValue(false)]
+            public bool PlaceToGridOrigin = false;
+
+            [ProtoMember]
+            public bool ResetOwnership = true;
         }
         [ProtoContract]
         public class SpawnGroupVoxel
@@ -50,5 +56,11 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember, DefaultValue(false)]
         public bool IsEncounter;
+
+        [ProtoMember, DefaultValue(false)]
+        public bool IsPirate = false;
+
+        [ProtoMember, DefaultValue(false)]
+        public bool ReactorsOn = false;
     }
 }

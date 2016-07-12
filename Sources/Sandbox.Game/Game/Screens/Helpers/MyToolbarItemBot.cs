@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Voxels;
 using VRageMath;
 
@@ -32,8 +34,11 @@ namespace Sandbox.Game.Screens.Helpers
             if (Definition == null)
                 return false;
 
+            if (MyFakes.ENABLE_BATTLE_SYSTEM && MySession.Static.Battle)
+                return false;
+
             MyAIComponent.Static.BotToSpawn = Definition as MyAgentDefinition;
-            var controlledObject = MySession.ControlledEntity as IMyControllableEntity;
+            var controlledObject = MySession.Static.ControlledEntity as IMyControllableEntity;
             if (controlledObject != null)
             {
                 controlledObject.SwitchToWeapon(null);
@@ -47,10 +52,10 @@ namespace Sandbox.Game.Screens.Helpers
             return type == MyToolbarType.Character || type == MyToolbarType.Spectator;
         }
 
-        public override MyToolbarItem.ChangeInfo Update(Entities.MyEntity owner, long playerID = 0)
+        public override MyToolbarItem.ChangeInfo Update(MyEntity owner, long playerID = 0)
         {
             var botDefinition = MyAIComponent.Static.BotToSpawn;
-            WantsToBeSelected = botDefinition != null && botDefinition.Id.SubtypeId == (this.Definition as MyAgentDefinition).Id.SubtypeId;
+            WantsToBeSelected = botDefinition != null && botDefinition.Id.SubtypeId == (this.Definition as MyAgentDefinition).Id.SubtypeId && (!MyFakes.ENABLE_BATTLE_SYSTEM || !MySession.Static.Battle);
             return ChangeInfo.None;
         }
     }

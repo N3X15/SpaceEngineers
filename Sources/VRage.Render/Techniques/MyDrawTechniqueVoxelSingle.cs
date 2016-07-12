@@ -61,7 +61,11 @@ namespace VRageRender.Techniques
             {
                 effectVoxels.SetDiffuseColor(MyRenderVoxelCell.LOD_COLORS[renderElement.VoxelBatch.Lod].ToVector3());
             }
-            effectVoxels.EnablePerVertexAmbient(MyRender.Settings.EnablePerVertexVoxelAmbient);
+            effectVoxels.EnablePerVertexAmbient(
+                MyRenderSettings.EnableVoxelAo,
+                MyRenderSettings.VoxelAoMin,
+                MyRenderSettings.VoxelAoMax,
+                MyRenderSettings.VoxelAoOffset);
 
             if (lod == MyLodTypeEnum.LOD_BACKGROUND && renderElement.RenderObject is MyRenderVoxelCellBackground)
             {

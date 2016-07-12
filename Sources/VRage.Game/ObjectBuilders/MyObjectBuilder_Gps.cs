@@ -4,7 +4,7 @@ using VRageMath;
 using System.Collections.Generic;
 
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     
         [ProtoContract]
@@ -28,6 +28,9 @@ namespace Sandbox.Common.ObjectBuilders
 
                 [ProtoMember]
                 public bool showOnHud;
+
+                [ProtoMember]
+                public bool alwaysVisible;
             }
 
             [ProtoMember]

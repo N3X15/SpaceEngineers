@@ -14,34 +14,22 @@ using Sandbox.Game.Screens.Helpers;
 using VRage.Utils;
 using Sandbox.Game.Localization;
 using VRage.Library.Utils;
+using VRage.Library.Collections;
+using Sandbox.ModAPI;
+using Sandbox.ModAPI.Interfaces.Terminal;
 
 namespace Sandbox.Game.Gui
 {
-    public class MyTerminalControlOnOffSwitch<TBlock> : MyTerminalValueControl<TBlock, bool>
+    public class MyTerminalControlOnOffSwitch<TBlock> : MyTerminalValueControl<TBlock, bool>, IMyTerminalControlOnOffSwitch
         where TBlock : MyTerminalBlock
     {
-        public delegate bool GetterDelegate(TBlock block);
-        public delegate void SetterDelegate(TBlock block, bool value);
-
         MyGuiControlOnOffSwitch m_onOffSwitch;
 
-        public readonly MyStringId Title;
-        public readonly MyStringId OnText;
-        public readonly MyStringId OffText;
-        public readonly MyStringId Tooltip;
-
-        public GetterDelegate Getter;
-        public SetterDelegate Setter;
-
-        public Expression<Func<TBlock, bool>> MemberExpression
-        {
-            set
-            {
-                Getter = new GetterDelegate(value.CreateGetter());
-                Setter = new SetterDelegate(value.CreateSetter());
-            }
-        }
-
+        public MyStringId Title;
+        public MyStringId OnText;
+        public MyStringId OffText;
+        public MyStringId Tooltip;
+        
         private Action<MyGuiControlOnOffSwitch> m_valueChanged;
 
         public MyTerminalControlOnOffSwitch(string id, MyStringId title, MyStringId tooltip = default(MyStringId), MyStringId? on = null, MyStringId? off = null)
@@ -51,6 +39,7 @@ namespace Sandbox.Game.Gui
             OnText = on ?? MySpaceTexts.SwitchText_On;
             OffText = off ?? MySpaceTexts.SwitchText_Off;
             Tooltip = tooltip;
+            Serializer = delegate(BitStream stream, ref bool value) { stream.Serialize(ref value); };
         }
 
         protected override MyGuiControlBase CreateGui()
@@ -72,7 +61,7 @@ namespace Sandbox.Game.Gui
             {
                 if (item.HasLocalPlayerAccess())
                 {
-                    Setter(item, value);
+                    SetValue(item, value);
                 }
             }
         }
@@ -84,29 +73,29 @@ namespace Sandbox.Game.Gui
             if (first != null)
             {
                 m_onOffSwitch.ValueChanged -= m_valueChanged;
-                m_onOffSwitch.Value = Getter(first);
+                m_onOffSwitch.Value = GetValue(first);
                 m_onOffSwitch.ValueChanged += m_valueChanged;
             }
         }
 
         void SwitchAction(TBlock block)
         {
-            Setter(block, !Getter(block));
+            SetValue(block, !GetValue(block));
         }
 
         void OnAction(TBlock block)
         {
-            Setter(block, true);
+            SetValue(block, true);
         }
 
         void OffAction(TBlock block)
         {
-            Setter(block, false);
+            SetValue(block, false);
         }
 
         void Writer(TBlock block, StringBuilder result, StringBuilder onText, StringBuilder offText)
         {
-            result.AppendStringBuilder(Getter(block) ? onText : offText);
+            result.AppendStringBuilder(GetValue(block) ? onText : offText);
         }
 
         void AppendAction(MyTerminalAction<TBlock> action)
@@ -140,23 +129,13 @@ namespace Sandbox.Game.Gui
 
             return action;
         }
-
-        public override bool GetValue(TBlock block)
-        {
-            return Getter(block);
-        }
-
-        public override void SetValue(TBlock block, bool value)
-        {
-            Setter(block, value);
-        }
-
+        
         public override bool GetDefaultValue(TBlock block)
         {
             return false;
         }
 
-        public override bool GetMininum(TBlock block)
+        public override bool GetMinimum(TBlock block)
         {
             return false;
         }
@@ -164,6 +143,71 @@ namespace Sandbox.Game.Gui
         public override bool GetMaximum(TBlock block)
         {
             return true;
+        }
+
+        public override void SetValue(TBlock block, bool value)
+        {
+            base.SetValue(block, value);
+        }
+
+        public override bool GetValue(TBlock block)
+        {
+            return base.GetValue(block);
+        }
+
+        /// <summary>
+        ///  Implements IMyTerminalControlOnOffSwitch for Mods
+        /// </summary>
+        MyStringId IMyTerminalControlTitleTooltip.Title
+        {
+            get
+            {
+                return Title;
+            }
+
+            set
+            {
+                Title = value;
+            }
+        }
+
+        MyStringId IMyTerminalControlTitleTooltip.Tooltip
+        {
+            get
+            {
+                return Tooltip;
+            }
+
+            set
+            {
+                Tooltip = value;
+            }
+        }
+
+        MyStringId IMyTerminalControlOnOffSwitch.OnText
+        {
+            get
+            {
+                return OnText;
+            }
+
+            set
+            {
+                OnText = value;
+            }
+        }
+
+        MyStringId IMyTerminalControlOnOffSwitch.OffText
+        {
+            get
+            {
+                return OffText;
+            }
+
+            set
+            {
+                OffText = value;
+            }
         }
     }
 }

@@ -14,6 +14,8 @@ using Sandbox.Game.Multiplayer;
 using VRage.Library.Utils;
 using VRage.ObjectBuilders;
 using Sandbox.Game.Entities.Cube;
+using VRage.Game;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.Entities
 {
@@ -38,7 +40,7 @@ namespace Sandbox.Game.Entities
         /// Component that has integrity beyond this threshold is considered unmounted.
         /// The integrity of the whole stack will never fall beyond this level (unless the stack is fully dismounted)
         /// </summary>
-        public const float MOUNT_THRESHOLD = 0.000001f;
+        public const float MOUNT_THRESHOLD = 1.0f/(float)ushort.MaxValue;
 
         #region Fields
         readonly MyCubeBlockDefinition m_blockDefinition;
@@ -107,7 +109,10 @@ namespace Sandbox.Game.Entities
                 {
                     bool oldFunctional = IsFunctional;
                     m_buildIntegrity = value;
-                    CheckFunctionalState(oldFunctional);
+                    if (m_buildIntegrity > 0.0f)
+                    {
+                        CheckFunctionalState(oldFunctional);
+                    }
                 }
             }
         }
@@ -261,7 +266,7 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        public bool CanContinueBuild(MyInventory inventory, MyConstructionStockpile stockpile)
+        public bool CanContinueBuild(MyInventoryBase inventory, MyConstructionStockpile stockpile)
         {
             if (IsFullIntegrity)
                 return false;
@@ -281,7 +286,7 @@ namespace Sandbox.Game.Entities
                 return true;
             }
 
-            if (inventory != null && inventory.GetItemAmount(componentDefinition.Id) > 0)
+            if (inventory != null && MyCubeBuilder.BuildComponent.GetItemAmountCombined(inventory, componentDefinition.Id) > 0)
             {
                 return true;
             }
@@ -386,7 +391,7 @@ namespace Sandbox.Game.Entities
 
             MyCubeBlockDefinition blockDef = null;
             MyDefinitionManager.Static.TryGetCubeBlockDefinition(block.GetId(), out blockDef);
-            Debug.Assert(blockDef != null, "Could not find block definition");
+            //Debug.Assert(blockDef != null, "Could not find block definition");
             if (blockDef == null) return;
 
             Debug.Assert(block!= null, "Getting mounted components of a null block");
@@ -396,8 +401,8 @@ namespace Sandbox.Game.Entities
             
             CalculateIndicesInternal(integrity, blockDef, ref topGroup, ref topComponent);
 
-            Debug.Assert(topGroup < blockDef.Components.Count(), "Component group overflow in CalculateItemRequirements");
-            if (topGroup >= blockDef.Components.Count()) return;
+            Debug.Assert(topGroup < blockDef.Components.Length, "Component group overflow in CalculateItemRequirements");
+            if (topGroup >= blockDef.Components.Length) return;
 
             Debug.Assert(topComponent < blockDef.Components[topGroup].Count, "Component overflow in CalculateItemRequirements");
             if (topComponent >= blockDef.Components[topGroup].Count) return;
@@ -410,10 +415,10 @@ namespace Sandbox.Game.Entities
             for (int group = 0; group < topGroup; ++group)
             {
                 MyCubeBlockDefinition.Component component = blockDef.Components[group];
-                addToList.AddMaterial(component.Definition.Id, component.Count, addToDisplayList: false);
+                addToList.AddMaterial(component.Definition.Id, component.Count, component.Count, addToDisplayList: false);
             }
             componentId = blockDef.Components[topGroup].Definition.Id;
-            addToList.AddMaterial(componentId, mountCount, addToDisplayList: false);
+            addToList.AddMaterial(componentId, mountCount, mountCount, addToDisplayList: false);
         }
 
         public void IncreaseMountLevel(float mountAmount, MyConstructionStockpile stockpile = null)
@@ -486,13 +491,13 @@ namespace Sandbox.Game.Entities
         /// <summary>
         /// Dismounts component stack, dismounted items are put into output stockpile
         /// </summary>
-        public void DecreaseMountLevel(float unmountAmount, MyConstructionStockpile outputStockpile = null)
+        public void DecreaseMountLevel(float unmountAmount, MyConstructionStockpile outputStockpile = null, bool useDefaultDeconstructEfficiency = false)
         {
             Debug.Assert(!IsFullyDismounted, "Dismounting a fully dismounted block. Either it was not razed or it was not created correctly.");
 
             float buildIntegrityRatio = BuildIntegrity / Integrity; // Save the original build integrity ratio
 
-            UnmountInternal(unmountAmount, outputStockpile);
+            UnmountInternal(unmountAmount, outputStockpile, useDefaultDeconstructEfficiency: useDefaultDeconstructEfficiency);
 
             // Following function calls CheckFunctionalState itself
             UpdateBuildIntegrityDown(buildIntegrityRatio);
@@ -507,14 +512,18 @@ namespace Sandbox.Game.Entities
             Debug.Assert(!IsDestroyed, "Applying damage to an already destroyed stack. Block should have been removed.");
 
             UnmountInternal(damage, outputStockpile, true);
+
+            float buildIntegrityRatio = BuildIntegrity / Integrity; // Save the original build integrity ratio
+            // Following function calls CheckFunctionalState itself
+            UpdateBuildIntegrityDown(buildIntegrityRatio);
         }
 
-		private float GetDeconstructionEfficiency(int groupIndex, bool damageItems)
+		private float GetDeconstructionEfficiency(int groupIndex, bool useDefault)
 		{
-			return (damageItems ? 1 : m_blockDefinition.Components[groupIndex].Definition.DeconstructionEfficiency);
+            return (useDefault ? 1 : m_blockDefinition.Components[groupIndex].Definition.DeconstructionEfficiency);
 		}
 
-        private void UnmountInternal(float unmountAmount, MyConstructionStockpile outputStockpile = null, bool damageItems = false)
+        private void UnmountInternal(float unmountAmount, MyConstructionStockpile outputStockpile = null, bool damageItems = false, bool useDefaultDeconstructEfficiency = false)
         {
             // We don't have to update functional state in this function, because it is done in the caller functions.
             // If you start using this function anywhere else, don't forget to update functional state yourself!
@@ -524,9 +533,9 @@ namespace Sandbox.Game.Entities
             int compIndex = (int)m_topComponentIndex;
 
             // Continue removing components, until the to be removed component's health is larger than unmountAmount
-            MyObjectBuilder_Component componentBuilder = null;
+            MyObjectBuilder_PhysicalObject componentBuilder = null;
             var scrapBuilder = MyFloatingObject.ScrapBuilder;
-			while (unmountAmount * GetDeconstructionEfficiency(groupIndex, damageItems) >= topIntegrity)
+			while (unmountAmount * GetDeconstructionEfficiency(groupIndex, damageItems || useDefaultDeconstructEfficiency) >= topIntegrity)
             {
                 Integrity -= topIntegrity;
                 unmountAmount -= topIntegrity;
@@ -538,8 +547,9 @@ namespace Sandbox.Game.Entities
                     bool doDamage = damageItems && MyFakes.ENABLE_DAMAGED_COMPONENTS;
                     if (!damageItems || (doDamage && MyRandom.Instance.NextFloat() <= m_blockDefinition.Components[groupIndex].Definition.DropProbability))
                     {
-                        componentBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Component>();
-                        componentBuilder.SubtypeName = m_blockDefinition.Components[groupIndex].Definition.Id.SubtypeName;
+                        componentBuilder = (MyObjectBuilder_PhysicalObject)MyObjectBuilderSerializer.CreateNewObject(m_blockDefinition.Components[groupIndex].DeconstructItem.Id);
+                        //componentBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Component>();
+                        //componentBuilder.SubtypeName = m_blockDefinition.Components[groupIndex].Definition.Id.SubtypeName;
                         if (doDamage)
                         {
                             componentBuilder.Flags |= MyItemFlags.Damaged;
@@ -579,8 +589,8 @@ namespace Sandbox.Game.Entities
             }
 
             // Damage the remaining component
-			Integrity -= unmountAmount * GetDeconstructionEfficiency(groupIndex, damageItems);
-			topIntegrity -= unmountAmount * GetDeconstructionEfficiency(groupIndex, damageItems);
+            Integrity -= unmountAmount * GetDeconstructionEfficiency(groupIndex, damageItems || useDefaultDeconstructEfficiency);
+            topIntegrity -= unmountAmount * GetDeconstructionEfficiency(groupIndex, damageItems || useDefaultDeconstructEfficiency);
 
             if (topIntegrity < MOUNT_THRESHOLD)
             {

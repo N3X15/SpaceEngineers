@@ -12,6 +12,12 @@ using System.Diagnostics;
 using Sandbox.Game.Multiplayer;
 using Sandbox.ModAPI;
 using Sandbox.Game.Entities;
+using Sandbox.Game.GameSystems;
+using Sandbox.Engine.Networking;
+using Sandbox.Engine.Utils;
+using VRage.Game;
+using VRage.Game.Components;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.SessionComponents
 {
@@ -25,6 +31,11 @@ namespace Sandbox.Game.SessionComponents
         private int m_updateCount = 0;
         public override void UpdateBeforeSimulation()
         {
+            if (!(MySession.Static.IsScenario || MySession.Static.Settings.ScenarioEditMode)
+                || MyScenarioSystem.Static == null
+                || MyScenarioSystem.Static.GameState < Sandbox.Game.GameSystems.MyScenarioSystem.MyState.Running)
+                return;
+
             m_updateCount++;
             if (m_updateCount % 10 == 0)
             {
@@ -36,20 +47,19 @@ namespace Sandbox.Game.SessionComponents
                 int totalCount=0;
                 foreach (MyPlayer player in MySession.Static.Players.GetOnlinePlayers())
                 {
+                    MyEntity entity=null;
                     if (player.Controller != null && player.Controller.ControlledEntity != null && player.Controller.ControlledEntity.Entity != null)
-                    {
-                        var entity = player.Controller.ControlledEntity.Entity;
-                        if (Update(player.Id, entity))
-                            lostCount++;
-                        totalCount++;
-                    }
+                        entity = player.Controller.ControlledEntity.Entity;
+                    if (Update(player, entity))
+                        lostCount++;
+                    totalCount++;
                 }
 
                 //all others lost?
                 if (lostCount + 1 == totalCount && lostCount>0)
                 {
                     foreach (MyPlayer player in MySession.Static.Players.GetOnlinePlayers())
-                        RaiseSignal(player.Id, Signal.ALL_OTHERS_LOST);
+                        RaiseSignal(player, Signal.ALL_OTHERS_LOST);
                 }
 
                 //someone else won?
@@ -61,54 +71,59 @@ namespace Sandbox.Game.SessionComponents
             }
         }
 
-        public bool Update(MyPlayer.PlayerId Id, MyEntity entity) //returns if lost
+        public bool Update(MyPlayer player, MyEntity entity) //returns if lost
         {
             //MySessionComponentMission.Static.TryCreateFromDefault(Id);
 
-            if (IsLocal(Id))
-                UpdateLocal(Id);
+            //if (IsLocal(player.Id))
+            //    UpdateLocal(player.Id);
 
             if (!Sync.IsServer)
                 return false;
 
             MyMissionTriggers mtrig;
-            if (!MissionTriggers.TryGetValue(Id, out mtrig))
+            if (!MissionTriggers.TryGetValue(player.Id, out mtrig))
             {
                 //Debug.Assert(false,"Bad ID for update in missionTriggers");
-                mtrig=TryCreateFromDefault(Id, false);
+                mtrig = TryCreateFromDefault(player.Id, false);
             }
-            mtrig.UpdateWin(Id, entity);
+            mtrig.UpdateWin(player, entity);
             if (!mtrig.Won)
-                mtrig.UpdateLose(Id, entity);
+                mtrig.UpdateLose(player, entity);
             else
+            {
                 m_someoneWon = true;
+                MyAnalyticsHelper.ReportTutorialEnd();
+                MyTutorialHelper.MissionSuccess();
+            }
             return mtrig.Lost;
         }
 
-        public static void PlayerDied(MyPlayer.PlayerId Id)
+        public static void PlayerDied(MyPlayer player)
         {
             //if (!Sync.IsServer) server still checks death count trigger "for real", but we need to know lives left on client to display it on screen
             //    return;
-            RaiseSignal(Id,Signal.PLAYER_DIED);
+            RaiseSignal(player,Signal.PLAYER_DIED);
         }
 
-        public static void RaiseSignal(MyPlayer.PlayerId Id, Signal signal)
+        public static void RaiseSignal(MyPlayer player, Signal signal)
         {
             MyMissionTriggers mtrig;
-            if (!Static.MissionTriggers.TryGetValue(Id, out mtrig))
-                mtrig = Static.TryCreateFromDefault(Id, false);
-            mtrig.RaiseSignal(Id, signal);
-            if (Static.IsLocal(Id))
-                Static.UpdateLocal(Id);
+            if (!Static.MissionTriggers.TryGetValue(player.Id, out mtrig))
+                mtrig = Static.TryCreateFromDefault(player.Id, false);
+            mtrig.RaiseSignal(player.Id, signal);
+            if (Static.IsLocal(player.Id))
+                Static.UpdateLocal(player);
         }
 
         public static bool CanRespawn(MyPlayer.PlayerId Id)
         {
+            if (MySession.Static.Settings.ScenarioEditMode)
+                return true;
             //beware, can be unreliable on client - you can call it before newest info from server arrives
             MyMissionTriggers mtrig;
             if (!Static.MissionTriggers.TryGetValue(Id, out mtrig))
             {
-                Debug.Fail("Bad ID for CanRespawn");
                 return true;
             }
             return !mtrig.Lost;
@@ -117,20 +132,41 @@ namespace Sandbox.Game.SessionComponents
         #region displaying win/lose message on local computer
         private void UpdateLocal()
         {
-            if (!MySandboxGame.IsDedicated && MySession.LocalHumanPlayer != null)
-                UpdateLocal(MySession.LocalHumanPlayer.Id);
+            if (!MySandboxGame.IsDedicated && MySession.Static.LocalHumanPlayer != null)
+                UpdateLocal(MySession.Static.LocalHumanPlayer);
         }
-        private void UpdateLocal(MyPlayer.PlayerId Id)
+        private void UpdateLocal(MyPlayer player)
+        {
+            MyEntity me = null;
+            if (player.Controller != null &&
+                player.Controller.ControlledEntity != null &&
+                player.Controller.ControlledEntity.Entity != null)
+                me = player.Controller.ControlledEntity.Entity;
+            UpdateLocal(player, me);
+        }
+        private void UpdateLocal(MyPlayer player, MyEntity me)
         {
             MyMissionTriggers mtrig;
-            if (!MissionTriggers.TryGetValue(Id, out mtrig))
+            if (!MissionTriggers.TryGetValue(player.Id, out mtrig))
             {
                 //Debug.Fail("Bad ID for UpdateLocal");
-                mtrig = TryCreateFromDefault(Id, false);
+                mtrig = TryCreateFromDefault(player.Id, false);
                 return;
             }
             mtrig.DisplayMsg();
-            mtrig.DisplayHints();
+            mtrig.DisplayHints(player, me);
+        }
+        #endregion
+        #region progress
+        public static StringBuilder GetProgress(MyPlayer player)
+        {
+            MyMissionTriggers mtrig;
+            if (!Static.MissionTriggers.TryGetValue(player.Id, out mtrig))
+            {
+                //Debug.Assert(false,"Bad ID for update in missionTriggers");
+                mtrig = Static.TryCreateFromDefault(player.Id, false);
+            }
+            return mtrig.GetProgress();
         }
         #endregion
         #region network
@@ -157,7 +193,7 @@ namespace Sandbox.Game.SessionComponents
         #endregion
         private bool IsLocal(MyPlayer.PlayerId Id)
         {
-            if (!MySandboxGame.IsDedicated && MySession.LocalHumanPlayer!=null && Id == MySession.LocalHumanPlayer.Id)
+            if (!MySandboxGame.IsDedicated && MySession.Static.LocalHumanPlayer!=null && Id == MySession.Static.LocalHumanPlayer.Id)
                 return true;
             return false;
         }

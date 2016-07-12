@@ -12,17 +12,22 @@ using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.World;
 using Sandbox.Game.GameSystems.Conveyors;
 using VRage;
-using Sandbox.ModAPI.Ingame;
+using Sandbox.ModAPI;
 using VRage.Library.Utils;
 using VRage.ObjectBuilders;
+using Sandbox.ModAPI.Interfaces;
+using VRage.Game;
+using VRage.Game.Entity;
+using VRage.ModAPI;
+using VRage.Game.ModAPI.Ingame;
 
 namespace Sandbox.Game.Entities
 {
     [MyCubeBlockType(typeof(MyObjectBuilder_CargoContainer))]
-    class MyCargoContainer : MyTerminalBlock, IMyInventoryOwner, IMyConveyorEndpointBlock, IMyCargoContainer
+    public class MyCargoContainer : MyTerminalBlock, IMyConveyorEndpointBlock, IMyCargoContainer, IMyInventoryOwner
     {
         private MyCargoContainerDefinition m_cargoDefinition;
-        MyInventory m_inventory;
+        
         private bool m_useConveyorSystem = true;
 
         private MyMultilineConveyorEndpoint m_conveyorEndpoint;
@@ -64,25 +69,27 @@ namespace Sandbox.Game.Entities
             var cargoBuilder = (MyObjectBuilder_CargoContainer)objectBuilder;
             m_containerType = cargoBuilder.ContainerType;
 
-            if (!Components.Has<MyInventoryBase>())
+            if (MyFakes.ENABLE_INVENTORY_FIX)
             {
-                m_inventory = new MyInventory(m_cargoDefinition.InventorySize.Volume, m_cargoDefinition.InventorySize, MyInventoryFlags.CanSend | MyInventoryFlags.CanReceive, this);
-                Components.Add<MyInventoryBase>(m_inventory);
+                FixSingleInventory();
+            }
 
+            // Backward compatibility - inventory component not defined in definition files and in entity container
+            if (this.GetInventory() == null)
+            {
+                MyInventory inventory = new MyInventory(m_cargoDefinition.InventorySize.Volume, m_cargoDefinition.InventorySize, MyInventoryFlags.CanSend | MyInventoryFlags.CanReceive);
+                Components.Add<MyInventoryBase>(inventory);
+                
                 if (m_containerType != null && MyFakes.RANDOM_CARGO_PLACEMENT && (cargoBuilder.Inventory == null || cargoBuilder.Inventory.Items.Count == 0))
                     SpawnRandomCargo();
-                else
-                    m_inventory.Init(cargoBuilder.Inventory);
-            }
-            else
-            {
-                m_inventory = Components.Get<MyInventoryBase>() as MyInventory;
-                m_inventory.Owner = this;
             }
 
-            if(MyPerGameSettings.InventoryMass)
-                m_inventory.ContentsChanged += Inventory_ContentsChanged;
+            //Backward compatibility
+            if (cargoBuilder.Inventory != null && cargoBuilder.Inventory.Items.Count > 0)
+                this.GetInventory().Init(cargoBuilder.Inventory);
 
+            Debug.Assert(this.GetInventory().Owner == this, "Ownership was not set!");
+            this.GetInventory().SetFlags(MyInventoryFlags.CanSend | MyInventoryFlags.CanReceive);
             m_conveyorEndpoint = new MyMultilineConveyorEndpoint(this);
             AddDebugRenderComponent(new Components.MyDebugRenderComponentDrawConveyorEndpoint(m_conveyorEndpoint));
             UpdateIsWorking();
@@ -97,8 +104,11 @@ namespace Sandbox.Game.Entities
         {
             MyObjectBuilder_CargoContainer cargoBuilder = (MyObjectBuilder_CargoContainer)base.GetObjectBuilderCubeBlock(copy);
 
-            if (!MyPerGameSettings.ComponentSaving)
-                cargoBuilder.Inventory = m_inventory.GetObjectBuilder();
+            //This is de/serialized through component container
+            //if (!MyFakes.ENABLE_MEDIEVAL_INVENTORY)
+            //    cargoBuilder.Inventory = Inventory.GetObjectBuilder();
+            //else
+            //    cargoBuilder.Inventory = null;
 
             if (m_containerType != null)
             {
@@ -108,63 +118,20 @@ namespace Sandbox.Game.Entities
             return cargoBuilder;
         }
 
-        internal override float GetMass()
-        {
-            var mass = base.GetMass();
-            if (MyPerGameSettings.InventoryMass)
-                return mass + (float)m_inventory.CurrentMass;
-            else 
-                return mass;
-        }
         public void SpawnRandomCargo()
         {
             if (m_containerType == null) return;
 
             MyContainerTypeDefinition containerDefinition = MyDefinitionManager.Static.GetContainerTypeDefinition(m_containerType);
-            if (containerDefinition != null && containerDefinition.Items.Count() > 0)
+            if (containerDefinition != null && containerDefinition.Items.Length > 0)
             {
-                int itemNumber = MyUtils.GetRandomInt(containerDefinition.CountMin, containerDefinition.CountMax);
-                for (int i = 0; i < itemNumber; ++i)
-                {
-                    MyContainerTypeDefinition.ContainerTypeItem item = containerDefinition.SelectNextRandomItem();
-                    MyFixedPoint amount = (MyFixedPoint)MyRandom.Instance.NextFloat((float)item.AmountMin, (float)item.AmountMax);
-
-                    if (MyDefinitionManager.Static.GetPhysicalItemDefinition(item.DefinitionId).HasIntegralAmounts)
-                    {
-                        amount = MyFixedPoint.Ceiling(amount); // Use ceiling to avoid amounts equal to 0
-                    }
-
-                    amount = MyFixedPoint.Min(m_inventory.ComputeAmountThatFits(item.DefinitionId), amount);
-                    if (amount > 0)
-                    {
-                        var inventoryItem = (MyObjectBuilder_PhysicalObject)MyObjectBuilderSerializer.CreateNewObject(item.DefinitionId);
-                        m_inventory.AddItems(amount, inventoryItem);
-                    }
-                }
-                containerDefinition.DeselectAll();
+                this.GetInventory().GenerateContent(containerDefinition);
             }
         }
 
         #region Inventory
-        public int InventoryCount { get { return 1; } }
 
-        public MyInventory GetInventory(int index = 0)
-        {
-            Debug.Assert(index == 0);
-            return m_inventory;
-        }
-
-        String IMyInventoryOwner.DisplayNameText
-        {
-            get { return CustomName.ToString(); }
-        }
-
-        public MyInventoryOwnerTypeEnum InventoryOwnerType
-        {
-            get { return MyInventoryOwnerTypeEnum.Storage; }
-        }
-
-        bool IMyInventoryOwner.UseConveyorSystem
+        bool UseConveyorSystem
         {
             get
             {
@@ -172,38 +139,95 @@ namespace Sandbox.Game.Entities
             }
             set
             {
-                throw new NotImplementedException();
+                m_useConveyorSystem = value;
             }
         }
 
-        bool ModAPI.Interfaces.IMyInventoryOwner.UseConveyorSystem
+        protected override void OnInventoryComponentAdded(MyInventoryBase inventory)
         {
-            get
+            base.OnInventoryComponentAdded(inventory);
+            Debug.Assert(this.GetInventory() != null, "Added inventory to cargo container but different type than MyInventory?! Check this.");
+            if (this.GetInventory() != null)
             {
-                return (this as IMyInventoryOwner).UseConveyorSystem;
-            }
-            set
-            {
-                (this as IMyInventoryOwner).UseConveyorSystem = value;
+                if (MyPerGameSettings.InventoryMass)
+                    this.GetInventory().ContentsChanged += Inventory_ContentsChanged;
             }
         }
 
-        Sandbox.ModAPI.Interfaces.IMyInventory Sandbox.ModAPI.Interfaces.IMyInventoryOwner.GetInventory(int index)
+        protected override void OnInventoryComponentRemoved(MyInventoryBase inventory)
         {
-            return GetInventory(index);
+            base.OnInventoryComponentRemoved(inventory);
+            var removedInventory = inventory as MyInventory;
+            Debug.Assert(removedInventory != null, "Removed inventory from cargo container is different type than MyInventory?! Check this.");
+            if (removedInventory != null)
+            {
+                if (MyPerGameSettings.InventoryMass)
+                    removedInventory.ContentsChanged -= Inventory_ContentsChanged;
+            }
         }
+
         #endregion
 
         public override void OnRemovedByCubeBuilder()
         {
-            ReleaseInventory(m_inventory);
+            ReleaseInventory(this.GetInventory());
             base.OnRemovedByCubeBuilder();
         }
 
         public override void OnDestroy()
         {
-            ReleaseInventory(m_inventory, true);
+            ReleaseInventory(this.GetInventory(), true);
             base.OnDestroy();
         }
+
+        #region IMyInventoryOwner
+
+        int IMyInventoryOwner.InventoryCount
+        {
+            get { return InventoryCount; }
+        }
+
+        long IMyInventoryOwner.EntityId
+        {
+            get { return EntityId; }
+        }
+
+        bool IMyInventoryOwner.HasInventory
+        {
+            get { return HasInventory; }
+        }
+
+        bool IMyInventoryOwner.UseConveyorSystem
+        {
+            get
+            {
+                return UseConveyorSystem;
+            }
+            set
+            {
+                UseConveyorSystem = value;
+            }
+        }
+
+        IMyInventory IMyInventoryOwner.GetInventory(int index)
+        {
+            return this.GetInventory(index);
+        }
+
+        #endregion
+
+        #region IMyConveyorEndpointBlock implementation
+
+        public Sandbox.Game.GameSystems.Conveyors.PullInformation GetPullInformation()
+        {
+            return null;
+        }
+
+        public Sandbox.Game.GameSystems.Conveyors.PullInformation GetPushInformation()
+        {
+            return null;
+        }
+
+        #endregion
     }
 }

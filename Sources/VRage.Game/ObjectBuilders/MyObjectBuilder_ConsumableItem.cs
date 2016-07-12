@@ -1,15 +1,12 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using VRage.Game.ObjectBuilders;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
-    public class MyObjectBuilder_ConsumableItem : MyObjectBuilder_PhysicalObject
+    public class MyObjectBuilder_ConsumableItem : MyObjectBuilder_UsableItem
     {
     }
 }

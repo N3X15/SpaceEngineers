@@ -1,5 +1,4 @@
 ﻿using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Voxels;
 using Sandbox.Definitions;
 using Sandbox.Engine.Utils;
 using Sandbox.Engine.Voxels;
@@ -25,6 +24,7 @@ using VRage.FileSystem;
 using VRage.ObjectBuilders;
 using VRage.Collections;
 using Sandbox.Common.ObjectBuilders.Definitions;
+using VRage.Game;
 
 namespace Sandbox.Game.World
 {
@@ -167,28 +167,28 @@ namespace Sandbox.Game.World
             }
             else
             {
-                var randomStart = playerStarts[MyUtils.GetRandomInt(playerStarts.Length)];
-                randomStart.SetupCharacter(args);
+                Sync.Players.RespawnComponent.SetupCharacterFromStarts(player, playerStarts, args);
             }
 
             // Setup toolbar
-            if (args.Scenario.DefaultToolbar != null)
+            var defaultToolbar = args.Scenario.DefaultToolbar;
+            if (defaultToolbar != null)
             {
                 // TODO: JakubD fix this
                 MyToolbar toolbar = new MyToolbar(MyToolbarType.Character);
-                toolbar.Init(args.Scenario.DefaultToolbar, player.Character, true);
+                toolbar.Init(defaultToolbar, player.Character, true);
 
                 MySession.Static.Toolbars.RemovePlayerToolbar(player.Id);
                 MySession.Static.Toolbars.AddPlayerToolbar(player.Id, toolbar);
-                MyToolbarComponent.InitToolbar(MyToolbarType.Character, args.Scenario.DefaultToolbar);
-                MyToolbarComponent.InitCharacterToolbar(args.Scenario.DefaultToolbar);
+                MyToolbarComponent.InitToolbar(MyToolbarType.Character, defaultToolbar);
+                MyToolbarComponent.InitCharacterToolbar(defaultToolbar);
             }
         }
 
         public static void FillInventoryWithDefaults(MyObjectBuilder_Inventory inventory, MyScenarioDefinition scenario)
         {
             if (inventory.Items == null)
-                inventory.Items = new List<MyObjectBuilder_InventoryItem>(15);
+                inventory.Items = new List<MyObjectBuilder_InventoryItem>();
             else
                 inventory.Items.Clear();
 
@@ -200,15 +200,105 @@ namespace Sandbox.Game.World
                 else
                     guns = scenario.SurvivalModeWeapons;// new string[] { "AngleGrinderItem", "HandDrillItem", "WelderItem" };
 
+                uint itemId = 0;
                 if (guns != null)
                 {
                     foreach (var gun in guns)
                     {
                         var inventoryItem = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_InventoryItem>();
                         inventoryItem.Amount = 1;
-                        inventoryItem.Content = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_PhysicalGunObject>(gun.ToString());
+                        inventoryItem.PhysicalContent = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_PhysicalGunObject>(gun.ToString());
+                        inventoryItem.ItemId = itemId++;
                         inventory.Items.Add(inventoryItem);
                     }
+                    inventory.nextItemId = itemId;
+                }
+
+                MyScenarioDefinition.StartingItem[] items;
+                if (MySession.Static.CreativeMode)
+                    items = scenario.CreativeModeComponents;
+                else
+                    items = scenario.SurvivalModeComponents;
+
+                if (items != null)
+                {
+                    foreach (var item in items)
+                    {
+                        var inventoryItem = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_InventoryItem>();
+                        inventoryItem.Amount = item.amount;
+                        inventoryItem.PhysicalContent = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Component>(item.itemName.ToString());
+                        inventoryItem.ItemId = itemId++;
+                        inventory.Items.Add(inventoryItem);
+                    }
+                    inventory.nextItemId = itemId;
+                }
+
+                MyScenarioDefinition.StartingPhysicalItem[] physicalItems;
+                if (MySession.Static.CreativeMode)
+                    physicalItems = scenario.CreativeModePhysicalItems;
+                else
+                    physicalItems = scenario.SurvivalModePhysicalItems;
+
+                if (physicalItems != null)
+                {
+                    foreach (var item in physicalItems)
+                    {
+                        var inventoryItem = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_InventoryItem>();
+                        inventoryItem.Amount = item.amount;
+                        if (item.itemType.ToString().Equals("Ore"))
+                        {
+                            inventoryItem.PhysicalContent = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(item.itemName.ToString());
+                        }
+                        else if (item.itemType.ToString().Equals("Ingot"))
+                        {
+                            inventoryItem.PhysicalContent = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ingot>(item.itemName.ToString());
+                        }
+                        else if (item.itemType.ToString().Equals("OxygenBottle"))
+                        {
+                            inventoryItem.Amount = 1;
+                            inventoryItem.PhysicalContent = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_OxygenContainerObject>(item.itemName.ToString());
+                            (inventoryItem.PhysicalContent as MyObjectBuilder_GasContainerObject).GasLevel = (float)item.amount;
+                        }
+                        else if (item.itemType.ToString().Equals("GasBottle"))
+                        {
+                            inventoryItem.Amount = 1;
+                            inventoryItem.PhysicalContent = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_GasContainerObject>(item.itemName.ToString());
+                            (inventoryItem.PhysicalContent as MyObjectBuilder_GasContainerObject).GasLevel = (float)item.amount;
+                        }
+                        inventoryItem.ItemId = itemId++;
+                        inventory.Items.Add(inventoryItem);
+                    }
+                    inventory.nextItemId = itemId;
+                }
+
+                if (MySession.Static.CreativeMode)
+                    items = scenario.CreativeModeAmmoItems;
+                else
+                    items = scenario.SurvivalModeAmmoItems;
+
+                if (items != null)
+                {
+                    foreach (var item in items)
+                    {
+                        var inventoryItem = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_InventoryItem>();
+                        inventoryItem.Amount = item.amount;
+                        inventoryItem.PhysicalContent = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_AmmoMagazine>(item.itemName.ToString());
+                        inventoryItem.ItemId = itemId++;
+                        inventory.Items.Add(inventoryItem);
+                    }
+                    inventory.nextItemId = itemId;
+                }
+
+                MyObjectBuilder_InventoryItem[] inventoryItems = MySession.Static.CreativeMode ? scenario.CreativeInventoryItems : scenario.SurvivalInventoryItems;
+                if (inventoryItems != null)
+                {
+                    foreach (var ob in inventoryItems)
+                    {
+                        var item = ob.Clone() as MyObjectBuilder_InventoryItem;
+                        item.ItemId = itemId++;
+                        inventory.Items.Add(item);
+                    }
+                    inventory.nextItemId = itemId;
                 }
             }
         }
@@ -227,32 +317,73 @@ namespace Sandbox.Game.World
             }
         }
 
-        public static void AddAsteroidPrefab(string prefabName, Vector3 position, string name)
+
+        public static MyVoxelMap AddAsteroidPrefab(string prefabName, MatrixD worldMatrix, string name)
         {
             var fileName = GetVoxelPrefabPath(prefabName);
             var storage = LoadRandomizedVoxelMapPrefab(fileName);
-            AddVoxelMap(name, storage, position);
+            return AddVoxelMap(name, storage, worldMatrix);
         }
 
-        public static MyVoxelMap AddVoxelMap(string storageName, MyStorageBase storage, Vector3 positionMinCorner, long entityId = 0)
+        public static MyVoxelMap AddAsteroidPrefab(string prefabName, Vector3D position, string name)
+        {
+            var fileName = GetVoxelPrefabPath(prefabName);
+            var storage = LoadRandomizedVoxelMapPrefab(fileName);
+            return AddVoxelMap(name, storage, position);
+        }
+
+        public static MyVoxelMap AddAsteroidPrefabCentered(string prefabName, Vector3D position, MatrixD rotation, string name)
+        {
+            var fileName = GetVoxelPrefabPath(prefabName);
+            var storage = LoadRandomizedVoxelMapPrefab(fileName);
+            Vector3 offset = storage.Size * MyVoxelConstants.VOXEL_SIZE_IN_METRES_HALF;
+
+            rotation.Translation = position - offset;
+
+            return AddVoxelMap(name, storage, rotation);
+        }
+
+        public static MyVoxelMap AddAsteroidPrefabCentered(string prefabName, Vector3D position, string name)
+        {
+            var fileName = GetVoxelPrefabPath(prefabName);
+            var storage = LoadRandomizedVoxelMapPrefab(fileName);
+            Vector3 offset = storage.Size * MyVoxelConstants.VOXEL_SIZE_IN_METRES_HALF;
+
+            return AddVoxelMap(name, storage, position - offset);
+        }
+
+        public static MyVoxelMap AddVoxelMap(string storageName, MyStorageBase storage, Vector3D positionMinCorner, long entityId =0)
         {
             var voxelMap = new MyVoxelMap();
-            voxelMap.EntityId = entityId;
+            if (entityId != 0)
+            {
+                voxelMap.EntityId = entityId;
+            }
             voxelMap.Init(storageName, storage, positionMinCorner);
+            MyEntities.RaiseEntityCreated(voxelMap);
             MyEntities.Add(voxelMap);
             return voxelMap;
         }
 
-      
-        private static Vector3I FindBestOctreeSize(float radius)
+        public static MyVoxelMap AddVoxelMap(string storageName, MyStorageBase storage, MatrixD worldMatrix, long entityId=0, bool lazyPhysics = false)
         {
-            int nodeRadius = MyVoxelConstants.RENDER_CELL_SIZE_IN_VOXELS;
-            while (nodeRadius < radius)
-                nodeRadius *= 2;
-            //nodeRadius *= 2;
-            return new Vector3I(nodeRadius, nodeRadius, nodeRadius);
+            ProfilerShort.Begin("AddVoxelMap");
+
+            var voxelMap = new MyVoxelMap();
+            if (entityId != 0)
+            {
+                voxelMap.EntityId = entityId;
+            }
+            voxelMap.DelayRigidBodyCreation = lazyPhysics;
+            voxelMap.Init(storageName, storage, worldMatrix);
+            MyEntities.Add(voxelMap);
+            MyEntities.RaiseEntityCreated(voxelMap);
+
+            ProfilerShort.End();
+            return voxelMap;
         }
 
+      
         public static void AddEntity(MyObjectBuilder_EntityBase entityBuilder)
         {
             MyEntities.CreateFromObjectBuilderAndAdd(entityBuilder);
@@ -267,7 +398,7 @@ namespace Sandbox.Game.World
             }
         }
 
-        private static void SetupBase(string basePrefabName, Vector3 offset, string voxelFilename, string beaconName = null)
+        private static void SetupBase(string basePrefabName, Vector3 offset, string voxelFilename, string beaconName = null, long factionId = 0)
         {
             // Add one inital asteroid underneath the base. The base and the asteroid right now are hardcoded.
             // Maybe we can add some base+asteroid combinations later and select one randomly
@@ -280,14 +411,17 @@ namespace Sandbox.Game.World
                 updateSync: false);
 
             // Small red block on landing gears.
-            MyPrefabManager.Static.AddShipPrefab("SmallShip_SingleBlock", Matrix.CreateTranslation(new Vector3(-5.20818424f, -0.442984432f, -8.31522751f) + offset));
+            MyPrefabManager.Static.AddShipPrefab("SmallShip_SingleBlock", Matrix.CreateTranslation(new Vector3(-5.20818424f, -0.442984432f, -8.31522751f) + offset), factionId);
 
-            var filePath = GetVoxelPrefabPath("VerticalIsland_128x128x128");
-            var storage = LoadRandomizedVoxelMapPrefab(filePath);
-            AddVoxelMap(voxelFilename, storage, new Vector3(-20, -110, -60) + offset);
+            if (voxelFilename != null)
+            {
+                var filePath = GetVoxelPrefabPath("VerticalIsland_128x128x128");
+                var storage = LoadRandomizedVoxelMapPrefab(filePath);
+                AddVoxelMap(voxelFilename, storage, new Vector3(-20, -110, -60) + offset);
+            }
         }
 
-        private static MyStorageBase LoadRandomizedVoxelMapPrefab(string prefabFilePath)
+        public static MyStorageBase LoadRandomizedVoxelMapPrefab(string prefabFilePath)
         {
             var storage = MyStorageBase.LoadFromFile(prefabFilePath);
             storage.DataProvider = MyCompositeShapeProvider.CreateAsteroidShape(
@@ -342,15 +476,15 @@ namespace Sandbox.Game.World
         public static void SetProceduralSettings(int? asteroidAmount, MyObjectBuilder_SessionSettings sessionSettings)
         {
             sessionSettings.ProceduralSeed = MyRandom.Instance.Next();
-            switch ((MyGuiScreenWorldSettings.AsteroidAmountEnum)asteroidAmount)
+            switch ((MyGuiScreenWorldGeneratorSettings.AsteroidAmountEnum)asteroidAmount)
             {
-                case MyGuiScreenWorldSettings.AsteroidAmountEnum.ProceduralLow:
+                case MyGuiScreenWorldGeneratorSettings.AsteroidAmountEnum.ProceduralLow:
                     sessionSettings.ProceduralDensity = 0.25f;
                     break;
-                case MyGuiScreenWorldSettings.AsteroidAmountEnum.ProceduralNormal:
+                case MyGuiScreenWorldGeneratorSettings.AsteroidAmountEnum.ProceduralNormal:
                     sessionSettings.ProceduralDensity = 0.35f;
                     break;
-                case MyGuiScreenWorldSettings.AsteroidAmountEnum.ProceduralHigh:
+                case MyGuiScreenWorldGeneratorSettings.AsteroidAmountEnum.ProceduralHigh:
                     sessionSettings.ProceduralDensity = 0.50f;
                     break;
                 default:

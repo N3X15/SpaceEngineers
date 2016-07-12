@@ -2,6 +2,8 @@
 using Sandbox.Common.ObjectBuilders.Definitions;
 
 using Sandbox.Engine.Utils;
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRage.Utils;
 
 namespace Sandbox.Definitions
@@ -11,6 +13,7 @@ namespace Sandbox.Definitions
     {
         public float MinRadius;
         public float MaxRadius;
+	    public MyStringHash ResourceSinkGroup;
         public float BasePowerInput;
         public float ConsumptionPower;
 
@@ -23,6 +26,7 @@ namespace Sandbox.Definitions
             
             MinRadius = obGenerator.MinRadius;
             MaxRadius = obGenerator.MaxRadius;
+	        ResourceSinkGroup = MyStringHash.GetOrCompute(obGenerator.ResourceSinkGroup);
             BasePowerInput = obGenerator.BasePowerInput;
             ConsumptionPower = obGenerator.ConsumptionPower;
         }

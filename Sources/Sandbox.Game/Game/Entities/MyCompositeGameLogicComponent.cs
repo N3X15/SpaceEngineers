@@ -1,11 +1,11 @@
-﻿using Sandbox.Common.Components;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Sandbox.Common.ObjectBuilders;
 using VRage.ObjectBuilders;
-using VRage.Components;
+using VRage.Game.Components;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.Entities
 {
@@ -20,9 +20,8 @@ namespace Sandbox.Game.Entities
 
         public static MyGameLogicComponent Create(ICollection<MyGameLogicComponent> logicComponents, MyEntity entity)
         {
-            // CH: TODO
-            /*foreach (MyGameLogicComponent item in logicComponents)
-                item.Container = entity.Components;*/
+            foreach (MyGameLogicComponent item in logicComponents)
+                item.SetContainer(entity.Components);
 
             switch (logicComponents.Count)
             {

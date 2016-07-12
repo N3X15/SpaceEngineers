@@ -8,21 +8,35 @@ using VRageMath;
 
 namespace VRageRender
 {
-    class MySSAO_Params
+    struct MySSAO_Params
     {
-        internal float MinRadius = 0.095f;
-        internal float MaxRadius = 4.16f;
-        internal float RadiusGrow = 1.007f;
-        internal float Falloff = 3.08f;
-        internal float RadiusBias = 0.25f;
-        internal float Contrast = 2.617f;
-        internal float Normalization = 0.075f;
-        internal float ColorScale = 0.6f;
+        internal float MinRadius;
+        internal float MaxRadius;
+        internal float RadiusGrow;
+        internal float Falloff;
+        internal float RadiusBias;
+        internal float Contrast;
+        internal float Normalization;
+        internal float ColorScale;
+
+        internal static MySSAO_Params Default = new MySSAO_Params
+        {
+            MinRadius = 0.095f,
+            MaxRadius = 4.16f,
+            RadiusGrow = 1.007f,
+            Falloff = 3.08f,
+            RadiusBias = 0.25f,
+            Contrast = 2.617f,
+            Normalization = 0.075f,
+            ColorScale = 0.6f,
+        };
     }
     		
     class MySSAO : MyScreenPass
     {
-        internal static MySSAO_Params Params = new MySSAO_Params();
+        internal static MySSAO_Params Params = MySSAO_Params.Default;
+
+        internal static bool UseBlur = true;
 
         readonly static Vector2[] m_filterKernel =
 		{
@@ -37,8 +51,9 @@ namespace VRageRender
 		};
 
         const int NUM_SAMPLES = 8;
-
-        static void FillRandomVectors(SharpDX.DataStream stream)
+        static Vector4[] m_tmpOccluderPoints = new Vector4[NUM_SAMPLES];
+        static Vector4[] m_tmpOccluderPointsFlipped = new Vector4[NUM_SAMPLES];
+        static void FillRandomVectors(MyMapping myMapping)
         {
             float maxTapMag = -1;
             for (uint i = 0; i < NUM_SAMPLES; i++)
@@ -50,64 +65,53 @@ namespace VRageRender
 
             float maxTapMagInv = 1.0f / maxTapMag;
             float rsum = 0.0f;
-            Vector4[] occluderPoints = new Vector4[NUM_SAMPLES];
-            Vector4[] occluderPointsFlipped = new Vector4[NUM_SAMPLES];
             for (uint i = 0; i < NUM_SAMPLES; i++)
             {
                 Vector2 tapOffs = new Vector2(m_filterKernel[i].X * maxTapMagInv, m_filterKernel[i].Y * maxTapMagInv);
 
-                occluderPoints[i].X = tapOffs.X;
-                occluderPoints[i].Y = tapOffs.Y;
-                occluderPoints[i].Z = 0;
-                occluderPoints[i].W = (float)System.Math.Sqrt(1 - tapOffs.X * tapOffs.X - tapOffs.Y * tapOffs.Y);
+                m_tmpOccluderPoints[i].X = tapOffs.X;
+                m_tmpOccluderPoints[i].Y = tapOffs.Y;
+                m_tmpOccluderPoints[i].Z = 0;
+                m_tmpOccluderPoints[i].W = (float)System.Math.Sqrt(1 - tapOffs.X * tapOffs.X - tapOffs.Y * tapOffs.Y);
 
-                rsum += occluderPoints[i].W;
+                rsum += m_tmpOccluderPointsFlipped[i].W;
 
-                //
-                occluderPointsFlipped[i].X = tapOffs.X;
-                occluderPointsFlipped[i].Y = -tapOffs.Y;
+                m_tmpOccluderPointsFlipped[i].X = tapOffs.X;
+                m_tmpOccluderPointsFlipped[i].Y = -tapOffs.Y;
             }
 
             var colorScale = 1.0f / (2 * rsum);
             colorScale *= Params.ColorScale;
 
+            for (int occluderIndex = 0; occluderIndex < NUM_SAMPLES; ++occluderIndex)
+                myMapping.WriteAndPosition(ref m_tmpOccluderPoints[occluderIndex]);
 
-            for (uint i = 0; i < NUM_SAMPLES; i++)
-            {
-                stream.Write(occluderPoints[i]);
-            }
-            for (uint i = 0; i < NUM_SAMPLES; i++)
-            {
-                stream.Write(occluderPointsFlipped[i]);
-            }
+            for (int occluderIndex = 0; occluderIndex < NUM_SAMPLES; ++occluderIndex)
+                myMapping.WriteAndPosition(ref m_tmpOccluderPointsFlipped[occluderIndex]);
         }
 
         static PixelShaderId m_ps;
 
         internal static void RecreateShadersForSettings()
         {
-            m_ps = MyShaders.CreatePs("ssao_0.hlsl", "volumetric_ssao2");
+            m_ps = MyShaders.CreatePs("ssao_0.hlsl");
         }
 
         internal static void Run(MyBindableResource dst, MyGBuffer gbuffer, MyBindableResource resolvedDepth)
         {
-            RC.Context.ClearRenderTargetView((dst as IRenderTargetBindable).RTV, new SharpDX.Color4(1, 1, 1, 1));
+            RC.DeviceContext.ClearRenderTargetView((dst as IRenderTargetBindable).RTV, new SharpDX.Color4(1, 1, 1, 1));
 
             var paramsCB = MyCommon.GetObjectCB(16 * (2 + NUM_SAMPLES * 2));
 
             var mapping = MyMapping.MapDiscard(paramsCB);
-            mapping.stream.Write(Params.MinRadius);
-            mapping.stream.Write(Params.MaxRadius);
-            mapping.stream.Write(Params.RadiusGrow);
-            mapping.stream.Write(Params.Falloff);
-            mapping.stream.Write(Params.RadiusBias);
-            mapping.stream.Write(Params.Contrast);
-            mapping.stream.Write(Params.Normalization);
-            mapping.stream.Write(0);
-            FillRandomVectors(mapping.stream);
+            mapping.WriteAndPosition(ref Params);
+            FillRandomVectors(mapping);
             mapping.Unmap();
 
-            RC.SetCB(0, MyCommon.FrameConstants);
+            if (!MyStereoRender.Enable)
+                RC.SetCB(0, MyCommon.FrameConstants);
+            else
+                MyStereoRender.BindRawCB_FrameConstants(RC);
             RC.SetCB(1, paramsCB);
 
             RC.SetPS(m_ps);

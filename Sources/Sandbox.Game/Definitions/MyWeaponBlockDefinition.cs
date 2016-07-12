@@ -1,9 +1,8 @@
 ﻿using Sandbox.Common.ObjectBuilders.Definitions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Sandbox.Engine.Utils;
+using System.Diagnostics;
+using VRage.Game;
+using VRage.Game.Definitions;
+using VRage.Utils;
 
 namespace Sandbox.Definitions
 {
@@ -12,6 +11,8 @@ namespace Sandbox.Definitions
     {
         public MyDefinitionId WeaponDefinitionId;
 
+		public MyStringHash ResourceSinkGroup;
+
         public float InventoryMaxVolume;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
@@ -19,8 +20,10 @@ namespace Sandbox.Definitions
             base.Init(builder);
 
             var ob = builder as MyObjectBuilder_WeaponBlockDefinition;
+			Debug.Assert(builder != null);
 
             WeaponDefinitionId = new MyDefinitionId(ob.WeaponDefinitionId.Type, ob.WeaponDefinitionId.Subtype);
+			ResourceSinkGroup = MyStringHash.GetOrCompute(ob.ResourceSinkGroup);
             InventoryMaxVolume = ob.InventoryMaxVolume;
         }
     }

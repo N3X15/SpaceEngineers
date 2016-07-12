@@ -22,11 +22,7 @@ namespace VRageMath
 
         public static MatrixD Identity = new MatrixD(1, 0.0, 0.0, 0.0, 0.0, 1, 0.0, 0.0, 0.0, 0.0, 1, 0.0, 0.0, 0.0, 0.0, 1);
         public static MatrixD Zero = new MatrixD(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        /// <summary>
-        /// Matrix values
-        /// </summary>
-        [FieldOffset(0)]
-        private F16 M;
+
 
         /// <summary>
         /// Value at row 1 column 1 of the matrix.
@@ -108,6 +104,43 @@ namespace VRageMath
         /// </summary>
         [FieldOffset(120)]
         public double M44;
+
+        public Vector3D Col0
+        {
+            get
+            {
+                Vector3D vector3;
+                vector3.X = this.M11;
+                vector3.Y = this.M21;
+                vector3.Z = this.M31;
+                return vector3;
+            }
+        }
+
+        public Vector3D Col1
+        {
+            get
+            {
+                Vector3D vector3;
+                vector3.X = this.M12;
+                vector3.Y = this.M22;
+                vector3.Z = this.M32;
+                return vector3;
+            }
+        }
+
+        public Vector3D Col2
+        {
+            get
+            {
+                Vector3D vector3;
+                vector3.X = this.M13;
+                vector3.Y = this.M23;
+                vector3.Z = this.M33;
+                return vector3;
+            }
+        }
+
 
         /// <summary>
         /// Gets and sets the up vector of the Matrix.
@@ -353,6 +386,7 @@ namespace VRageMath
         /// <summary>
         /// Same result as Matrix.CreateScale(scale) * matrix, but much faster
         /// </summary>
+		[Unsharper.UnsharperDisableReflection()]
         public static void Rescale(ref MatrixD matrix, double scale)
         {
             matrix.M11 *= scale;
@@ -371,6 +405,7 @@ namespace VRageMath
         /// <summary>
         /// Same result as Matrix.CreateScale(scale) * matrix, but much faster
         /// </summary>
+		[Unsharper.UnsharperDisableReflection()]
         public static void Rescale(ref MatrixD matrix, float scale)
         {
             matrix.M11 *= scale;
@@ -389,6 +424,7 @@ namespace VRageMath
         /// <summary>
         /// Same result as Matrix.CreateScale(scale) * matrix, but much faster
         /// </summary>
+		[Unsharper.UnsharperDisableReflection()]
         public static void Rescale(ref MatrixD matrix, ref Vector3D scale)
         {
             matrix.M11 *= scale.X;
@@ -404,12 +440,14 @@ namespace VRageMath
             matrix.M33 *= scale.Z;
         }
 
+		[Unsharper.UnsharperDisableReflection()]
         public static MatrixD Rescale(MatrixD matrix, double scale)
         {
             Rescale(ref matrix, scale);
             return matrix;
         }
 
+		[Unsharper.UnsharperDisableReflection()]
         public static MatrixD Rescale(MatrixD matrix, Vector3D scale)
         {
             Rescale(ref matrix, ref scale);
@@ -1860,6 +1898,31 @@ namespace VRageMath
             return matrix;
         }
 
+        public static Matrix CreateLookAtInverse(Vector3D cameraPosition, Vector3D cameraTarget, Vector3D cameraUpVector)
+        {
+            var vector3_1 = Vector3D.Normalize(cameraPosition - cameraTarget);
+            var vector3_2 = Vector3D.Normalize(Vector3D.Cross(cameraUpVector, vector3_1));
+            var vector1 = Vector3D.Cross(vector3_1, vector3_2);
+            MatrixD matrix;
+            matrix.M11 = vector3_2.X;
+            matrix.M12 = vector3_2.Y;
+            matrix.M13 = vector3_2.Z;
+            matrix.M14 = 0.0f;
+            matrix.M21 = vector1.X;
+            matrix.M22 = vector1.Y;
+            matrix.M23 = vector1.Z;
+            matrix.M24 = 0.0f;
+            matrix.M31 = vector3_1.X;
+            matrix.M32 = vector3_1.Y;
+            matrix.M33 = vector3_1.Z;
+            matrix.M34 = 0.0f;
+            matrix.M41 = cameraPosition.X;
+            matrix.M42 = cameraPosition.Y;
+            matrix.M43 = cameraPosition.Z;
+            matrix.M44 = 1f;
+            return matrix;
+        }
+
         /// <summary>
         /// Creates a view matrix.
         /// </summary>
@@ -1890,6 +1953,11 @@ namespace VRageMath
         public static MatrixD CreateWorld(Vector3D position, Vector3 forward, Vector3 up)
         {
             return CreateWorld(position, (Vector3D)forward, (Vector3D)up);
+        }
+
+        public static MatrixD CreateWorld(Vector3D position)
+        {
+            return CreateWorld(position, Vector3D.Forward, Vector3D.Up);
         }
 
         /// <summary>
@@ -1953,6 +2021,37 @@ namespace VRageMath
         /// </summary>
         /// <param name="quaternion">Quaternion to create the Matrix from.</param>
         public static MatrixD CreateFromQuaternion(Quaternion quaternion)
+        {
+            double num1 = quaternion.X * quaternion.X;
+            double num2 = quaternion.Y * quaternion.Y;
+            double num3 = quaternion.Z * quaternion.Z;
+            double num4 = quaternion.X * quaternion.Y;
+            double num5 = quaternion.Z * quaternion.W;
+            double num6 = quaternion.Z * quaternion.X;
+            double num7 = quaternion.Y * quaternion.W;
+            double num8 = quaternion.Y * quaternion.Z;
+            double num9 = quaternion.X * quaternion.W;
+            MatrixD matrix;
+            matrix.M11 = (double)(1.0 - 2.0 * ((double)num2 + (double)num3));
+            matrix.M12 = (double)(2.0 * ((double)num4 + (double)num5));
+            matrix.M13 = (double)(2.0 * ((double)num6 - (double)num7));
+            matrix.M14 = 0.0f;
+            matrix.M21 = (double)(2.0 * ((double)num4 - (double)num5));
+            matrix.M22 = (double)(1.0 - 2.0 * ((double)num3 + (double)num1));
+            matrix.M23 = (double)(2.0 * ((double)num8 + (double)num9));
+            matrix.M24 = 0.0f;
+            matrix.M31 = (double)(2.0 * ((double)num6 + (double)num7));
+            matrix.M32 = (double)(2.0 * ((double)num8 - (double)num9));
+            matrix.M33 = (double)(1.0 - 2.0 * ((double)num2 + (double)num1));
+            matrix.M34 = 0.0f;
+            matrix.M41 = 0.0f;
+            matrix.M42 = 0.0f;
+            matrix.M43 = 0.0f;
+            matrix.M44 = 1f;
+            return matrix;
+        }
+
+        public static MatrixD CreateFromQuaternion(QuaternionD quaternion)
         {
             double num1 = quaternion.X * quaternion.X;
             double num2 = quaternion.Y * quaternion.Y;
@@ -2290,7 +2389,7 @@ namespace VRageMath
         {
             unsafe
             {
-                fixed (double* data = M.data)
+                fixed (double* data = &M11)
                 {
                     double* basePos = data + row * 4;
                     return new Vector4((float)*basePos, (float)*(basePos + 1), (float)*(basePos + 2), (float)*(basePos + 3));
@@ -2302,8 +2401,8 @@ namespace VRageMath
         {
             unsafe
             {
-                fixed (double* data = M.data)
-                {
+				fixed (double* data = &M11)
+				{
                     double* basePos = data + row * 4;
                     *(basePos + 0) = value.X;
                     *(basePos + 1) = value.Y;
@@ -2319,8 +2418,8 @@ namespace VRageMath
             {
                 unsafe
                 {
-                    fixed (double* data = M.data)
-                    {
+					fixed (double* data = &M11)
+					{
                         return data[row * 4 + column];
                     }
                 }
@@ -2329,8 +2428,8 @@ namespace VRageMath
             {
                 unsafe
                 {
-                    fixed (double* data = M.data)
-                    {
+					fixed (double* data = &M11)
+					{
                         data[row * 4 + column] = value;
                     }
                 }

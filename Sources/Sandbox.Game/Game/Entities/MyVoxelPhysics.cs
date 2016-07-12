@@ -1,5 +1,4 @@
-﻿using Sandbox.Common.ObjectBuilders.Voxels;
-using Sandbox.Engine.Voxels;
+﻿using Sandbox.Engine.Voxels;
 using Sandbox.Game.Components;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
@@ -9,12 +8,14 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using VRage;
+using VRage.Library.Utils;
 using VRage.Voxels;
 using VRageMath;
 
 namespace Sandbox.Game.Entities
 {
-    class MyVoxelPhysics: MyVoxelBase 
+    // This is assumed to be from a planet in the code
+    class MyVoxelPhysics : MyVoxelBase
     {
         MyPlanet m_parent;
 
@@ -24,28 +25,60 @@ namespace Sandbox.Game.Entities
             set { base.Physics = value; }
         }
 
+        public override MyVoxelBase RootVoxel { get { return m_parent; } }
+
         public MyVoxelPhysics()
         {
             AddDebugRenderComponent(new MyDebugRenderComponentVoxelMap(this));
         }
 
-        public void Init(IMyStorage storage, Vector3D positionMinCorner, Vector3I storageMin, Vector3I storageMax,MyPlanet parent)
+        public override void Init(VRage.ObjectBuilders.MyObjectBuilder_EntityBase builder, IMyStorage storage)
         {
-            m_parent = parent;
+            
+        }
 
-            base.Init(null);
+        public void Init(IMyStorage storage, Vector3D positionMinCorner, Vector3I storageMin, Vector3I storageMax, MyPlanet parent)
+        {
+            PositionLeftBottomCorner = positionMinCorner;
 
             m_storageMax = storageMax;
             m_storageMin = storageMin;
 
             m_storage = storage;
-            InitVoxelMap(positionMinCorner, Size, false);
+
+            SizeInMetres = Size * MyVoxelConstants.VOXEL_SIZE_IN_METRES;
+            SizeInMetresHalf = SizeInMetres / 2.0f;
+
+            MatrixD worldMatrix = MatrixD.CreateTranslation(positionMinCorner + SizeInMetresHalf);
+            Init(storage, worldMatrix, storageMin, storageMax, parent);
         }
 
-        protected override void InitVoxelMap(Vector3D positionMinCorner, Vector3I size, bool useOffset = true)
+        public void Init(IMyStorage storage, MatrixD worldMatrix, Vector3I storageMin, Vector3I storageMax, MyPlanet parent)
         {
-            base.InitVoxelMap(positionMinCorner, size, useOffset);
-            Physics = new MyVoxelPhysicsBody(this,1.1f);
+            m_parent = parent;
+
+            long hash = storageMin.X;
+            hash = (hash * 397L) ^ (long)storageMin.Y;
+            hash = (hash * 397L) ^ (long)storageMin.Z;
+            hash = (hash * 397L) ^ (long)parent.EntityId;
+
+            EntityId = MyEntityIdentifier.ConstructId(MyEntityIdentifier.ID_OBJECT_TYPE.VOXEL_PHYSICS, hash & 0x00FFFFFFFFFFFFFF);
+
+            base.Init(null);
+            InitVoxelMap(worldMatrix, Size, false);
+
+        }
+
+        public MyPlanet Parent
+        {
+            get { return m_parent; }
+        }
+
+
+        protected override void InitVoxelMap(MatrixD worldMatrix, Vector3I size, bool useOffset = true)
+        {
+            base.InitVoxelMap(worldMatrix, size, useOffset);
+            Physics = new MyVoxelPhysicsBody(this, 1.5f, 7.0f);
             Physics.Enabled = true;
         }
 
@@ -72,12 +105,6 @@ namespace Sandbox.Game.Entities
         {
             base.BeforeDelete();
             m_storage = null;
-            MySession.Static.VoxelMaps.RemoveVoxelMap(this);
-        }
-
-        override public MySyncVoxel GetSyncObject
-        {
-            get { return (MySyncVoxel)m_parent.SyncObject; }
         }
 
         public override void UpdateBeforeSimulation10()
@@ -95,6 +122,20 @@ namespace Sandbox.Game.Entities
             if (Physics != null)
             {
                 Physics.UpdateAfterSimulation10();
+            }
+        }
+
+        public override int GetOrePriority()
+        {
+            // This ensures that other overlapping voxel grids will have drilling priority.
+            return MyVoxelConstants.PRIORITY_PLANET;
+        }
+
+        public void PrefetchShapeOnRay(ref LineD ray)
+        {
+            if (Physics != null)
+            {
+                Physics.PrefetchShapeOnRay(ref ray);
             }
         }
     }

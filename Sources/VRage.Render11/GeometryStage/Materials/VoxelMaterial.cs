@@ -23,7 +23,6 @@ using BoundingFrustum = VRageMath.BoundingFrustum;
 using Color = VRageMath.Color;
 using SharpDX.D3DCompiler;
 using VRage.Utils;
-using VRage.Utils;
 using VRage.Library.Utils;
 
 namespace VRageRender
@@ -36,11 +35,10 @@ namespace VRageRender
         internal MyStringId ColorMetalXZnY_Texture;
         internal MyStringId ColorMetalpY_Texture;
         internal MyStringId NormalGlossXZnY_Texture;
-        internal MyStringId NormalGlosspY_Texture;
+        internal MyStringId NormalGlossY_Texture;
         internal MyStringId ExtXZnY_Texture;
-        internal MyStringId ExtpY_Texture;
-        internal float TextureScale;
-
+        internal MyStringId ExtY_Texture;
+        
         internal MyTextureArray ColorMetalArray;
         internal MyTextureArray NormalGlossArray;
         internal MyTextureArray ExtArray;
@@ -51,10 +49,10 @@ namespace VRageRender
             MyTextures.GetTexture(set.ColorMetalpY_Texture, null, MyTextureEnum.COLOR_METAL);
 
             MyTextures.GetTexture(set.NormalGlossXZnY_Texture, null, MyTextureEnum.NORMALMAP_GLOSS);
-            MyTextures.GetTexture(set.NormalGlosspY_Texture, null, MyTextureEnum.NORMALMAP_GLOSS);
+            MyTextures.GetTexture(set.NormalGlossY_Texture, null, MyTextureEnum.NORMALMAP_GLOSS);
 
             MyTextures.GetTexture(set.ExtXZnY_Texture, null, MyTextureEnum.EXTENSIONS);
-            MyTextures.GetTexture(set.ExtpY_Texture, null, MyTextureEnum.EXTENSIONS);
+            MyTextures.GetTexture(set.ExtY_Texture, null, MyTextureEnum.EXTENSIONS);
         }
 
         internal static void ReleaseResources(ref MyVoxelMaterialDetailSet set)
@@ -77,17 +75,17 @@ namespace VRageRender
                     new[] { 
                         MyTextures.GetTexture(set.ColorMetalXZnY_Texture, null, MyTextureEnum.COLOR_METAL),
                         MyTextures.GetTexture(set.ColorMetalpY_Texture, null, MyTextureEnum.COLOR_METAL)
-                    }); 
+                    }, "VoxelMaterial CM Array " + set.ColorMetalXZnY_Texture.ToString()); 
             set.NormalGlossArray = new MyTextureArray(
                     new[] { 
                         MyTextures.GetTexture(set.NormalGlossXZnY_Texture, null, MyTextureEnum.NORMALMAP_GLOSS),
-                        MyTextures.GetTexture(set.NormalGlosspY_Texture, null, MyTextureEnum.NORMALMAP_GLOSS)
-                    });
+                        MyTextures.GetTexture(set.NormalGlossY_Texture, null, MyTextureEnum.NORMALMAP_GLOSS)
+                    }, "VoxelMaterial NG Array " + set.NormalGlossXZnY_Texture.ToString());
             set.ExtArray = new MyTextureArray(
                     new[] { 
                         MyTextures.GetTexture(set.ExtXZnY_Texture, null, MyTextureEnum.EXTENSIONS),
-                        MyTextures.GetTexture(set.ExtpY_Texture, null, MyTextureEnum.EXTENSIONS) 
-                    });
+                        MyTextures.GetTexture(set.ExtY_Texture, null, MyTextureEnum.EXTENSIONS) 
+                    }, "VoxelMaterial EA Array " + set.ExtXZnY_Texture.ToString());
         }
     }
 
@@ -97,18 +95,26 @@ namespace VRageRender
         internal MyVoxelMaterialDetailSet Far1;
         internal MyVoxelMaterialDetailSet Far2;
 
-        internal float TransitionDistance0;
-        internal float TransitionDistance1;
-
-        // foliage shit       
-
+        // foliage 
         internal string FoliageArray_Texture;
+        internal string FoliageArray_NormalTexture;
+
+        internal MyTextureArray FoliageColorTextureArray;
+        internal MyTextureArray FoliageNormalTextureArray;
+
         internal Vector2 FoliageScale;
         internal float FoliageDensity;
         internal float FoliageScaleVariation;
+        internal int FoliageType;
 
-        internal bool HasFoliage { get { return FoliageArray_Texture != null; } }
-        internal Vector3 ScaleFactors { get { return new Vector3(1.0f / Near.TextureScale, 1.0f / Far1.TextureScale, 1.0f / Far2.TextureScale); } }
+        internal bool HasFoliage { get { return FoliageArray_Texture != null || FoliageColorTextureArray != null; } }
+        
+        internal Vector4 DistanceAndScale;
+        internal Vector4 DistanceAndScaleFar;
+        internal float ExtensionDetailScale;
+
+        internal Vector2 DistanceAndScaleFar3;
+        internal Color Far3Color;
     }
 
     struct MyVoxelMaterialTriple
@@ -128,6 +134,21 @@ namespace VRageRender
         {
             return I1 > -1 || I2 > -1;
         }
+
+        private class comp : IEqualityComparer<MyVoxelMaterialTriple>
+        {
+            public bool Equals(MyVoxelMaterialTriple x, MyVoxelMaterialTriple y)
+            {
+                return x.I0 == y.I0 && x.I1 == y.I1 && x.I2 == y.I2;
+            }
+
+            public int GetHashCode(MyVoxelMaterialTriple obj)
+            {
+                return (obj.I0 << 16 | obj.I1 << 8 | obj.I2).GetHashCode();
+            }
+        }
+
+        public static readonly IEqualityComparer<MyVoxelMaterialTriple> Comparer = new comp();
     }
 
     struct MaterialFoliageConstantsElem

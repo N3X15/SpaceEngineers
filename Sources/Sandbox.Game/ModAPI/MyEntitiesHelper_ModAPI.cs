@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage.Game.Entity;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
 
@@ -24,6 +25,19 @@ namespace Sandbox.ModAPI
             MyEntity baseEntity;
             var retVal = MyEntities.TryGetEntityById(id, out baseEntity);
             entity = baseEntity;
+            return retVal;
+        }
+
+        bool IMyEntities.TryGetEntityById(long? id, out IMyEntity entity)
+        {
+            entity = null;
+            bool retVal = false;
+            if (id.HasValue)
+            {
+                MyEntity baseEntity;
+                retVal = MyEntities.TryGetEntityById(id.Value, out baseEntity);
+                entity = baseEntity;
+            }
             return retVal;
         }
 
@@ -269,9 +283,19 @@ namespace Sandbox.ModAPI
             return MyEntities.GetEntityById(entityId);
         }
 
+        IMyEntity IMyEntities.GetEntityById(long? entityId)
+        {
+            return entityId.HasValue ? MyEntities.GetEntityById(entityId.Value) : null;
+        }
+
         bool IMyEntities.EntityExists(long entityId)
         {
             return MyEntities.EntityExists(entityId);
+        }
+
+        bool IMyEntities.EntityExists(long? entityId)
+        {
+            return entityId.HasValue && MyEntities.EntityExists(entityId.Value);
         }
 
         //bool TryGetEntityById<T>(long entityId, out T entity)

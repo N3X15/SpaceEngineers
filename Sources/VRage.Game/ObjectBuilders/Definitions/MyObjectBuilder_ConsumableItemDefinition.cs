@@ -1,17 +1,13 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
 using System.Xml.Serialization;
+using VRage.Game.ObjectBuilders.Definitions;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
-    public class MyObjectBuilder_ConsumableItemDefinition : MyObjectBuilder_PhysicalItemDefinition
+    public class MyObjectBuilder_ConsumableItemDefinition : MyObjectBuilder_UsableItemDefinition
     {
         [ProtoContract]
         public class StatValue
@@ -32,8 +28,5 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         [XmlArrayItem("Stat")]
         [ProtoMember]
         public StatValue[] Stats;
-
-        [ProtoMember]
-        public string EatingSound;
     }
 }

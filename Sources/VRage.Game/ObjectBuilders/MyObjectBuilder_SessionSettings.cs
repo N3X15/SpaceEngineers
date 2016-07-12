@@ -1,14 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Xml.Serialization;
 using ProtoBuf;
-using Sandbox.Common.ObjectBuilders.Definitions;
 using System.ComponentModel;
 using System.Diagnostics;
 using VRage.Utils;
 using System.ComponentModel.DataAnnotations;
 using VRage.ObjectBuilders;
+using VRage.Serialization;
+using VRage.Library.Utils;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -19,57 +20,58 @@ namespace Sandbox.Common.ObjectBuilders
 
         [ProtoMember]
         [Display(Name = "Game mode")]
-        [GameRelationAttribute(Game.Shared)]
-        public MyGameModeEnum GameMode = MyGameModeEnum.Survival;
+        [GameRelation(Game.Shared)]
+        public MyGameModeEnum GameMode = MyGameModeEnum.Creative;
 
         [ProtoMember]
         [Display(Name = "Inventory size multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public float InventorySizeMultiplier = 1;
+        [GameRelation(Game.Shared)]
+        public float InventorySizeMultiplier = 10;
 
         [ProtoMember]
         [Display(Name = "Assembler speed multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public float AssemblerSpeedMultiplier = 1;
+        [GameRelation(Game.SpaceEngineers)]
+        public float AssemblerSpeedMultiplier = 3;
 
         [ProtoMember]
         [Display(Name = "Assembler efficiency multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public float AssemblerEfficiencyMultiplier = 1;
+        [GameRelation(Game.SpaceEngineers)]
+        public float AssemblerEfficiencyMultiplier = 3;
 
         [ProtoMember]
         [Display(Name = "Refinery speed multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public float RefinerySpeedMultiplier = 1;
+        [GameRelation(Game.SpaceEngineers)]
+        public float RefinerySpeedMultiplier = 3;
 
         [ProtoMember]
-        public MyOnlineModeEnum OnlineMode = MyOnlineModeEnum.OFFLINE;
+        public MyOnlineModeEnum OnlineMode = MyOnlineModeEnum.PRIVATE;
 
         [ProtoMember]
         [Display(Name = "Max players")]
-        [GameRelationAttribute(Game.Shared)]
+        [GameRelation(Game.Shared)]
         [Range(2, int.MaxValue)]
         public short MaxPlayers = 4;
 
         [ProtoMember]
         [Display(Name = "Max floating objects")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         [Range(2, int.MaxValue)]
-        public short MaxFloatingObjects = 256;
+        public short MaxFloatingObjects = 56;
 
         [ProtoMember]
         [Display(Name = "Environment hostility")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public MyEnvironmentHostilityEnum EnvironmentHostility = MyEnvironmentHostilityEnum.SAFE;
+        [GameRelation(Game.SpaceEngineers)]
+        // Only used in quickstart - Scenarios have there own Settings
+        public MyEnvironmentHostilityEnum EnvironmentHostility = MyEnvironmentHostilityEnum.NORMAL;
 
         [ProtoMember]
         [Display(Name = "Auto healing")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool AutoHealing = true;
 
         [ProtoMember]
         [Display(Name = "Enable Copy&Paste")]
-        [GameRelationAttribute(Game.Shared)]
+        [GameRelation(Game.Shared)]
         public bool EnableCopyPaste = true;
 
         //[ProtoMember]
@@ -82,33 +84,33 @@ namespace Sandbox.Common.ObjectBuilders
 
         [ProtoMember]
         [Display(Name = "Weapons enabled")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool WeaponsEnabled = true;
 
         [ProtoMember]
         [Display(Name = "Show player names on HUD")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool ShowPlayerNamesOnHud = true;
 
         [ProtoMember]
         [Display(Name = "Thruster damage")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool ThrusterDamage = true;
 
         [ProtoMember]
         [Display(Name = "Cargo ships enabled")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool CargoShipsEnabled = true;
 
         [ProtoMember]
         [Display(Name = "Enable spectator")]
-        [GameRelationAttribute(Game.Shared)]
+        [GameRelation(Game.Shared)]
         public bool EnableSpectator = false;
 
         [ProtoMember]
         [Display(Name = "Remove trash")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public bool RemoveTrash = false;
+        [GameRelation(Game.SpaceEngineers)]
+        public bool RemoveTrash = true;
 
         /// <summary>
         /// Size of the edge of the world area cube.
@@ -117,164 +119,161 @@ namespace Sandbox.Common.ObjectBuilders
         /// </summary>
         [ProtoMember]
         [Display(Name = "World size in Km")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public int WorldSizeKm = 0;
 
         [ProtoMember]
         [Display(Name = "Respawn ship delete")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool RespawnShipDelete = true;
 
         [ProtoMember]
         [Display(Name = "Reset ownership")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool ResetOwnership = false;
 
         [ProtoMember]
         [Display(Name = "Welder speed multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public float WelderSpeedMultiplier = 1;
+        [GameRelation(Game.SpaceEngineers)]
+        public float WelderSpeedMultiplier = 2;
 
         [ProtoMember]
         [Display(Name = "Grinder speed multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public float GrinderSpeedMultiplier = 1;
+        [GameRelation(Game.SpaceEngineers)]
+        public float GrinderSpeedMultiplier = 2;
 
         [ProtoMember]
         [Display(Name = "Realistic sound")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool RealisticSound = false;
 
         [ProtoMember]
         [Display(Name = "Client can save")]
-        [GameRelationAttribute(Game.Shared)]
-        public bool ClientCanSave = false;
+        [GameRelation(Game.Shared)]
+        [XmlIgnore]
+        [NoSerialize]
+        public bool ClientCanSave { get { return false; } set { Debug.Fail("Client saving not supported anymore"); } }
 
         [ProtoMember]
         [Display(Name = "Hack speed multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public float HackSpeedMultiplier = 0.33f;
 
         [ProtoMember]
         [Display(Name = "Permanent death")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public bool? PermanentDeath = true;
+        [GameRelation(Game.SpaceEngineers)]
+        public bool? PermanentDeath = false;
 
         [ProtoMember]
         [Display(Name = "AutoSave in minutes")]
-        [GameRelationAttribute(Game.Shared)]
+        [GameRelation(Game.Shared)]
         [Range(0, int.MaxValue)]
         public uint AutoSaveInMinutes = DEFAULT_AUTOSAVE_IN_MINUTES;
 
         [ProtoMember]
         [Display(Name = "Spawnship time multiplier")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public float SpawnShipTimeMultiplier = 1.0f;
+        [GameRelation(Game.SpaceEngineers)]
+        public float SpawnShipTimeMultiplier = 0.5f;
 
         [ProtoMember]
         [Display(Name = "Procedural density")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public float ProceduralDensity = 0f;
         public bool ShouldSerializeProceduralDensity() { return ProceduralDensity > 0; }
 
         [ProtoMember]
         [Display(Name = "Procedural seed")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public int ProceduralSeed = 0;
         public bool ShouldSerializeProceduralSeed() { return ProceduralDensity > 0; }
 
         [ProtoMember]
         [Display(Name = "Destructible blocks")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool DestructibleBlocks = true;
 
         [ProtoMember]
         [Display(Name = "Enable ingame scripts")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool EnableIngameScripts = true;
 
         [ProtoMember]
         [Display(Name = "View distance")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public int ViewDistance = 20000;
+        [GameRelation(Game.SpaceEngineers)]
+        public int ViewDistance = 15000;
 
-		[ProtoMember]
-		[Display(Name = "Flora density")]
-		[GameRelationAttribute(Game.SpaceEngineers)]
-		public int FloraDensity = 20;
+        [ProtoMember]
+        [Display(Name = "Flora density")]
+        [GameRelation(Game.SpaceEngineers)]
+        public int FloraDensity = 20;
 
         [ProtoMember]
         [DefaultValue(false)]// must leave default value here because it fails to deserialize world if it finds old save where this was nullable (bleh)
         [Display(Name = "Enable tool shake")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool EnableToolShake = false;
 
         [ProtoMember]
         //[Display(Name = "")] //do not display this
         [Display(Name = "Voxel generator version")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public int VoxelGeneratorVersion = 0;
 
         [ProtoMember]
         [Display(Name = "Enable oxygen")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool EnableOxygen = false;
 
         [ProtoMember]
         [Display(Name = "Enable 3rd person view")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool Enable3rdPersonView = true;
 
         [ProtoMember]
         [Display(Name = "Enable encounters")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool EnableEncounters = true;
 
-		[ProtoMember]
-		[Display(Name = "Enable flora")]
-		[GameRelationAttribute(Game.SpaceEngineers)]
-		public bool EnableFlora = true;
-
-		[ProtoMember]
-		[Display(Name = "Enable Station Voxel Support")]
-		[GameRelationAttribute(Game.SpaceEngineers)]
-		public bool EnableStationVoxelSupport = false;
+        [ProtoMember]
+        [Display(Name = "Enable flora")]
+        [GameRelation(Game.SpaceEngineers)]
+        public bool EnableFlora = true;
 
         [ProtoMember]
-        [Display(Name = "Enable Planets")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public bool EnablePlanets = false;
+        [Display(Name = "Enable convert to station")]
+        [GameRelation(Game.SpaceEngineers)]
+        public bool EnableConvertToStation = true;
 
         [ProtoMember]
         [Display(Name = "Enable Sun Rotation")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public bool EnableSunRotation = false;
+        [GameRelation(Game.SpaceEngineers)]
+        public bool EnableSunRotation = true;
 
         // Should have been named "EnableRespawnShips" to avoid a negative
         // but it's alread public now
         [ProtoMember]
-        [Display(Name = "Disable respawn ships")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [Display(Name = "Disable respawn ships / carts")]
+        [GameRelation(Game.Shared)]
         public bool DisableRespawnShips = false;
 
         [ProtoMember]
         [Display(Name = "")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool ScenarioEditMode = false;
 
         [ProtoMember]
-        [GameRelationAttribute(Game.MedievalEngineers)]
+        [GameRelation(Game.MedievalEngineers)]
         [Display(Name = "")]
         public bool Battle = false;
 
         [ProtoMember]
         [Display(Name = "")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool Scenario = false;
 
         [ProtoMember]
         [Display(Name = "")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool CanJoinRunning = false;
 
         [ProtoMember]
@@ -282,18 +281,65 @@ namespace Sandbox.Common.ObjectBuilders
 
         [ProtoMember]
         [Display(Name = "Sun rotation interval")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
-        public double SunRotationIntervalMinutes = 4 * 60; // 4 hours
+        [GameRelation(Game.SpaceEngineers)]
+        public float SunRotationIntervalMinutes = 2 * 60; // 2 hours
 
         [ProtoMember]
         [Display(Name = "Enable jetpack")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool EnableJetpack = true;
 
         [ProtoMember]
         [Display(Name = "Spawn with tools")]
-        [GameRelationAttribute(Game.SpaceEngineers)]
+        [GameRelation(Game.SpaceEngineers)]
         public bool SpawnWithTools = true;
+
+        [ProtoMember]
+        [Display(Name = "")]
+        [GameRelation(Game.SpaceEngineers)]
+        public bool StartInRespawnScreen = false;
+
+        [ProtoMember]
+        [Display(Name = "Enable voxel destruction")]
+        [GameRelation(Game.SpaceEngineers)]
+        public bool EnableVoxelDestruction = true;
+
+        [ProtoMember]
+        [Display(Name = "")]
+        [GameRelation(Game.SpaceEngineers)]
+        public int MaxDrones = 5;
+
+        [ProtoMember]
+        [Display(Name = "Enable drones")]
+        [GameRelation(Game.SpaceEngineers)]
+        public bool EnableDrones = true;
+
+        [ProtoMember]
+        [Display(Name = "Enable cyberhounds")]
+        [GameRelation(Game.SpaceEngineers)]
+        public bool? EnableCyberhounds = true;
+
+        [ProtoMember]
+        [Display(Name = "Enable spiders")]
+        [GameRelation(Game.SpaceEngineers)]
+        public bool? EnableSpiders;
+
+        [ProtoMember]
+        [Display(Name = "Flora Density Multiplier")]
+        [GameRelation(Game.Shared)]
+        public float FloraDensityMultiplier = 1f;
+
+        [ProtoMember]
+        [Display(Name = "Enable structural simulation")]
+        [GameRelation(Game.MedievalEngineers)]
+        public bool EnableStructuralSimulation = false;
+
+        [ProtoMember]
+        [Display(Name = "Max active fracture pieces")]
+        [GameRelation(Game.MedievalEngineers)]
+        [Range(0, int.MaxValue)]
+        //Max of any fracture pieces
+        public int MaxActiveFracturePieces = 50;
 
         public void LogMembers(MyLog log, LoggingOptions options)
         {
@@ -331,6 +377,9 @@ namespace Sandbox.Common.ObjectBuilders
                 log.WriteLine("EnableIngameScripts = " + EnableIngameScripts);
                 log.WriteLine("ViewDistance = " + ViewDistance);
                 log.WriteLine("Battle = " + Battle);
+                log.WriteLine("Voxel destruction = " + EnableVoxelDestruction);
+                log.WriteLine("EnableStructuralSimulation = " + EnableStructuralSimulation);
+                log.WriteLine("MaxActiveFracturePieces = " + MaxActiveFracturePieces);
             }
         }
     }
@@ -341,7 +390,7 @@ namespace Sandbox.Common.ObjectBuilders
         Normal = 8,
         Precise = 32,
     }
-    
+
     public enum MyOnlineModeEnum
     {
         OFFLINE,
@@ -356,12 +405,6 @@ namespace Sandbox.Common.ObjectBuilders
         NORMAL,
         CATACLYSM,
         CATACLYSM_UNREAL,
-    }
-
-    public enum MyGameModeEnum
-    {
-        Creative,
-        Survival,
     }
 
     [XmlRoot("MyConfigDedicated")]
@@ -384,6 +427,4 @@ namespace Sandbox.Common.ObjectBuilders
         public bool PauseGameWhenEmpty = false;
         public bool IgnoreLastSession = false;
     }
-
-
 }

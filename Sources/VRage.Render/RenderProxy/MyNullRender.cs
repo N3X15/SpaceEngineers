@@ -17,6 +17,7 @@ using System.Diagnostics;
 using System.Text;
 using Vector2 = VRageMath.Vector2;
 using VRage.Library.Utils;
+using VRage.Utils;
 
 #endregion
 
@@ -28,6 +29,8 @@ namespace VRageRender
         public string RootDirectoryEffects { get { return null; } set { } }
         public string RootDirectoryDebug { get { return null; } set { } }
 
+        public MyLog Log { get { return null; } }
+
         public MyRenderFont TryGetFont(int id)
         {
             return null;
@@ -37,7 +40,7 @@ namespace VRageRender
         public MySharedData SharedData { get { return null; } }
         public MyTimeSpan CurrentDrawTime { set; get; }
 
-        public void ClearBackbuffer(ColorBGRA clearColor)
+        public void ClearBackbuffer(VRageMath.Color clearColor)
         {
             return;
         }
@@ -62,10 +65,16 @@ namespace VRageRender
         }
 
         MyMessageQueue m_outputQueue = new MyMessageQueue();
+        MyNullRenderProfiler m_profiler = new MyNullRenderProfiler();
         public MyMessageQueue OutputQueue { get { return m_outputQueue; } }
         public uint GlobalMessageCounter { get { return 0; } set { } }
 
-        public void EnqueueMessage(IMyRenderMessage message, bool limitMaxQueueSize)
+        public MyNullRender()
+        {
+            m_profiler.SetAutocommit(false);
+        }
+
+        public void EnqueueMessage(MyRenderMessageBase message, bool limitMaxQueueSize)
         {
         }
 
@@ -73,7 +82,7 @@ namespace VRageRender
         {
         }
 
-        public void EnqueueOutputMessage(IMyRenderMessage message)
+        public void EnqueueOutputMessage(MyRenderMessageBase message)
         {
         }
 
@@ -84,7 +93,7 @@ namespace VRageRender
 
         public MyRenderProfiler GetRenderProfiler()
         {
-            return null;
+            return m_profiler;
         }
 
 
@@ -161,5 +170,8 @@ namespace VRageRender
         }
 
         public void HandleFocusMessage(MyWindowFocusMessage msg) { }
+        public void GenerateShaderCache(bool clean, OnShaderCacheProgressDelegate onShaderCacheProgress)
+        {
+        }
     }
 }

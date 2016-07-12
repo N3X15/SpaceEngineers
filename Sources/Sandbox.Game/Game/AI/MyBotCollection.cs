@@ -1,19 +1,18 @@
-﻿using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.AI;
-using Sandbox.Engine.Utils;
+﻿using Sandbox.Engine.Utils;
 using Sandbox.Game.AI.BehaviorTree;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Text;
 using VRage;
 using VRage.Collections;
 using VRageMath;
-using Sandbox.Common.AI;
 using VRage.Utils;
 using Sandbox.Game.AI.Logic;
+using Sandbox.Game.Entities.Character;
+using Sandbox.Game.World;
+using Sandbox.ModAPI;
+using VRage.Game;
+using VRage.Game.ModAPI;
 
 namespace Sandbox.Game.AI
 {
@@ -56,10 +55,12 @@ namespace Sandbox.Game.AI
 
         public void Update()
         {
+            ProfilerShort.Begin("Update - BotCollection");
             foreach (var botEntry in m_allBots)
             {
                 botEntry.Value.Update();
             }
+            ProfilerShort.End();
         }
 
         public void AddBot(int botHandler, IMyBot newBot)
@@ -70,8 +71,7 @@ namespace Sandbox.Game.AI
             ActionCollection botActions = null;
             if (!m_botActions.ContainsKey(newBot.BotActions.GetType()))
             {
-                botActions = new ActionCollection();
-                GetBotActions(newBot, botActions);
+                botActions = ActionCollection.CreateActionCollection(newBot);
                 m_botActions[newBot.GetType()] = botActions;
             }
             else
@@ -121,11 +121,11 @@ namespace Sandbox.Game.AI
                     bool isCompatible = behaviorTree.IsCompatibleWithBot(bot.ActionCollection);
                     if (!isCompatible)
                     {
-                        bot.BehaviorTree = null;
+                        m_behaviorTreeCollection.UnassignBotBehaviorTree(bot);
                     }
                     else
                     {
-                        bot.BotMemory.ResetMemory(behaviorTree);
+                        bot.BotMemory.ResetMemory();
                     }
                 }
             }
@@ -164,7 +164,6 @@ namespace Sandbox.Game.AI
 
         public void TryRemoveBot(int botHandler)
         {
-            Debug.Assert(m_allBots.ContainsKey(botHandler), "Bot with the given handler does not exist!");
 
             IMyBot bot = null;
             m_allBots.TryGetValue(botHandler, out bot);
@@ -208,9 +207,9 @@ namespace Sandbox.Game.AI
             return bot as BotType;
         }
 
-        public DictionaryValuesReader<int, IMyBot> GetAllBots()
+        public DictionaryReader<int, IMyBot> GetAllBots()
         {
-            return new DictionaryValuesReader<int, IMyBot>(m_allBots);
+            return new DictionaryReader<int, IMyBot>(m_allBots);
         }
 
         public void GetBotsData(List<MyObjectBuilder_AIComponent.BotData> botDataList)
@@ -219,7 +218,7 @@ namespace Sandbox.Game.AI
             {
                 var newData = new MyObjectBuilder_AIComponent.BotData()
                 {
-                    BotBrain = keyValPair.Value.GetBotData(),
+                    BotBrain = keyValPair.Value.GetObjectBuilder(),
                     PlayerHandle = keyValPair.Key   
                 };
                 botDataList.Add(newData);
@@ -247,38 +246,6 @@ namespace Sandbox.Game.AI
             }
             return count;
         }
-
-        private void GetBotActions(IMyBot bot, ActionCollection actions)
-        {
-            var methodInfos = bot.BotActions.GetType().GetMethods(BindingFlags.Instance | BindingFlags.NonPublic);
-            foreach (var methodInfo in methodInfos)
-            {
-                var attrs = methodInfo.GetCustomAttributes(true);
-                for (int i = 0; i < attrs.Length; i++)
-                {
-                    if (attrs[i] is MyBehaviorTreeActionAttribute)
-                    {
-                        MyBehaviorTreeActionAttribute btActionAttribute = (MyBehaviorTreeActionAttribute)attrs[i];
-
-                        switch (btActionAttribute.ActionType)
-                        {
-                            case MyBehaviorTreeActionType.INIT:
-                                actions.AddInitAction(btActionAttribute.ActionName, (x) => methodInfo.Invoke(x.BotActions, null));
-                                break;
-                            case MyBehaviorTreeActionType.BODY:
-                                actions.AddAction(btActionAttribute.ActionName, methodInfo, btActionAttribute.ReturnsRunning, (x, y) => (MyBehaviorTreeState)methodInfo.Invoke(x.BotActions, y));
-                                break;
-                            case MyBehaviorTreeActionType.POST:
-                                actions.AddPostAction(btActionAttribute.ActionName, (x) => methodInfo.Invoke(x.BotActions, null));
-                                break;
-                        }
-                        
-                        break;
-                    }
-                }
-            }
-        }
-
 #region Debug
         internal void SelectBotForDebugging(IMyBot bot)
         {
@@ -291,6 +258,11 @@ namespace Sandbox.Game.AI
                     break;
                 }
             }
+        }
+
+        public bool IsBotSelectedForDegugging(IMyBot bot)
+        {
+            return m_behaviorTreeCollection.DebugBot == bot;
         }
 
         internal void SelectBotForDebugging(int index)
@@ -334,7 +306,7 @@ namespace Sandbox.Game.AI
         {
             if (!MyDebugDrawSettings.DEBUG_DRAW_BOTS) return;
 
-            Vector2 initPos = new Vector2(0.01f, 0.2f);
+            Vector2 initPos = new Vector2(0.01f, 0.4f);
             for (int i = 0; i < m_botsQueue.Count; i++)
             {
                 var bot = m_allBots[m_botsQueue[i]];
@@ -345,12 +317,23 @@ namespace Sandbox.Game.AI
                     if (m_botIndex == -1 || i != m_botIndex)
                         labelColor = Color.Red;
                     var screenCoords = Sandbox.Graphics.MyGuiManager.GetHudPixelCoordFromNormalizedCoord(initPos);
-                    VRageRender.MyRenderProxy.DebugDrawText2D(screenCoords, string.Format("Bot[{0}]: {1}", i, entityBot.BehaviorSubtypeName), labelColor, 0.5f, MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER);
+                    string str = string.Format("Bot[{0}]: {1}", i, entityBot.BehaviorSubtypeName);
+                    if (bot is MyAgentBot)
+                        str += (bot as MyAgentBot).LastActions.GetLastActionsString();
+                    VRageRender.MyRenderProxy.DebugDrawText2D(screenCoords, str, labelColor, 0.5f, MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER);
+                    var character = (entityBot.BotEntity as MyCharacter);
+                    IMyFaction faction = null;
+                    if (character != null)
+                    {
+                        var identityId = character.ControllerInfo.Controller.Player.Identity.IdentityId;
+                        faction = MySession.Static.Factions.TryGetPlayerFaction(identityId);
+                    }
                     if (entityBot.BotEntity != null)
                     {
                         var markerPos = entityBot.BotEntity.PositionComp.WorldAABB.Center;
                         markerPos.Y += entityBot.BotEntity.PositionComp.WorldAABB.HalfExtents.Y;
                         VRageRender.MyRenderProxy.DebugDrawText3D(markerPos, string.Format("Bot:{0}", i), labelColor, 1f, false, MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_TOP);
+                        VRageRender.MyRenderProxy.DebugDrawText3D(markerPos - new Vector3(0.0f, -0.5f, 0.0f), faction == null ? "NO_FACTION" : faction.Tag, labelColor, 1f, false, MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_TOP);
                     }
                     initPos.Y += 0.02f;
                 }

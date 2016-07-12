@@ -1,7 +1,8 @@
 ﻿using ProtoBuf;
 using VRage.ObjectBuilders;
+using VRage.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -11,6 +12,7 @@ namespace Sandbox.Common.ObjectBuilders
         public ulong SteamId;
 
         [ProtoMember]
+        [Serialize(MyObjectFlags.Nullable)] 
         public string Name;
 
         [ProtoMember]

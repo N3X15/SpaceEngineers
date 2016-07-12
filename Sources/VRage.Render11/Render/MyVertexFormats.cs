@@ -194,9 +194,17 @@ namespace VRageRender.Vertex
 
     unsafe struct MyVertexFormatCubeInstance
     {
+#if XB1
+		static MyVertexFormatCubeInstance()
+		{
+			System.Diagnostics.Debug.Assert(MyRender11Constants.CUBE_INSTANCE_BONES_NUM == 8);
+		}
+		internal fixed byte bones[8 * 4];
+#else
         internal fixed byte bones[MyRender11Constants.CUBE_INSTANCE_BONES_NUM * 4];
-        internal HalfVector4 translationRotation;
-        internal HalfVector4 colorMaskHSV;
+#endif
+        internal Vector4 translationRotation;
+        internal Vector4 colorMaskHSV;
 
         internal static int STRIDE = sizeof(MyVertexFormatCubeInstance);
     }
@@ -222,46 +230,10 @@ namespace VRageRender.Vertex
             set { m_positionMaterials.X = (ushort)((value.X * 0.5f + 0.5f) * ushort.MaxValue); m_positionMaterials.Y = (ushort)((value.Y * 0.5f + 0.5f) * ushort.MaxValue); m_positionMaterials.Z = (ushort)((value.Z * 0.5f + 0.5f) * ushort.MaxValue); }
         }
 
-        public float Weight0
-        {
-            get { return (m_positionMaterials.W >> 10) / 63.0f; }
-            set { m_positionMaterials.W = (ushort)((m_positionMaterials.W & 0x3FF) | ((ushort)(value * 63) << 10)); }
-        }
-
-        public float Weight1
-        {
-            get { return ((m_positionMaterials.W >> 5) & 0x1F) / 31.0f; }
-            set { m_positionMaterials.W = (ushort)((m_positionMaterials.W & 0xFC1F) | ((ushort)(value * 31) << 5)); }
-        }
-
-        public float Weight2
-        {
-            get { return (m_positionMaterials.W & 0x1F) / 31.0f; }
-            set { m_positionMaterials.W = (ushort)((m_positionMaterials.W & 0xFFE0) | ((ushort)(value * 31))); }
-        }
-
         public Vector3 PositionMorph
         {
             get { return new Vector3(m_positionMaterialsMorph.X, m_positionMaterialsMorph.Y, m_positionMaterialsMorph.Z) / (float)ushort.MaxValue * 2.0f - 1.0f; }
             set { m_positionMaterialsMorph.X = (ushort)((value.X * 0.5f + 0.5f) * ushort.MaxValue); m_positionMaterialsMorph.Y = (ushort)((value.Y * 0.5f + 0.5f) * ushort.MaxValue); m_positionMaterialsMorph.Z = (ushort)((value.Z * 0.5f + 0.5f) * ushort.MaxValue); }
-        }
-
-        public float Weight0Morph
-        {
-            get { return (m_positionMaterialsMorph.W >> 10) / 63.0f; }
-            set { m_positionMaterialsMorph.W = (ushort)((m_positionMaterialsMorph.W & 0x3FF) | ((ushort)(value * 63) << 10)); }
-        }
-
-        public float Weight1Morph
-        {
-            get { return ((m_positionMaterialsMorph.W >> 5) & 0x1F) / 31.0f; }
-            set { m_positionMaterialsMorph.W = (ushort)((m_positionMaterialsMorph.W & 0xFC1F) | ((ushort)(value * 31) << 5)); }
-        }
-
-        public float Weight2Morph
-        {
-            get { return (m_positionMaterialsMorph.W & 0x1F) / 31.0f; }
-            set { m_positionMaterialsMorph.W = (ushort)((m_positionMaterialsMorph.W & 0xFFE0) | ((ushort)(value * 31))); }
         }
 
         internal static unsafe int STRIDE = sizeof(MyVertexFormatVoxel);
@@ -326,4 +298,16 @@ namespace VRageRender.Vertex
 
         internal static unsafe int STRIDE = sizeof(MyVertexFormatPositionColor);
     }
+
+    struct MyVertexFormat2DPosition
+    {
+        internal Vector2 Position;
+
+        internal MyVertexFormat2DPosition(Vector2 position)
+        {
+            Position = position;
+        }
+
+        internal static unsafe int STRIDE = sizeof(MyVertexFormat2DPosition);
+    };
 }

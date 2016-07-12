@@ -3,7 +3,7 @@ using ProtoBuf;
 using VRageMath;
 using VRage.Data;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -13,7 +13,7 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public string Texture;
 
         [ProtoMember]
-        public bool CanBeAffectedByLights;
+        public bool CanBeAffectedByOtherLights;
 
         [ProtoMember]
         public bool AlphaMistingEnable;
@@ -50,5 +50,8 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public float Reflectivity;
+
+        [ProtoMember]
+        public bool AlphaCutout;
     }
 }

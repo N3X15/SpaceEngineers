@@ -1,10 +1,9 @@
 ﻿#region Using
 
-using Sandbox.Common;
-using Sandbox.Common.ObjectBuilders.Gui;
 using System;
 using System.Text;
 using VRage;
+using VRage.Game;
 using VRage.Input;
 using VRage.Library.Utils;
 using VRage.Utils;
@@ -329,9 +328,11 @@ namespace Sandbox.Graphics.GUI
 
                     captureInput = this;
                     m_readyToClick = false;
+                    return captureInput;
                 }
+                if (IsMouseOver && MyInput.Static.IsPrimaryButtonPressed())
+                    captureInput = this;//to be first in queue when button is released
             }
-
             return captureInput;
         }
 

@@ -5,12 +5,13 @@ struct PixelStageInput
 	MaterialVertexPayload custom;
 #ifdef PASS_OBJECT_VALUES_THROUGH_STAGES
 	float4 key_color_alpha : TEXCOORD7;
+	float custom_alpha : TEXCOORD9;
 #endif
 };
 
-#include <brdf.h>
+#include <Lighting/brdf.h>
 #include <Surface.h>
-#include <LightingModel.h>
+#include <Lighting/LightingModel.h>
 
 #define CUSTOM_CASCADE_SLOT
 Texture2DArray<float> CSM : register( MERGE(t,60) );
@@ -20,14 +21,15 @@ Texture2DArray<float> CSM : register( MERGE(t,60) );
 // csm
 // point lights
 
-SurfaceInterface surfaceFromMaterial(MaterialOutputInterface mat, float3 position) {
+SurfaceInterface surfaceFromMaterial(MaterialOutputInterface mat, float3 position) 
+{
 	SurfaceInterface surface;
 
 	surface.base_color = mat.base_color;
 	surface.metalness = mat.metalness;
 	surface.gloss = mat.gloss;
-	surface.albedo = surface_albedo(mat.base_color, mat.metalness);
-	surface.f0 = surface_f0(mat.base_color, mat.metalness);
+	surface.albedo = SurfaceAlbedo(mat.base_color, mat.metalness);
+	surface.f0 = SurfaceF0(mat.base_color, mat.metalness);
 	surface.id = mat.id;
 	surface.ao = mat.ao;
 	surface.emissive = mat.emissive;
@@ -47,7 +49,8 @@ SurfaceInterface surfaceFromMaterial(MaterialOutputInterface mat, float3 positio
 	return surface;
 }
 
-float4 shade_forward(SurfaceInterface surface, float3 position) {
+float4 shade_forward(SurfaceInterface surface, float3 position) 
+{
 	float4 shaded = 0;
 
 	float shadow = calculate_shadow_fast_aprox(position);
@@ -58,10 +61,10 @@ float4 shade_forward(SurfaceInterface surface, float3 position) {
 	return shaded;
 }
 
-void __pixel_shader(PixelStageInput input, out float4 shaded : SV_Target0 ) {
-
+void __pixel_shader(PixelStageInput input, out float4 shaded : SV_Target0 ) 
+{
 	PixelInterface pixel;
-	pixel.screen_position = input.position.xy;
+	pixel.screen_position = input.position.xyz;
 	pixel.custom = input.custom;
 	init_ps_interface(pixel);
 	pixel.position_ws = input.worldPosition;
@@ -72,8 +75,6 @@ void __pixel_shader(PixelStageInput input, out float4 shaded : SV_Target0 ) {
 
 	MaterialOutputInterface material_output = make_mat_interface();
 	pixel_program(pixel, material_output);
-	if(material_output.DISCARD)
-		discard;
 
 	SurfaceInterface surface = surfaceFromMaterial(material_output, input.worldPosition);
 

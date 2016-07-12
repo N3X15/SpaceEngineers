@@ -1,5 +1,4 @@
-﻿using Sandbox.Common.ObjectBuilders.Gui;
-using Sandbox.Engine.Utils;
+﻿using Sandbox.Engine.Utils;
 using Sandbox.Game.Gui;
 using Sandbox.Game.Localization;
 using Sandbox.Game.SessionComponents;
@@ -13,6 +12,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using VRage;
+using VRage.Game;
 using VRage.Library.Utils;
 using VRage.Utils;
 using VRageMath;
@@ -21,7 +21,10 @@ namespace Sandbox.Game.Screens
 {
     class MyGuiScreenMissionTriggers : MyGuiScreenBase
     {
-        MyGuiControlButton m_okButton, m_cancelButton, m_advancedButton;
+        MyGuiControlButton m_okButton, m_cancelButton;//, m_advancedButton;
+        MyGuiControlLabel m_videoLabel;
+        protected MyGuiControlTextbox m_videoTextbox;
+
         MyGuiControlCombobox[] m_winCombo = new MyGuiControlCombobox[6];
         MyGuiControlCombobox[] m_loseCombo = new MyGuiControlCombobox[6];
 
@@ -61,15 +64,30 @@ namespace Sandbox.Game.Screens
             AddCaption(MySpaceTexts.MissionScreenCaption);
             var textBackgroundPanel = AddCompositePanel(MyGuiConstants.TEXTURE_RECTANGLE_DARK, new Vector2(0f,0.08f), new Vector2(0.75f, 0.45f), MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER);
 
-            m_okButton = new MyGuiControlButton(position: new Vector2(0.17f,0.37f), size: buttonSize, text: MyTexts.Get(MySpaceTexts.Refresh),
+            m_okButton = new MyGuiControlButton(position: new Vector2(0.17f, 0.37f), size: buttonSize, text: MyTexts.Get(MyCommonTexts.Refresh),
                 onButtonClick: OnOkButtonClick, originAlign: MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_BOTTOM);
-            m_cancelButton = new MyGuiControlButton(position: new Vector2(0.38f,0.37f), size: buttonSize, text: MyTexts.Get(MySpaceTexts.Cancel),
+            m_cancelButton = new MyGuiControlButton(position: new Vector2(0.38f, 0.37f), size: buttonSize, text: MyTexts.Get(MyCommonTexts.Cancel),
                 onButtonClick: OnCancelButtonClick, originAlign: MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_BOTTOM);
             Controls.Add(m_okButton);
             Controls.Add(m_cancelButton);
-            m_advancedButton = new MyGuiControlButton(position: new Vector2(0.38f, -0.15f), size: buttonSize, text: MyTexts.Get(MySpaceTexts.WorldSettings_Advanced),
-                onButtonClick: OnAdvancedButtonClick, originAlign: MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_BOTTOM);
+
+            //m_advancedButton = new MyGuiControlButton(position: new Vector2(0.38f, -0.15f), size: buttonSize, text: MyTexts.Get(MySpaceTexts.WorldSettings_Advanced),
+            //    onButtonClick: OnAdvancedButtonClick, originAlign: MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_BOTTOM);
             //Controls.Add(m_advancedButton); disabled for now - joining into running game is not finished
+            m_videoLabel = new MyGuiControlLabel(
+                position: new Vector2(-0.375f, -0.18f),
+                originAlign: MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER,
+                text: MyTexts.Get(MySpaceTexts.GuiLabelVideoOnStart).ToString()
+                );
+            m_videoTextbox = new MyGuiControlTextbox(
+                position: m_videoLabel.Position,
+                defaultText: MySession.Static.BriefingVideo,
+                maxLength: 85);
+            Controls.Add(m_videoLabel);
+            Controls.Add(m_videoTextbox);
+            m_videoTextbox.PositionX = m_videoLabel.Position.X + m_videoLabel.Size.X + m_videoTextbox.Size.X / 2 + 0.03f;
+            m_videoTextbox.TextChanged += OnVideoTextboxChanged;
+            OnVideoTextboxChanged(m_videoTextbox);
 
             buttonSize = new Vector2(0.05f,0.05f);
             Vector2 pos = new Vector2(0.15f, -0.05f);
@@ -264,8 +282,15 @@ namespace Sandbox.Game.Screens
             MyGuiSandbox.AddScreen(m_advanced);
         }
 
+        public override bool CloseScreen()
+        {
+            m_videoTextbox.TextChanged -= OnVideoTextboxChanged;
+            return base.CloseScreen();
+        }
+
         private void SaveData()
         {
+            MySession.Static.BriefingVideo = m_videoTextbox.Text;
             //delete everyone else's triggers, they will be copied from defaults as needed
             foreach (var trg in MySessionComponentMissionTriggers.Static.MissionTriggers)
                 trg.Value.HideNotification();
@@ -290,7 +315,21 @@ namespace Sandbox.Game.Screens
             }
 
         }
-
+        void OnVideoTextboxChanged(MyGuiControlTextbox source)
+        {
+            if (source.Text.Length==0 || MyGuiSandbox.IsUrlWhitelisted(source.Text))
+            {
+                source.SetToolTip((MyToolTips)null);
+                source.ColorMask = Vector4.One;
+                m_okButton.Enabled = true;
+            }
+            else
+            {
+                source.SetToolTip(MySpaceTexts.WwwLinkNotAllowed);
+                source.ColorMask = Color.Red.ToVector4();
+                m_okButton.Enabled = false;
+            }
+        }
         public override string GetFriendlyName()
         {
             return "MyGuiScreenMissionTriggers";

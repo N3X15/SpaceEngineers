@@ -1,15 +1,11 @@
-﻿using Sandbox.Common.ObjectBuilders.ComponentSystem;
+﻿using VRage.Game.ObjectBuilders.ComponentSystem;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using VRage.FileSystem;
 using VRage.ObjectBuilders;
 using VRage.Plugins;
+using VRage.Game.Common;
+using System.Reflection;
 
-namespace VRage.Components
+namespace VRage.Game.Components
 {
     public class MyComponentBuilderAttribute : MyFactoryTagAttribute
     {
@@ -27,12 +23,13 @@ namespace VRage.Components
         static MyComponentFactory()
         {
             m_objectFactory = new MyObjectFactory<MyComponentBuilderAttribute, MyComponentBase>();
+            m_objectFactory.RegisterFromAssembly(Assembly.GetExecutingAssembly());
             m_objectFactory.RegisterFromAssembly(MyPlugins.GameAssembly);
             m_objectFactory.RegisterFromAssembly(MyPlugins.SandboxGameAssembly);
             m_objectFactory.RegisterFromAssembly(MyPlugins.UserAssembly);
         }
 
-        public static MyComponentBase CreateInstance(MyObjectBuilderType type)
+        public static MyComponentBase CreateInstanceByTypeId(MyObjectBuilderType type)
         {
             return m_objectFactory.CreateInstance(type);
         }
@@ -53,5 +50,20 @@ namespace VRage.Components
 
             return objectBuilder;
         }
+
+        public static MyComponentBase CreateInstanceByType(Type type)
+        {
+            if (type.IsAssignableFrom(typeof(MyComponentBase)))
+            {
+                return Activator.CreateInstance(type) as MyComponentBase;
+            }
+            return null;
+        }
+
+        public static Type GetCreatedInstanceType(MyObjectBuilderType type)
+        {
+            return m_objectFactory.GetProducedType(type);
+        }
+
     }
 }

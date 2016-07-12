@@ -1,11 +1,9 @@
 ﻿using ProtoBuf;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Xml.Serialization;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders.ComponentSystem
+namespace VRage.Game.ObjectBuilders.ComponentSystem
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -18,10 +16,12 @@ namespace Sandbox.Common.ObjectBuilders.ComponentSystem
             public string TypeId;
 
             [ProtoMember]
+            [DynamicObjectBuilder]
+            [XmlElement(Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_ComponentBase>))]
             public MyObjectBuilder_ComponentBase Component;
         }
 
         [ProtoMember]
-        public ComponentData[] Components;
+        public List<ComponentData> Components = new List<ComponentData>();
     }
 }

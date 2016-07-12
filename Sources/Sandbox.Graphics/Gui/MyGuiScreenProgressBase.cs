@@ -1,5 +1,6 @@
 ﻿using System;
 using VRage;
+using VRage.Game;
 using VRage.Library.Utils;
 using VRage.Utils;
 using VRageMath;
@@ -11,6 +12,7 @@ namespace Sandbox.Graphics.GUI
         bool m_controlsCreated = false;
         bool m_loaded = false;
         protected MyStringId m_progressText;
+        string m_progressTextString;
         MyStringId? m_cancelText;
         protected MyGuiControlLabel m_progressTextLabel;
         protected MyGuiControlRotatingWheel m_rotatingWheel;
@@ -33,6 +35,19 @@ namespace Sandbox.Graphics.GUI
                 {
                     m_progressText = value;
                     m_progressTextLabel.TextEnum = value;
+                }
+            }
+        }
+
+        public String ProgressTextString
+        {
+            get { return m_progressTextString; }
+            set
+            {
+                if (m_progressTextString != value)
+                {
+                    m_progressTextString = value;
+                    m_progressTextLabel.Text = value;
                 }
             }
         }
@@ -99,7 +114,7 @@ namespace Sandbox.Graphics.GUI
                     position: new Vector2(deltaX, deltaY + 0.09f),
                     size: MyGuiConstants.BACK_BUTTON_SIZE,
                     text: MyTexts.Get(m_cancelText.Value),
-                    visualStyle: Common.ObjectBuilders.Gui.MyGuiControlButtonStyleEnum.ControlSetting,
+                    visualStyle: MyGuiControlButtonStyleEnum.ControlSetting,
                     onButtonClick: OnCancelClick);
                 Controls.Add(cancelButton);
             }

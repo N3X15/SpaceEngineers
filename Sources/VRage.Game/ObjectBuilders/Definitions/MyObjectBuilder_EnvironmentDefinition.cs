@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using ProtoBuf;
-using System.ComponentModel;
 using VRage.Data;
 using VRage.ObjectBuilders;
-using VRage;
+using VRageMath;
+using System.Xml.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -19,6 +16,12 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember, ModdableContentFile("dds")]
         public string EnvironmentTexture;
+
+        [ProtoMember, ModdableContentFile("dds")]
+        public string EnvironmentTextureNight = null;
+
+        [ProtoMember, ModdableContentFile("dds")]
+        public string EnvironmentTextureNightPrefiltered = null;
 
         [ProtoMember]
         public MyOrientation EnvironmentOrientation;
@@ -57,7 +60,10 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public SerializableVector3 BackLightDiffuse = new SerializableVector3(200 / 255.0f, 200 / 255.0f, 200 / 255.0f);
 
         [ProtoMember]
-        public float BackLightIntensity = 0.239f;
+        public float BackLightIntensity = 0f;
+
+        [ProtoMember, XmlArrayItem("LightDirection")]
+        public SerializableVector2[] AdditionalSunDirection = new SerializableVector2[] { new Vector2(0, 0) };
 
         [ProtoMember]
         public SerializableVector3 AmbientColor = new SerializableVector3(36 / 255.0f, 36 / 255.0f, 36 / 255.0f);
@@ -69,7 +75,7 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public float EnvironmentAmbientIntensity = 0.500f;
 
         [ProtoMember]
-        public SerializableVector3 BackgroundColor = new SerializableVector3(1, 1, 1);
+        public SerializableVector3 BackgroundColor = new SerializableVector3(0, 0, 0);
 
         [ProtoMember]
         public string SunMaterial = "SunDisk";
@@ -88,5 +94,45 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public float LargeShipMaxAngularSpeed = 18000;
+
+		[ProtoContract]
+		public struct EnvironmentalParticleSettings
+		{
+			[ProtoMember]
+			public SerializableDefinitionId Id;
+
+			[ProtoMember]
+			public string Material;
+
+			[ProtoMember]
+			public Vector4 Color;
+
+			[ProtoMember]
+			public float MaxSpawnDistance;
+
+			[ProtoMember]
+			public float DespawnDistance;
+
+			[ProtoMember]
+			public float Density;
+
+			[ProtoMember]
+			public int MaxLifeTime;
+
+			[ProtoMember]
+			public int MaxParticles;
+		}
+
+		[ProtoMember, XmlArrayItem("ParticleType")]
+		public List<EnvironmentalParticleSettings> EnvironmentalParticles = new List<EnvironmentalParticleSettings>();
+
+        [ProtoMember]
+        public Vector4 ContourHighlightColor = new Vector4(1.0f, 1.0f, 0.0f, 0.05f);
+
+        [ProtoMember]
+        public float ContourHighlightThickness = 1;
+
+        [ProtoMember]
+        public float HighlightPulseInSeconds = 0;
     }
 }

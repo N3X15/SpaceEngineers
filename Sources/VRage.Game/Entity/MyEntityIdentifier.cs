@@ -1,35 +1,48 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using VRage;
 using VRage.Utils;
-using VRage.Trace;
 using VRage.Library.Utils;
 using VRage.ModAPI;
+using System.Threading;
 
 namespace VRage
 {
     public struct MyEntityIdentifier
     {
+        class PerThreadData
+        {
+            public bool AllocationSuspended;
+            public Dictionary<long, IMyEntity> EntityList;
+
+            public PerThreadData(int defaultCapacity)
+            {
+                EntityList = new Dictionary<long, IMyEntity>(defaultCapacity);
+            }
+        }
+
         const int DEFAULT_DICTIONARY_SIZE = 32768;
 
-        static Dictionary<long, IMyEntity> m_entityList = new Dictionary<long, IMyEntity>(DEFAULT_DICTIONARY_SIZE);
-        static bool m_allocationSuspended = false;
+        [ThreadStatic]
+        static PerThreadData m_perThreadData; // Per-thread data, explicitly initialized
+        static PerThreadData m_mainData; // Main data, for update thread and any other threads without explicitly initialized data
 
+        static Dictionary<long, IMyEntity> m_entityList { get { return (m_perThreadData ?? m_mainData).EntityList; } }
+
+        // Want to share, always accessed through interlocked, safe
+#if UNSHARPER
+		static long[] m_lastGeneratedIds = new long[(int)MyEnum_Range<ID_OBJECT_TYPE>.Max + 1];
+#else
+        static long[] m_lastGeneratedIds = new long[(int)MyEnum<ID_OBJECT_TYPE>.Range.Max + 1];
+#endif
         /// <summary>
         /// Freezes allocating entity ids.
         /// This is important, because during load, no entity cannot allocate new id, because it could allocate id which already has entity which will be loaded soon.
         /// </summary>
         public static bool AllocationSuspended
         {
-            get
-            {
-                return m_allocationSuspended;
-            }
-            set
-            {
-                m_allocationSuspended = value;
-            }
+            get { return (m_perThreadData ?? m_mainData).AllocationSuspended; }
+            set { (m_perThreadData ?? m_mainData).AllocationSuspended = value; }
         }
 
         public enum ID_OBJECT_TYPE : byte
@@ -42,6 +55,10 @@ namespace VRage
             SPAWN_GROUP = 5, // Obsolete, use IDENTITY instead
             ASTEROID = 6,
             PLANET = 7,
+            VOXEL_PHYSICS = 8, // Generated from planet entity id and storage min hash
+            PLANET_ENVIRONMENT_SECTOR = 9, // From sectorId
+            PLANET_ENVIRONMENT_ITEM = 10, // From sector Id and spawner index. Temporary untill environment item refactor.
+            PLANET_VOXEL_DETAIL = 11,
         }
 
         public enum ID_ALLOCATION_METHOD : byte
@@ -50,21 +67,49 @@ namespace VRage
             SERIAL_START_WITH_1 = 1,
         }
 
-        private static long[] m_lastGeneratedIds = null;
-
         static MyEntityIdentifier()
         {
-            m_lastGeneratedIds = new long[(int)MyEnum<ID_OBJECT_TYPE>.MaxValue.Value + 1];
+            m_mainData = new PerThreadData(DEFAULT_DICTIONARY_SIZE);
+            m_perThreadData = m_mainData;
+        }
+
+        public static void InitPerThreadStorage(int defaultCapacity)
+        {
+            Debug.Assert(m_perThreadData == null || m_perThreadData == m_mainData, "Per thread storage already initialized!");
+            m_perThreadData = new PerThreadData(defaultCapacity);
+        }
+
+        public static void LazyInitPerThreadStorage(int defaultCapacity)
+        {
+            if (m_perThreadData == null || m_perThreadData == m_mainData)
+                m_perThreadData = new PerThreadData(defaultCapacity);
+        }
+
+        public static void DestroyPerThreadStorage()
+        {
+            Debug.Assert(m_perThreadData != m_mainData, "DestroyPerThreadStorage should not be used for main data");
+            m_perThreadData = null;
+        }
+
+        public static void GetPerThreadEntities(List<IMyEntity> result)
+        {
+            Debug.Assert(m_perThreadData != m_mainData, "GetPerThreadEntities should not be used for main data");
+            foreach (var e in m_perThreadData.EntityList)
+                result.Add(e.Value);
+        }
+
+        public static void ClearPerThreadEntities()
+        {
+            Debug.Assert(m_perThreadData != m_mainData, "ClearPerThreadEntities should not be used for main data");
+            m_perThreadData.EntityList.Clear();
         }
 
         public static void Reset()
         {
-            for (int i = 0; i < (int)MyEnum<ID_OBJECT_TYPE>.MaxValue.Value + 1; ++i)
-            {
-                m_lastGeneratedIds[i] = 0;
-            }
+            Array.Clear(m_lastGeneratedIds, 0, m_lastGeneratedIds.Length);
         }
 
+#if !UNSHARPER
         /// <summary>
         /// This method is used when loading existing entity IDs to track the last generated ID
         /// </summary>
@@ -73,9 +118,9 @@ namespace VRage
             long num = GetIdUniqueNumber(id);
             ID_OBJECT_TYPE type = GetIdObjectType(id);
 
-            if (m_lastGeneratedIds[(byte)type] < num)
-                m_lastGeneratedIds[(byte)type] = num;
+            MyUtils.InterlockedMax(ref m_lastGeneratedIds[(byte)type], num);
         }
+#endif
 
         /// <summary>
         /// Registers entity with given ID. Do not call this directly, it is called automatically
@@ -108,8 +153,7 @@ namespace VRage
             else
             {
                 Debug.Assert(generationMethod == ID_ALLOCATION_METHOD.SERIAL_START_WITH_1, "Unknown entity ID generation method!");
-                generatedNumber = m_lastGeneratedIds[(byte)objectType] + 1;
-                m_lastGeneratedIds[(byte)objectType] = generatedNumber;
+                generatedNumber = Interlocked.Increment(ref m_lastGeneratedIds[(byte)objectType]);
             }
 
             return ConstructId(objectType, generatedNumber);
@@ -126,10 +170,21 @@ namespace VRage
             return id & 0x00FFFFFFFFFFFFFF;
         }
 
+        /**
+         * Construct an ID using the hash from a string.
+         */
+        public static long ConstructIdFromString(ID_OBJECT_TYPE type, string uniqueString)
+        {
+            Debug.Assert(!string.IsNullOrEmpty(uniqueString), "Unique string was incorrect!");
+            long eid = uniqueString.GetHashCode64();
+            eid = (eid >> 8) + eid + (eid << 13);
+            return (eid & 0x00FFFFFFFFFFFFFF) | ((long)type << 56);
+        }
+
         public static long ConstructId(ID_OBJECT_TYPE type, long uniqueNumber)
         {
             Debug.Assert(((ulong)uniqueNumber & 0xFF00000000000000) == 0, "Unique number was incorrect!");
-            return (uniqueNumber & 0x00FFFFFFFFFFFFFF) | ((long)ID_OBJECT_TYPE.IDENTITY << 56);
+            return (uniqueNumber & 0x00FFFFFFFFFFFFFF) | ((long)type << 56);
         }
 
         public static long FixObsoleteIdentityType(long id)
@@ -144,8 +199,13 @@ namespace VRage
 
         public static void RemoveEntity(long entityId)
         {
-        //    Debug.Assert(m_entityList.ContainsKey(entityId), "Attempting to remove already removed entity. This shouldn't happen.");
+            //    Debug.Assert(m_entityList.ContainsKey(entityId), "Attempting to remove already removed entity. This shouldn't happen.");
             m_entityList.Remove(entityId);
+        }
+
+        public static IMyEntity GetEntityById(long entityId)
+        {
+            return m_entityList[entityId];
         }
 
         public static bool TryGetEntity(long entityId, out IMyEntity entity)
@@ -159,11 +219,6 @@ namespace VRage
             bool result = TryGetEntity(entityId, out e);
             entity = e as T;
             return result && entity != null;
-        }
-
-        public static IMyEntity GetEntityById(long entityId)
-        {
-            return m_entityList[entityId];
         }
 
         public static bool ExistsById(long entityId)
@@ -186,8 +241,10 @@ namespace VRage
             //Debug.Assert(m_entityList[oldId] == entity, "Entity assigned to old ID is different. This can't happen.");
             //Debug.Assert(m_entityList.ContainsValue(entity), "Entity is not in the list. This can't happen.");
 
-            RemoveEntity(oldId);
-            m_entityList[newId] = entity;
+            var result = m_entityList[oldId];
+            m_entityList.Remove(oldId);
+            m_entityList[newId] = result;
+            Debug.Assert(result == entity, "Entity had different EntityId");
         }
 
         public static void Clear()

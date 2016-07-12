@@ -57,6 +57,15 @@ namespace VRageMath
                 return true;
         }
 
+        public static BoundingBoxD operator +(BoundingBoxD a, Vector3D b)
+        {
+            BoundingBoxD c;
+            c.Max = a.Max + b;
+            c.Min = a.Min + b;
+
+            return c;
+        }
+
         /// <summary>
         /// Gets an array of points that make up the corners of the BoundingBox.
         /// </summary>
@@ -111,7 +120,8 @@ namespace VRageMath
         /// Gets the array of points that make up the corners of the BoundingBox.
         /// </summary>
         /// <param name="corners">An existing array of at least 8 Vector3 points where the corners of the BoundingBox are written.</param>
-        public unsafe void GetCornersUnsafe(Vector3D* corners)
+		[Unsharper.UnsharperDisableReflection()]
+		public unsafe void GetCornersUnsafe(Vector3D* corners)
         {
             corners[0].X = this.Min.X;
             corners[0].Y = this.Max.Y;
@@ -432,6 +442,11 @@ namespace VRageMath
             get { return (Max - Min) / 2; }
         }
 
+        public Vector3D Extents
+        {
+            get { return (Max - Min); }
+        }
+
         /// <summary>
         /// Checks whether the current BoundingBox intersects a BoundingFrustum.
         /// </summary>
@@ -486,7 +501,22 @@ namespace VRageMath
         }
 
 
-        public bool Intersects(LineD line, out double distance)
+        public bool Intersects(ref LineD line)
+        {
+            double? f = Intersects(new RayD(line.From, line.Direction));
+            if (!f.HasValue)
+                return false;
+
+            if (f.Value < 0)
+                return false;
+
+            if (f.Value > line.Length)
+                return false;
+
+            return true;
+        }
+
+        public bool Intersects(ref LineD line, out double distance)
         {
             distance = 0f;
             double? f = Intersects(new RayD(line.From, line.Direction));
@@ -658,6 +688,67 @@ namespace VRageMath
             result = new double?(num1);
         }
 
+        public bool Intersect(ref LineD line, out LineD intersectedLine)
+        {
+            var ray = new RayD(line.From, line.Direction);
+
+            double t1, t2;
+            if (!Intersect(ref ray, out t1, out t2))
+            {
+                intersectedLine = line;
+                return false;
+            }
+
+            t1 = Math.Max(t1, 0);
+            t2 = Math.Min(t2, line.Length);
+
+            intersectedLine.From = line.From + line.Direction*t1;
+            intersectedLine.To = line.From + line.Direction*t2;
+            intersectedLine.Direction = line.Direction;
+            intersectedLine.Length = t2 - t1;
+
+            return true;
+        }
+
+        public bool Intersect(ref LineD line, out double t1, out double t2)
+        {
+            var ray = new RayD(line.From, line.Direction);
+            return Intersect(ref ray, out t1, out t2);
+        }
+
+        public bool Intersect(ref RayD ray, out double tmin, out double tmax)
+        {
+            // r.dir is unit direction vector of ray
+            var recipx = 1.0f / ray.Direction.X;
+            var recipy = 1.0f / ray.Direction.Y;
+            var recipz = 1.0f / ray.Direction.Z;
+            // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
+            // r.org is origin of ray
+            double t1 = (Min.X - ray.Position.X) * recipx;
+            double t2 = (Max.X - ray.Position.X) * recipx;
+            double t3 = (Min.Y - ray.Position.Y) * recipy;
+            double t4 = (Max.Y - ray.Position.Y) * recipy;
+            double t5 = (Min.Z - ray.Position.Z) * recipz;
+            double t6 = (Max.Z - ray.Position.Z) * recipz;
+
+            tmin = Math.Max(Math.Max(Math.Min(t1, t2), Math.Min(t3, t4)), Math.Min(t5, t6));
+            tmax = Math.Min(Math.Min(Math.Max(t1, t2), Math.Max(t3, t4)), Math.Max(t5, t6));
+
+            // if tmax < 0, ray (line) is intersecting AABB, but whole AABB is behing us
+            if (tmax < 0)
+            {
+                return false;
+            }
+
+            // if tmin > tmax, ray doesn't intersect AABB
+            if (tmin > tmax)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Checks whether the current BoundingBox intersects a BoundingSphere.
         /// </summary>
@@ -691,8 +782,20 @@ namespace VRageMath
 
         public double Distance(Vector3D point)
         {
+            if (Contains(point) == ContainmentType.Contains)
+                return 0;
+
             var clamp = Vector3D.Clamp(point, Min, Max);
             return Vector3D.Distance(clamp, point);
+        }
+
+        public double DistanceSquared(Vector3D point)
+        {
+            if (Contains(point) == ContainmentType.Contains)
+                return 0;
+
+            var clamp = Vector3D.Clamp(point, Min, Max);
+            return Vector3D.DistanceSquared(clamp, point);
         }
 
         /// <summary>
@@ -877,25 +980,13 @@ namespace VRageMath
         /// <returns></returns>
         public BoundingBoxD Include(ref Vector3D point)
         {
-            if (point.X < Min.X)
-                Min.X = point.X;
+            Min.X = Math.Min(point.X, Min.X);
+            Min.Y = Math.Min(point.Y, Min.Y);
+            Min.Z = Math.Min(point.Z, Min.Z);
 
-            if (point.Y < Min.Y)
-                Min.Y = point.Y;
-
-            if (point.Z < Min.Z)
-                Min.Z = point.Z;
-
-
-            if (point.X > Max.X)
-                Max.X = point.X;
-
-            if (point.Y > Max.Y)
-                Max.Y = point.Y;
-
-            if (point.Z > Max.Z)
-                Max.Z = point.Z;
-
+            Max.X = Math.Max(point.X, Max.X);
+            Max.Y = Math.Max(point.Y, Max.Y);
+            Max.Z = Math.Max(point.Z, Max.Z);
             return this;
         }
 
@@ -1036,6 +1127,14 @@ namespace VRageMath
             }
         }
 
+        public bool Valid
+        {
+            get
+            {
+                return Min == new Vector3D(double.MaxValue) && Max == new Vector3D(double.MinValue);
+            }
+        }
+
         public BoundingBoxD Inflate(double size)
         {
             Max += new Vector3D(size);
@@ -1110,6 +1209,26 @@ namespace VRageMath
             {
                 Min.Z = minCenter.Z - minimumSize.Z / 2;
                 Max.Z = minCenter.Z + minimumSize.Z / 2;
+            }
+        }
+
+        public void InflateToMinimum(double minimumSize)
+        {
+            Vector3D minCenter = Center;
+            if (Size.X < minimumSize)
+            {
+                Min.X = minCenter.X - minimumSize / 2;
+                Max.X = minCenter.X + minimumSize / 2;
+            }
+            if (Size.Y < minimumSize)
+            {
+                Min.Y = minCenter.Y - minimumSize / 2;
+                Max.Y = minCenter.Y + minimumSize / 2;
+            }
+            if (Size.Z < minimumSize)
+            {
+                Min.Z = minCenter.Z - minimumSize / 2;
+                Max.Z = minCenter.Z + minimumSize / 2;
             }
         }
 

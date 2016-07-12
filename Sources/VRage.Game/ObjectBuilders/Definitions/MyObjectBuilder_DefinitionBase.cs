@@ -4,7 +4,7 @@ using System.Xml.Serialization;
 using VRage.Data;
 using System.ComponentModel;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -19,9 +19,10 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         [ProtoMember, DefaultValue("")]
         public string Description;
 
-        [ProtoMember]
+        [ProtoMember, DefaultValue(new string[] { "" })]
+        [XmlElement("Icon")]
         [ModdableContentFile("dds")]
-        public string Icon;
+        public string[] Icons;
 
         [ProtoMember, DefaultValue(true)]
         public bool Public = true;
@@ -29,7 +30,7 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         [ProtoMember, DefaultValue(true), XmlAttribute(AttributeName = "Enabled")]
         public bool Enabled = true;
 
-		[ProtoMember, DefaultValue(true)]
-		public bool AvailableInSurvival = true;
+        [ProtoMember, DefaultValue(true)]
+        public bool AvailableInSurvival = true;
     }
 }

@@ -3,39 +3,21 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using ProtoBuf;
-using Sandbox.Common;
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Definitions;
-using Sandbox.Definitions;
-using Sandbox.Engine.Models;
-using Sandbox.Engine.Physics;
 using Sandbox.Engine.Utils;
-using Sandbox.Game.Entities.Cube;
-using Sandbox.Game.Entities.Interfaces;
 using Sandbox.Game.GameSystems;
 using Sandbox.Game.GameSystems.Electricity;
-using Sandbox.Game.Multiplayer;
 using Sandbox.Game.Weapons;
 using Sandbox.Game.World;
 using VRage;
-using VRage;
-using VRage.Import;
-using VRage.Utils;
 using VRageMath;
 using VRageRender;
 
 using Sandbox.Game.GameSystems.Conveyors;
 using System.Text;
-using Sandbox.Common.ObjectBuilders.VRageData;
-using Sandbox.Graphics;
-using Sandbox.Game.GUI;
-using System.Runtime.InteropServices;
-using Sandbox.Game.Screens.Helpers;
-
-using Sandbox.Game.Entities.Character;
-using Sandbox.Game.Entities.Blocks;
+using Sandbox.Game.EntityComponents;
+using VRage.Game;
+using IMyLandingGear = Sandbox.Game.Entities.Interfaces.IMyLandingGear;
 
 #endregion
 
@@ -43,21 +25,22 @@ namespace Sandbox.Game.Entities.Cube
 {
     public class MyCubeGridSystems
     {
-        internal MyPowerDistributor PowerDistributor { get; private set; }
-        internal MyGridTerminalSystem TerminalSystem { get; private set; }
-        internal MyGridConveyorSystem ConveyorSystem { get; private set; }
-        internal MyGridThrustSystem ThrustSystem { get; private set; }
-        internal MyGridGyroSystem GyroSystem { get; private set; }
-        internal MyGridWeaponSystem WeaponSystem { get; private set; }
-        internal MyGridReflectorLightSystem ReflectorLightSystem { get; private set; }
-        internal MyGridWheelSystem WheelSystem { get; private set; }
-        internal MyGridLandingSystem LandingSystem { get; private set; }
-        internal MyGroupControlSystem ControlSystem { get; private set; }
-        internal MyGridCameraSystem CameraSystem { get; private set; }
+        public MyResourceDistributorComponent ResourceDistributor { get; private set; }
+        public MyGridTerminalSystem TerminalSystem { get; private set; }
+        public MyGridConveyorSystem ConveyorSystem { get; private set; }
+        public MyGridGyroSystem GyroSystem { get; private set; }
+        public MyGridWeaponSystem WeaponSystem { get; private set; }
+        public MyGridReflectorLightSystem ReflectorLightSystem { get; private set; }
+        public MyGridWheelSystem WheelSystem { get; private set; }
+        public MyGridLandingSystem LandingSystem { get; private set; }
+        public MyGroupControlSystem ControlSystem { get; private set; }
+        public MyGridCameraSystem CameraSystem { get; private set; }
+        public MyShipSoundComponent ShipSoundComponent { get; private set; }
         /// <summary>
         /// Can be null if Oxygen option is disabled
         /// </summary>
-        public MyGridOxygenSystem OxygenSystem { get; private set; }
+        public MyGridGasSystem GasSystem { get; private set; }
+        public MyGridJumpDriveSystem JumpSystem { get; private set; }
 
         private readonly MyCubeGrid m_cubeGrid;
         protected MyCubeGrid CubeGrid { get { return m_cubeGrid; } }
@@ -67,6 +50,8 @@ namespace Sandbox.Game.Entities.Cube
 
         private bool m_blocksRegistered = false;
 
+        private readonly HashSet<MyResourceSinkComponent> m_tmpSinks = new HashSet<MyResourceSinkComponent>();
+
         public MyCubeGridSystems(MyCubeGrid grid)
         {
             m_cubeGrid = grid;
@@ -74,7 +59,6 @@ namespace Sandbox.Game.Entities.Cube
             m_terminalSystem_GroupAdded = TerminalSystem_GroupAdded;
             m_terminalSystem_GroupRemoved = TerminalSystem_GroupRemoved;
 
-            ThrustSystem = new MyGridThrustSystem(m_cubeGrid);
             GyroSystem = new MyGridGyroSystem(m_cubeGrid);
             WeaponSystem = new MyGridWeaponSystem();
             ReflectorLightSystem = new MyGridReflectorLightSystem(m_cubeGrid);
@@ -89,25 +73,52 @@ namespace Sandbox.Game.Entities.Cube
 
             if (MySession.Static.Settings.EnableOxygen)
             {
-                OxygenSystem = new MyGridOxygenSystem(m_cubeGrid);
+                GasSystem = new MyGridGasSystem(m_cubeGrid);
             }
-
-            m_cubeGrid.SyncObject.PowerProducerStateChanged += SyncObject_PowerProducerStateChanged;
+            if (MyPerGameSettings.EnableJumpDrive)
+            {
+                JumpSystem = new MyGridJumpDriveSystem(m_cubeGrid);
+            }
+            if (MyPerGameSettings.EnableShipSoundSystem && (MyFakes.ENABLE_NEW_SMALL_SHIP_SOUNDS || MyFakes.ENABLE_NEW_LARGE_SHIP_SOUNDS) && MySandboxGame.IsDedicated == false)
+            {
+                ShipSoundComponent = new MyShipSoundComponent();
+            }
 
             m_blocksRegistered = true;
         }
 
         public virtual void Init(MyObjectBuilder_CubeGrid builder)
         {
-            ThrustSystem.DampenersEnabled = builder.DampenersEnabled;
+	        var thrustComp = CubeGrid.Components.Get<MyEntityThrustComponent>();
+			if(thrustComp != null)
+				thrustComp.DampenersEnabled = builder.DampenersEnabled;
 
             if (WheelSystem != null)
-                WheelSystem.HandBrake = builder.Handbrake;
+            {
+                m_cubeGrid.SetHandbrakeRequest(builder.Handbrake);
+            }
 
             if (MySession.Static.Settings.EnableOxygen)
             {
-                OxygenSystem.Init(builder.OxygenAmount);
+                GasSystem.Init(builder.OxygenAmount);
             }
+            if (ShipSoundComponent != null)
+            {
+                if (ShipSoundComponent.InitComponent(m_cubeGrid) == false)
+                {
+                    ShipSoundComponent.DestroyComponent();
+                    ShipSoundComponent = null;
+                }
+            }
+
+            if (MyPerGameSettings.EnableJumpDrive)
+            {
+                JumpSystem.Init(builder.JumpDriveDirection, builder.JumpRemainingTime);
+            }
+
+            var thrustComponent = CubeGrid.Components.Get<MyEntityThrustComponent>();
+            if (thrustComponent != null)
+                thrustComponent.MergeAllGroupsDirty();
         }
 
         public virtual void BeforeBlockDeserialization(MyObjectBuilder_CubeGrid builder)
@@ -118,15 +129,24 @@ namespace Sandbox.Game.Entities.Cube
         public virtual void AfterBlockDeserialization()
         {
             ConveyorSystem.AfterBlockDeserialization();
-            ConveyorSystem.PowerReceiver.Update();
+            ConveyorSystem.ResourceSink.Update();
         }
 
-        public virtual void UpdateBeforeSimulation()
+        public void UpdateBeforeSimulation()
         {
-            ProfilerShort.Begin("Thrusters and gyro");
-            ThrustSystem.UpdateBeforeSimulation();
-            GyroSystem.UpdateBeforeSimulation();
+			ProfilerShort.Begin("Thrusters");
+	        MyEntityThrustComponent thrustComp;
+			if(CubeGrid.Components.TryGet(out thrustComp))
+				thrustComp.UpdateBeforeSimulation();
             ProfilerShort.End();
+
+            // Only update gyros if there are gyros in the system
+            if (GyroSystem.GyroCount > 0)
+            {
+                ProfilerShort.Begin("Gyros");
+                GyroSystem.UpdateBeforeSimulation();
+                ProfilerShort.End();
+            }
 
             if (MyFakes.ENABLE_WHEEL_CONTROLS_IN_COCKPIT)
             {
@@ -135,9 +155,9 @@ namespace Sandbox.Game.Entities.Cube
                 ProfilerShort.End();
             }
 
-            ProfilerShort.Begin("Conveyors");
+            /*ProfilerShort.Begin("Conveyors");
             ConveyorSystem.UpdateBeforeSimulation();
-            ProfilerShort.End();
+            ProfilerShort.End();*/
 
             ProfilerShort.Begin("Control");
             ControlSystem.UpdateBeforeSimulation();
@@ -150,9 +170,21 @@ namespace Sandbox.Game.Entities.Cube
             if (MySession.Static.Settings.EnableOxygen)
             {
                 ProfilerShort.Begin("Oxygen");
-                OxygenSystem.UpdateBeforeSimulation();
+                GasSystem.UpdateBeforeSimulation();
                 ProfilerShort.End();
             }
+
+            if (MyPerGameSettings.EnableJumpDrive)
+            {
+                ProfilerShort.Begin("Jump");
+                JumpSystem.UpdateBeforeSimulation();
+                ProfilerShort.End();
+            }
+
+            ProfilerShort.Begin("Ship sounds");
+            if (ShipSoundComponent != null)
+                ShipSoundComponent.Update();
+            ProfilerShort.End();
         }
 
         public virtual void PrepareForDraw()
@@ -163,10 +195,10 @@ namespace Sandbox.Game.Entities.Cube
 
         public void UpdatePower()
         {
-            if (PowerDistributor != null)
-            {
-                PowerDistributor.UpdateBeforeSimulation10();
-            }
+			ProfilerShort.Begin("GridSystems.UpdatePower");
+            if (ResourceDistributor != null)
+                ResourceDistributor.UpdateBeforeSimulation10();
+			ProfilerShort.End();
         }
 
         public virtual void UpdateOnceBeforeFrame()
@@ -184,13 +216,22 @@ namespace Sandbox.Game.Entities.Cube
         {
             if (MySession.Static.Settings.EnableOxygen)
             {
-                OxygenSystem.UpdateBeforeSimulation100();
+                GasSystem.UpdateBeforeSimulation100();
             }
+
+            if (ShipSoundComponent != null)
+                ShipSoundComponent.Update100();
+        }
+
+        public virtual void UpdateAfterSimulation100()
+        {
+            ConveyorSystem.UpdateAfterSimulation100();
         }
 
         public virtual void GetObjectBuilder(MyObjectBuilder_CubeGrid ob)
         {
-            ob.DampenersEnabled = ThrustSystem.DampenersEnabled;
+	        var thrustComp = CubeGrid.Components.Get<MyEntityThrustComponent>();
+	        ob.DampenersEnabled = thrustComp == null || thrustComp.DampenersEnabled;
 
             ConveyorSystem.SerializeLines(ob.ConveyorLines);
             if (ob.ConveyorLines.Count == 0)
@@ -201,7 +242,13 @@ namespace Sandbox.Game.Entities.Cube
 
             if (MySession.Static.Settings.EnableOxygen)
             {
-                ob.OxygenAmount = OxygenSystem.GetOxygenAmount();
+                ob.OxygenAmount = GasSystem.GetOxygenAmount();
+            }
+
+            if (MyPerGameSettings.EnableJumpDrive)
+            {
+                ob.JumpDriveDirection = JumpSystem.GetJumpDriveDirection();
+                ob.JumpRemainingTime = JumpSystem.GetRemainingJumpTime();
             }
         }
 
@@ -229,41 +276,44 @@ namespace Sandbox.Game.Entities.Cube
         {
             Debug.Assert(group.TerminalSystem != null, "Terminal system is null!");
             TerminalSystem = group.TerminalSystem;
-            PowerDistributor = group.PowerDistributor;
+            ResourceDistributor = group.ResourceDistributor;
             WeaponSystem = group.WeaponSystem;
 
-            PowerDistributor.AddConsumer(ThrustSystem);
-            PowerDistributor.AddConsumer(GyroSystem);
-            PowerDistributor.AddConsumer(ConveyorSystem);
+            m_cubeGrid.OnBlockAdded += ResourceDistributor.CubeGrid_OnBlockAddedOrRemoved;
+            m_cubeGrid.OnBlockRemoved += ResourceDistributor.CubeGrid_OnBlockAddedOrRemoved;
+
+            ResourceDistributor.AddSink(GyroSystem.ResourceSink);
+            ResourceDistributor.AddSink(ConveyorSystem.ResourceSink);
+            ResourceDistributor.UpdateBeforeSimulation10();
+
+            ConveyorSystem.ResourceSink.IsPoweredChanged += ResourceDistributor.ConveyorSystem_OnPoweredChanged;
 
             foreach (var g in m_cubeGrid.BlockGroups)
                 TerminalSystem.AddUpdateGroup(g);
             TerminalSystem.GroupAdded += m_terminalSystem_GroupAdded;
             TerminalSystem.GroupRemoved += m_terminalSystem_GroupRemoved;
 
-            foreach (var block in m_cubeGrid.GetBlocks())
+            foreach (var block in m_cubeGrid.GetFatBlocks())
             {
-                if (block.FatBlock == null)
-                    continue;
-                if (!block.FatBlock.MarkedForClose)
+                if (!block.MarkedForClose)
                 {
-                    var functionalBlock = block.FatBlock as MyTerminalBlock;
+                    var functionalBlock = block as MyTerminalBlock;
                     if (functionalBlock != null)
                         TerminalSystem.Add(functionalBlock);
 
-                    var producer = block.FatBlock as IMyPowerProducer;
+                    var producer = block.Components.Get<MyResourceSourceComponent>();
                     if (producer != null)
-                        PowerDistributor.AddProducer(producer);
+                        ResourceDistributor.AddSource(producer);
 
-                    var consumer = block.FatBlock as IMyPowerConsumer;
+                    var consumer = block.Components.Get<MyResourceSinkComponent>();
                     if (consumer != null)
-                        PowerDistributor.AddConsumer(consumer);
+                        ResourceDistributor.AddSink(consumer);
 
-                    var socketOwner = block.FatBlock as IMyRechargeSocketOwner;
+                    var socketOwner = block as IMyRechargeSocketOwner;
                     if (socketOwner != null)
-                        socketOwner.RechargeSocket.PowerDistributor = group.PowerDistributor;
+                        socketOwner.RechargeSocket.ResourceDistributor = group.ResourceDistributor;
 
-                    var weapon = block.FatBlock as IMyGunObject<MyDeviceBase>;
+                    var weapon = block as IMyGunObject<MyDeviceBase>;
                     if (weapon != null)
                         WeaponSystem.Register(weapon);
                 }
@@ -272,6 +322,7 @@ namespace Sandbox.Game.Entities.Cube
 
         public virtual void OnRemovedFromGroup(MyGridLogicalGroupData group)
         {
+            Debug.Assert(TerminalSystem == group.TerminalSystem, "Removing grid from diferent group then it was added to!");
             if (m_blocksRegistered)
             {
                 ProfilerShort.Begin("Removing block groups from grid group");
@@ -281,40 +332,39 @@ namespace Sandbox.Game.Entities.Cube
                     TerminalSystem.RemoveGroup(g);
                 ProfilerShort.End();
 
-                foreach (var block in m_cubeGrid.GetBlocks())
+                foreach (var block in m_cubeGrid.GetFatBlocks())
                 {
-                    if (block.FatBlock == null)
-                        continue;
-
-                    var functionalBlock = block.FatBlock as MyTerminalBlock;
+                    var functionalBlock = block as MyTerminalBlock;
                     if (functionalBlock != null)
                         TerminalSystem.Remove(functionalBlock);
 
-                    var producer = block.FatBlock as IMyPowerProducer;
+                    var producer = block.Components.Get<MyResourceSourceComponent>();
                     if (producer != null)
-                        PowerDistributor.RemoveProducer(producer);
+                        ResourceDistributor.RemoveSource(producer);
 
-                    var consumer = block.FatBlock as IMyPowerConsumer;
+                    var consumer = block.Components.Get<MyResourceSinkComponent>();
                     if (consumer != null)
-                    {
-                        PowerDistributor.RemoveConsumer(consumer, resetConsumerInput: false, markedForClose: block.FatBlock.MarkedForClose);
-                    }
+                        ResourceDistributor.RemoveSink(consumer, resetSinkInput: false, markedForClose: block.MarkedForClose);
 
-                    var socketOwner = block.FatBlock as IMyRechargeSocketOwner;
+                    var socketOwner = block as IMyRechargeSocketOwner;
                     if (socketOwner != null)
-                        socketOwner.RechargeSocket.PowerDistributor = null;
+                        socketOwner.RechargeSocket.ResourceDistributor = null;
 
-                    var weapon = block.FatBlock as IMyGunObject<MyDeviceBase>;
+                    var weapon = block as IMyGunObject<MyDeviceBase>;
                     if (weapon != null)
                         WeaponSystem.Unregister(weapon);
                 }
             }
 
-            PowerDistributor.RemoveConsumer(ConveyorSystem, resetConsumerInput: false);
-            PowerDistributor.RemoveConsumer(GyroSystem, resetConsumerInput: false);
-            PowerDistributor.RemoveConsumer(ThrustSystem, resetConsumerInput: false);
+            ConveyorSystem.ResourceSink.IsPoweredChanged -= ResourceDistributor.ConveyorSystem_OnPoweredChanged;
+            group.ResourceDistributor.RemoveSink(ConveyorSystem.ResourceSink, resetSinkInput: false);
+            group.ResourceDistributor.RemoveSink(GyroSystem.ResourceSink, resetSinkInput: false);
+            group.ResourceDistributor.UpdateBeforeSimulation10();
 
-            PowerDistributor = null;
+            m_cubeGrid.OnBlockAdded -= ResourceDistributor.CubeGrid_OnBlockAddedOrRemoved;
+            m_cubeGrid.OnBlockRemoved -= ResourceDistributor.CubeGrid_OnBlockAddedOrRemoved;
+
+            ResourceDistributor = null;
             TerminalSystem = null;
             WeaponSystem = null;
         }
@@ -323,15 +373,11 @@ namespace Sandbox.Game.Entities.Cube
         {
             ControlSystem = group.ControlSystem;
 
-            foreach (var block in m_cubeGrid.GetBlocks())
+            foreach (var block in m_cubeGrid.GetFatBlocks<MyShipController>())
             {
-                if (block.FatBlock == null)
-                    continue;
-
-                var controllerBlock = block.FatBlock as MyShipController;
-                if (controllerBlock != null && controllerBlock.ControllerInfo.Controller != null && controllerBlock.EnableShipControl)
+                if (block != null && block.ControllerInfo.Controller != null && block.EnableShipControl)
                 {
-                    ControlSystem.AddControllerBlock(controllerBlock);
+                    ControlSystem.AddControllerBlock(block);
                 }
             }
 
@@ -344,12 +390,8 @@ namespace Sandbox.Game.Entities.Cube
 
             if (m_blocksRegistered)
             {
-                foreach (var block in m_cubeGrid.GetBlocks())
+                foreach (var controllerBlock in m_cubeGrid.GetFatBlocks<MyShipController>())
                 {
-                    if (block.FatBlock == null)
-                        continue;
-
-                    var controllerBlock = block.FatBlock as MyShipController;
                     if (controllerBlock != null && controllerBlock.ControllerInfo.Controller != null && controllerBlock.EnableShipControl)
                     {
                         ControlSystem.RemoveControllerBlock(controllerBlock);
@@ -364,12 +406,31 @@ namespace Sandbox.Game.Entities.Cube
         {
             ConveyorSystem.IsClosing = true;
             ReflectorLightSystem.IsClosing = true;
+
+            if (ShipSoundComponent != null)
+            {
+                ShipSoundComponent.DestroyComponent();
+                ShipSoundComponent = null;
+            }
+
+            // Inform gas system we are going down
+            if (GasSystem != null)
+            {
+                GasSystem.OnGridClosing();
+            }
         }
 
         public virtual void AfterGridClose()
         {
             ConveyorSystem.AfterGridClose();
+            if (MyPerGameSettings.EnableJumpDrive)
+            {
+                JumpSystem.AfterGridClose();
+            }
             m_blocksRegistered = false;
+
+            // Clear out gas system
+            GasSystem = null;
         }
 
         public virtual void DebugDraw()
@@ -387,14 +448,14 @@ namespace Sandbox.Game.Entities.Cube
 
             if (MySession.Static.Settings.EnableOxygen && MyDebugDrawSettings.DEBUG_DRAW_OXYGEN)
             {
-                OxygenSystem.DebugDraw();
+                GasSystem.DebugDraw();
             }
         }
 
         public virtual bool IsTrash()
         {
             // Powered grids are not trash
-            if (this.PowerDistributor.PowerState != MyPowerStateEnum.NoPower)
+            if (this.ResourceDistributor.ResourceState != MyResourceStateEnum.NoPower)
                 return false;
 
             // Controlled grids are not trash
@@ -406,19 +467,19 @@ namespace Sandbox.Game.Entities.Cube
 
         public virtual void RegisterInSystems(MyCubeBlock block)
         {
-            if (PowerDistributor != null)
+            if (ResourceDistributor != null)
             {
-                var powerProducer = block as IMyPowerProducer;
+                var powerProducer = block.Components.Get<MyResourceSourceComponent>();
                 if (powerProducer != null)
-                    PowerDistributor.AddProducer(powerProducer);
+                    ResourceDistributor.AddSource(powerProducer);
 
-                var powerConsumer = block as IMyPowerConsumer;
+                var powerConsumer = block.Components.Get<MyResourceSinkComponent>();
                 if (powerConsumer != null)
-                    PowerDistributor.AddConsumer(powerConsumer);
+                    ResourceDistributor.AddSink(powerConsumer);
 
                 var socketOwner = block as IMyRechargeSocketOwner;
                 if (socketOwner != null)
-                    socketOwner.RechargeSocket.PowerDistributor = PowerDistributor;
+                    socketOwner.RechargeSocket.ResourceDistributor = ResourceDistributor;
             }
 
             if (WeaponSystem != null)
@@ -445,7 +506,7 @@ namespace Sandbox.Game.Entities.Cube
                     ControlSystem.AddControllerBlock(controllableBlock);
             }*/
 
-            var inventoryBlock = block as IMyInventoryOwner;
+            var inventoryBlock = (block != null && block.HasInventory) ? block : null;
             if (inventoryBlock != null)
                 ConveyorSystem.Add(inventoryBlock);
 
@@ -478,10 +539,6 @@ namespace Sandbox.Game.Entities.Cube
             if (landingGear != null)
                 LandingSystem.Register(landingGear);
 
-            var thrust = block as MyThrust;
-            if (thrust != null)
-                ThrustSystem.Register(thrust);
-
             var gyro = block as MyGyro;
             if (gyro != null)
                 GyroSystem.Register(gyro);
@@ -495,23 +552,23 @@ namespace Sandbox.Game.Entities.Cube
 
         public virtual void UnregisterFromSystems(MyCubeBlock block)
         {
-            // Note: PowerDistributor, WeaponSystem and TemrminalSystem can be null on closing (they are not in the ship but in the logical group). That's why they are null-checked
-            if (PowerDistributor != null)
+            // Note: ResourceDistributor, WeaponSystem and TemrminalSystem can be null on closing (they are not in the ship but in the logical group). That's why they are null-checked
+            if (ResourceDistributor != null)
             {
                 ProfilerShort.Begin("Unregister Power producer");
-                var powerProducer = block as IMyPowerProducer;
+                var powerProducer = block.Components.Get<MyResourceSourceComponent>();
                 if (powerProducer != null)
-                    PowerDistributor.RemoveProducer(powerProducer);
+                    ResourceDistributor.RemoveSource(powerProducer);
 
                 ProfilerShort.BeginNextBlock("Unregister Power consumer");
-                var powerConsumer = block as IMyPowerConsumer;
+                var powerConsumer = block.Components.Get<MyResourceSinkComponent>();
                 if (powerConsumer != null)
-                    PowerDistributor.RemoveConsumer(powerConsumer);
+                    ResourceDistributor.RemoveSink(powerConsumer);
                 ProfilerShort.End();
 
                 var socketOwner = block as IMyRechargeSocketOwner;
                 if (socketOwner != null)
-                    socketOwner.RechargeSocket.PowerDistributor = null;
+                    socketOwner.RechargeSocket.ResourceDistributor = null;
             }
 
             ProfilerShort.Begin("Unregister gun object");
@@ -540,8 +597,8 @@ namespace Sandbox.Game.Entities.Cube
             }*/
 
             ProfilerShort.BeginNextBlock("Unregister inventory block");
-            var inventoryBlock = block as IMyInventoryOwner;
-            if (inventoryBlock != null)
+            var inventoryBlock = (block != null &&  block.HasInventory) ? block : null ;
+            if (inventoryBlock != null && inventoryBlock.HasInventory)
                 ConveyorSystem.Remove(inventoryBlock);
 
             ProfilerShort.BeginNextBlock("Unregister conveyor block");
@@ -572,11 +629,6 @@ namespace Sandbox.Game.Entities.Cube
             if (gear != null)
                 LandingSystem.Unregister(gear);
 
-            ProfilerShort.BeginNextBlock("Unregister thrust");
-            var thrust = block as MyThrust;
-            if (thrust != null)
-                ThrustSystem.Unregister(thrust);
-
             ProfilerShort.BeginNextBlock("Unregister gyro");
             var gyro = block as MyGyro;
             if (gyro != null)
@@ -593,9 +645,22 @@ namespace Sandbox.Game.Entities.Cube
             ProfilerShort.End();
         }
 
-        private void SyncObject_PowerProducerStateChanged(MyMultipleEnabledEnum enabledState,long playerId)
+        public void SyncObject_PowerProducerStateChanged(MyMultipleEnabledEnum enabledState,long playerId)
         {
-            PowerDistributor.ChangeProducersState(enabledState, playerId);
+            // Include the batteries for total power shutdown
+            foreach (var block in CubeGrid.GetBlocks())
+            {
+                //GR: Do the same for solar panels too. Issue: solar panels are in SpaceEngineers assembly not Sanbox so cannot access them from here. Workaround is to get DisplayName.
+                //Best solution would be to move GridSystem to SpaceEngineers. Also for this to work MySolarPanel is now a MyFunctionalBlock (can be toggled on /off).
+                if (block != null && block.FatBlock != null && (block.FatBlock is MyBatteryBlock || block.FatBlock.DefinitionDisplayNameText.Equals("Solar Panel")))
+                {
+                    ((MyFunctionalBlock)block.FatBlock).Enabled = enabledState == MyMultipleEnabledEnum.AllEnabled ? true : false;
+                }
+            }
+            if (ResourceDistributor != null)
+            {
+                ResourceDistributor.ChangeSourcesState(MyResourceDistributorComponent.ElectricityId, enabledState, playerId);
+            }
         }
 
         private void TerminalSystem_GroupRemoved(MyBlockGroup group)
@@ -608,7 +673,7 @@ namespace Sandbox.Game.Entities.Cube
                     Debug.Assert(g != group, "TerminalSystem should have own group copy");
                     g.Blocks.Clear();
                     m_cubeGrid.BlockGroups.Remove(g);
-                    m_cubeGrid.SyncObject.ModifyGroup(g);
+                    m_cubeGrid.ModifyGroup(g);
                     break;
                 }
         }
@@ -624,7 +689,7 @@ namespace Sandbox.Game.Entities.Cube
                         if (b.CubeGrid == m_cubeGrid)
                             g.Blocks.Add(b);
                     if (oldCount != g.Blocks.Count)
-                        m_cubeGrid.SyncObject.ModifyGroup(g);
+                        m_cubeGrid.ModifyGroup(g);
                     if (g.Blocks.Count == 0)
                         m_cubeGrid.BlockGroups.Remove(g);
                     return;
@@ -637,8 +702,52 @@ namespace Sandbox.Game.Entities.Cube
             if (gr.Blocks.Count > 0)
             {
                 m_cubeGrid.BlockGroups.Add(gr);
-                m_cubeGrid.SyncObject.ModifyGroup(gr);
+                m_cubeGrid.ModifyGroup(gr);
             }
+        }
+
+        public virtual void OnBlockAdded(MySlimBlock block)
+        {
+            IMyConveyorEndpointBlock conveyorEndpointBlock = block.FatBlock as IMyConveyorEndpointBlock;
+            if (conveyorEndpointBlock != null)
+                ConveyorSystem.FlagForRecomputation();
+
+            IMyConveyorSegmentBlock conveyorSegmentBlock = block.FatBlock as IMyConveyorSegmentBlock;
+            if (conveyorSegmentBlock != null)
+                ConveyorSystem.FlagForRecomputation();
+
+            if(ShipSoundComponent != null && block.FatBlock as MyThrust != null)
+                ShipSoundComponent.ShipHasChanged = true;
+        }
+
+        public virtual void OnBlockRemoved(MySlimBlock block)
+        {
+            IMyConveyorEndpointBlock conveyorEndpointBlock = block.FatBlock as IMyConveyorEndpointBlock;
+            if (conveyorEndpointBlock != null)
+                ConveyorSystem.FlagForRecomputation();
+
+            IMyConveyorSegmentBlock conveyorSegmentBlock = block.FatBlock as IMyConveyorSegmentBlock;
+            if (conveyorSegmentBlock != null)
+                ConveyorSystem.FlagForRecomputation();
+
+            if (ShipSoundComponent != null && block.FatBlock as MyThrust != null)
+                ShipSoundComponent.ShipHasChanged = true;
+        }
+
+        public virtual void OnBlockIntegrityChanged(MySlimBlock block)
+        {
+            IMyConveyorEndpointBlock conveyorEndpointBlock = block.FatBlock as IMyConveyorEndpointBlock;
+            if (conveyorEndpointBlock != null)
+                ConveyorSystem.FlagForRecomputation();
+
+            IMyConveyorSegmentBlock conveyorSegmentBlock = block.FatBlock as IMyConveyorSegmentBlock;
+            if (conveyorSegmentBlock != null)
+                ConveyorSystem.FlagForRecomputation();
+        }
+
+        public virtual void OnBlockOwnershipChanged(MyCubeGrid cubeGrid)
+        {
+            ConveyorSystem.FlagForRecomputation();
         }
     }
 }

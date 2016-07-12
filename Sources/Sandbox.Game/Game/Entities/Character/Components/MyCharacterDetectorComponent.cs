@@ -2,7 +2,6 @@
 
 using Havok;
 using Sandbox.Common;
-using Sandbox.Common.ModAPI;
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
@@ -25,7 +24,6 @@ using Sandbox.Game.SessionComponents;
 using Sandbox.Game.Weapons;
 using Sandbox.Game.World;
 using Sandbox.Graphics.GUI;
-using Sandbox.Graphics.TransparentGeometry.Particles;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces;
 using System;
@@ -35,8 +33,9 @@ using System.Linq;
 using System.Text;
 using VRage;
 using VRage.Audio;
-using VRage.Components;
+using VRage.Game.Components;
 using VRage.FileSystem;
+using VRage.Game;
 using VRage.Game.Entity.UseObject;
 using VRage.Game.ObjectBuilders;
 using VRage.Input;
@@ -46,7 +45,11 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
 using VRageRender;
-using IMyModdingControllableEntity = Sandbox.ModAPI.Interfaces.IMyControllableEntity;
+using IMyModdingControllableEntity = VRage.Game.ModAPI.Interfaces.IMyControllableEntity;
+using VRage.Game.Entity;
+using VRage.Import;
+using VRage.Game.Models;
+using VRage.Render.Models;
 
 #endregion
 
@@ -54,7 +57,9 @@ namespace Sandbox.Game.Entities.Character
 {
     public abstract class MyCharacterDetectorComponent : MyCharacterComponent
     {
+        IMyEntity m_detectedEntity;
         IMyUseObject m_interactiveObject;
+        protected static List<MyEntity> m_detectableEntities = new List<MyEntity>();
 
         protected MyHudNotification m_useObjectNotification;
         protected MyHudNotification m_showTerminalNotification;
@@ -69,17 +74,22 @@ namespace Sandbox.Game.Entities.Character
 
             m_usingContinuously = false;
 
-            if (MySession.ControlledEntity == Character && !Character.IsSitting && !Character.IsDead)
+            if (!Character.IsSitting && !Character.IsDead)
             {
-                DoDetection(MySession.GetCameraControllerEnum() != MyCameraControllerEnum.ThirdPersonSpectator);
+                DoDetection();
             }
             else
             {
-                if (MySession.ControlledEntity == Character)
+                if (MySession.Static.ControlledEntity == Character)
                 {
-                    MyHud.SelectedObjectHighlight.Visible = false;
+                    MyHud.SelectedObjectHighlight.RemoveHighlight();
                 }
             }
+        }
+
+        public void DoDetection()
+        {
+            DoDetection(!Character.TargetFromCamera);
         }
 
         protected abstract void DoDetection(bool useHead);
@@ -105,9 +115,55 @@ namespace Sandbox.Game.Entities.Character
             }
         }
 
+        public IMyEntity DetectedEntity
+        {
+            protected set
+            {
+                if (m_detectedEntity != null)
+                {
+                    m_detectedEntity.OnMarkForClose -= OnDetectedEntityMarkForClose;
+                }
+
+                m_detectedEntity = value;
+
+                if (m_detectedEntity != null)
+                {
+                    m_detectedEntity.OnMarkForClose += OnDetectedEntityMarkForClose;
+                }
+            }
+            get { return m_detectedEntity; }
+        }
+
+        public Vector3D HitPosition { protected set; get; }
+
+        public Vector3 HitNormal { protected set; get; }
+
+        public uint ShapeKey { protected set; get; }
+
+        public Vector3D StartPosition { protected set; get; }
+
+        public MyStringHash HitMaterial { protected set; get; }
+
+        public HkRigidBody HitBody { protected set; get; }
+
+        public object HitTag { get; protected set; }
+
+        protected MyCharacterHitInfo CharHitInfo;
+
+        protected virtual void OnDetectedEntityMarkForClose(IMyEntity obj)
+        {
+            DetectedEntity = null;
+
+            if (UseObject == null)
+                return;
+
+            UseObject = null;
+            MyHud.SelectedObjectHighlight.RemoveHighlight();
+        }
+
         void UseClose()
         {
-            if (UseObject != null && UseObject.IsActionSupported(UseActionEnum.Close))
+            if (Character != null && UseObject != null && UseObject.IsActionSupported(UseActionEnum.Close))
             {
                 UseObject.Use(UseActionEnum.Close, Character);
             }
@@ -115,14 +171,17 @@ namespace Sandbox.Game.Entities.Character
 
         void InteractiveObjectRemoved()
         {
-            Character.RemoveNotification(ref m_useObjectNotification);
-            Character.RemoveNotification(ref m_showTerminalNotification);
-            Character.RemoveNotification(ref m_openInventoryNotification);
+            if (Character != null)
+            {
+                Character.RemoveNotification(ref m_useObjectNotification);
+                Character.RemoveNotification(ref m_showTerminalNotification);
+                Character.RemoveNotification(ref m_openInventoryNotification);
+            }
         }
 
         void InteractiveObjectChanged()
         {
-            if (MySession.ControlledEntity == this.Character && UseObject != null)
+            if (MySession.Static.ControlledEntity == this.Character && UseObject != null)
             {
                 GetNotification(UseObject, UseActionEnum.Manipulate, ref m_useObjectNotification);
                 GetNotification(UseObject, UseActionEnum.OpenTerminal, ref m_showTerminalNotification);
@@ -166,5 +225,102 @@ namespace Sandbox.Game.Entities.Character
             m_usingContinuously = true;
         }
 
+        public override void OnCharacterDead()
+        {
+            base.OnCharacterDead();
+
+            InteractiveObjectRemoved();
+        }
+
+        public override void OnAddedToContainer()
+        {
+            base.OnAddedToContainer();
+            NeedsUpdateAfterSimulation10 = true;
+        }
+
+        public override void OnRemovedFromScene()
+        {
+            base.OnRemovedFromScene();
+
+            InteractiveObjectRemoved();
+        }
+
+        protected void GatherDetectorsInArea(Vector3D from)
+        {
+            Debug.Assert(m_detectableEntities.Count == 0, "Detected entities weren't cleared");
+            var boundingSphere = new BoundingSphereD(from, MyConstants.DEFAULT_INTERACTIVE_DISTANCE);
+            MyGamePruningStructure.GetAllEntitiesInSphere(ref boundingSphere, m_detectableEntities);
+        }
+        protected void EnableDetectorsInArea(Vector3D from)
+        {
+            GatherDetectorsInArea(from);
+            foreach (var ent in m_detectableEntities)
+            {
+                MyUseObjectsComponentBase use;
+                if (ent.Components.TryGet<MyUseObjectsComponentBase>(out use))
+                {
+                    if (use.DetectorPhysics != null)
+                    {
+                        use.PositionChanged(use.Container.Get<MyPositionComponentBase>());
+                        use.DetectorPhysics.Enabled = true;
+                    }
+                }
+            }
+        }
+
+        protected void DisableDetectors()
+        {
+            foreach (var ent in m_detectableEntities)
+            {
+                MyUseObjectsComponentBase use;
+                if (ent.Components.TryGet<MyUseObjectsComponentBase>(out use))
+                {
+                    if (use.DetectorPhysics != null)
+                        use.DetectorPhysics.Enabled = false;
+                }
+            }
+            m_detectableEntities.Clear();
+        }
+
+        protected static void HandleInteractiveObject(IMyUseObject interactive)
+        {
+            if (MyFakes.ENABLE_USE_NEW_OBJECT_HIGHLIGHT)
+            {
+                if (interactive is MyFloatingObject || interactive.InstanceID != -1)
+                {
+                    MyHud.SelectedObjectHighlight.HighlightAttribute = null;
+                    MyHud.SelectedObjectHighlight.HighlightStyle = MyHudObjectHighlightStyle.OutlineHighlight;
+                }
+                else
+                {
+                    bool found = false;
+                    MyModelDummy dummy = interactive.Dummy;
+                    if (dummy != null && dummy.CustomData != null)
+                    {
+                        object data;
+                        found = dummy.CustomData.TryGetValue(MyModelDummy.ATTRIBUTE_HIGHLIGHT, out data);
+                        string highlightAttribute = data as string;
+                        if (found && highlightAttribute != null)
+                        {
+                            MyHud.SelectedObjectHighlight.HighlightAttribute = highlightAttribute;
+                            MyHud.SelectedObjectHighlight.HighlightStyle = MyHudObjectHighlightStyle.OutlineHighlight;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        MyHud.SelectedObjectHighlight.HighlightAttribute = null;
+                        MyHud.SelectedObjectHighlight.HighlightStyle = MyHudObjectHighlightStyle.DummyHighlight;
+                    }
+                }
+            }
+            else
+            {
+                MyHud.SelectedObjectHighlight.HighlightAttribute = null;
+                MyHud.SelectedObjectHighlight.HighlightStyle = MyHudObjectHighlightStyle.DummyHighlight;
+            }
+
+            MyHud.SelectedObjectHighlight.Highlight(interactive);
+        }
     }
 }

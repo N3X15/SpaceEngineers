@@ -19,7 +19,7 @@ using VRageRender;
 
 namespace Sandbox.Game.GameSystems
 {
-    class MyGroupControlSystem
+    public class MyGroupControlSystem
     {
         private MyShipController m_currentShipController = null;
 
@@ -102,7 +102,30 @@ namespace Sandbox.Game.GameSystems
         public void AddControllerBlock(MyShipController controllerBlock)
         {
             bool result = m_groupControllers.Add(controllerBlock);
-            Debug.Assert(result, "Controller block was already present in the control group's controller list!");
+            bool found = false;
+            if (m_currentShipController != null && m_currentShipController.CubeGrid != controllerBlock.CubeGrid)
+            {
+               
+                var group = MyCubeGridGroups.Static.Logical.GetGroup(controllerBlock.CubeGrid);
+
+                if (group != null)
+                {
+                   foreach(var node in group.Nodes)
+                   {
+                       if(node.NodeData == m_currentShipController.CubeGrid )
+                       {
+                           found = true;
+                           break;
+                       }
+                   }
+                }
+            }
+
+            if (found == false && m_currentShipController != null && m_currentShipController.CubeGrid != controllerBlock.CubeGrid)
+            {
+                RemoveControllerBlock(m_currentShipController);
+                m_currentShipController = null;
+            }
 
             bool newControllerHasPriority = m_currentShipController == null || MyShipController.HasPriorityOver(controllerBlock, m_currentShipController);
 
@@ -155,7 +178,7 @@ namespace Sandbox.Game.GameSystems
                     return false;
                 }
 
-                return controller.Player.IsLocalPlayer();
+                return controller.Player.IsLocalPlayer;
             }
         }
 

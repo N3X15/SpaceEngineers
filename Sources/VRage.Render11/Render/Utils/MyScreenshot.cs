@@ -18,18 +18,20 @@ namespace VRageRender
         internal readonly string SavePath;
         internal readonly Vector2 SizeMult;
         internal readonly bool IgnoreSprites;
+		internal readonly bool ShowNotification;
 
         static MyScreenshot()
         {
             Directory.CreateDirectory(Path.Combine(MyFileSystem.UserDataPath, screenshotsFolder));
         }
         
-        internal MyScreenshot(string path, Vector2 sizeMult, bool ignoreSprites)
+        internal MyScreenshot(string path, Vector2 sizeMult, bool ignoreSprites, bool showNotification)
         {
             SavePath = path ?? GetDefaultScreenshotFilenameWithExtension();
             Format = GetFormat(Path.GetExtension(SavePath).ToLower());
             SizeMult = sizeMult;
             IgnoreSprites = ignoreSprites;
+			ShowNotification = showNotification;
         }
 
         static readonly string screenshotsFolder = "Screenshots";
@@ -53,9 +55,6 @@ namespace VRageRender
                 case ".jpg":
                 case ".jpeg":
                     return ImageFileFormat.Jpg;
-
-                case ".dds":
-                    return ImageFileFormat.Dds;
 
                 case ".bmp":
                     return ImageFileFormat.Bmp;

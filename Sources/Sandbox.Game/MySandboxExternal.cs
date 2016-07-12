@@ -40,13 +40,19 @@ namespace Sandbox
             DrawThread = Thread.CurrentThread;
 
             MyRenderWindow wnd = new MyRenderWindow();
+#if XB1
+			System.Diagnostics.Debug.Assert(false);
+            wnd.Control = (SharpDX.Windows.RenderForm)Control.FromHandle(WindowHandle);
+#else
             wnd.Control = Control.FromHandle(WindowHandle);
             wnd.TopLevelForm = (Form)wnd.Control.TopLevelControl;
 
             m_bufferedInputSource = wnd;
             m_windowCreatedEvent.Set();
             ((Form)wnd.TopLevelForm).FormClosed += (o, e) => ExitThreadSafe();
-            Action showCursor = () =>
+#endif
+
+			Action showCursor = () =>
             {
                 //if (!wnd.TopLevelForm.IsDisposed)
                 //wnd.TopLevelForm.ShowCursor = true;
@@ -72,10 +78,10 @@ namespace Sandbox
 
             if (settings == null)
             {
-                settings = new MyRenderDeviceSettings(0, MyWindowModeEnum.Window, wnd.Control.ClientSize.Width, wnd.Control.ClientSize.Height, 0, false);
+                settings = new MyRenderDeviceSettings(0, MyWindowModeEnum.Window, wnd.Control.ClientSize.Width, wnd.Control.ClientSize.Height, 0, false, false, false);
             }
 
-            GameRenderComponent.StartSync(m_gameTimer, wnd, settings, MyRenderQualityEnum.NORMAL);
+            GameRenderComponent.StartSync(m_gameTimer, wnd, settings, MyRenderQualityEnum.NORMAL, MyPerGameSettings.MaxFrameRate);
             GameRenderComponent.RenderThread.SizeChanged += RenderThread_SizeChanged;
             GameRenderComponent.RenderThread.BeforeDraw += RenderThread_BeforeDraw;
 

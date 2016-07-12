@@ -20,14 +20,14 @@ using VRageRender;
 using Sandbox.Game.Entities.Cube;
 using VRage.ObjectBuilders;
 using VRage;
+using VRage.Game;
 using VRage.ModAPI;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.Entities
 {
     class MyFloatingObjectClipboard
     {
-        private static List<MyObjectBuilder_EntityBase> m_tmpPastedBuilders = new List<MyObjectBuilder_EntityBase>();
-
         private List<MyObjectBuilder_FloatingObject> m_copiedFloatingObjects = new List<MyObjectBuilder_FloatingObject>();
         private List<Vector3> m_copiedFloatingObjectOffsets = new List<Vector3>();
         private List<MyFloatingObject> m_previewFloatingObjects = new List<MyFloatingObject>();
@@ -120,7 +120,7 @@ namespace Sandbox.Game.Entities
                 return;
 
             CopyfloatingObject(floatingObject);
-            floatingObject.SyncObject.SendCloseRequest();
+            MyFloatingObjects.RemoveFloatingObject(floatingObject, true);
             Deactivate();
         }
 
@@ -181,41 +181,32 @@ namespace Sandbox.Game.Entities
 
             MyEntities.RemapObjectBuilderCollection(m_copiedFloatingObjects);
 
-            m_tmpPastedBuilders.Clear();
-            m_tmpPastedBuilders.Capacity = m_copiedFloatingObjects.Count;
-            MyFloatingObject firstPastedFloatingObject = null;
-
-            int i = 0;
             bool retVal = false;
+            int i = 0;
             foreach (var floatingObjectBuilder in m_copiedFloatingObjects)
             {
                 floatingObjectBuilder.PersistentFlags = MyPersistentEntityFlags2.InScene | MyPersistentEntityFlags2.Enabled;
-                MyFloatingObject pastedFloatingObject = MyEntities.CreateFromObjectBuilderAndAdd(floatingObjectBuilder) as MyFloatingObject;
-                if (i == 0) firstPastedFloatingObject = pastedFloatingObject;
+                //MyFloatingObject pastedFloatingObject = MyEntities.CreateFromObjectBuilderAndAdd(floatingObjectBuilder) as MyFloatingObject;
+                //if (i == 0) firstPastedFloatingObject = pastedFloatingObject;
 
-                if (pastedFloatingObject == null)
-                {
-                    retVal = true;
-                    continue;
-                }
+                //if (pastedFloatingObject == null)
+                //{
+                //    retVal = true;
+                //    continue;
+                //}
 
-                pastedFloatingObject.PositionComp.SetWorldMatrix(m_previewFloatingObjects[i].WorldMatrix);
+                floatingObjectBuilder.PositionAndOrientation = new MyPositionAndOrientation(m_previewFloatingObjects[i].WorldMatrix);
                 i++;
-                pastedFloatingObject.Physics.LinearVelocity = m_objectVelocity;
+                // No velocity saving :)
+                //floatingObjectBuilder.LinearVelocity = m_objectVelocity;
+                //if (MySession.Static.ControlledEntity != null && MySession.Static.ControlledEntity.Entity.Physics != null && m_calculateVelocity)
+                //{
+                //    pastedFloatingObject.Physics.AngularVelocity = MySession.Static.ControlledEntity.Entity.Physics.AngularVelocity;
+                //}
 
-                if (MySession.ControlledEntity != null && MySession.ControlledEntity.Entity.Physics != null && m_calculateVelocity)
-                {
-                    pastedFloatingObject.Physics.AngularVelocity = MySession.ControlledEntity.Entity.Physics.AngularVelocity;
-                }
-
-                var builder = pastedFloatingObject.GetObjectBuilder();
-                m_tmpPastedBuilders.Add(builder);
-
+                MyFloatingObjects.RequestSpawnCreative(floatingObjectBuilder);
                 retVal = true;
             }
-
-            // CH:TODO: This would probably be safer if it was requested from the server as well
-            MySyncCreate.SendEntitiesCreated(m_tmpPastedBuilders);
 
             Deactivate();
             return retVal;
@@ -227,11 +218,11 @@ namespace Sandbox.Game.Entities
         /// <returns>True when the grid can be pasted</returns>
         private bool CheckPastedFloatingObjects()
         {
-            MyCubeBlockDefinition cbDef;
+            MyPhysicalItemDefinition cbDef;
             foreach (var floatingObjectBuilder in m_copiedFloatingObjects)
             {
-                MyDefinitionId id = new MyDefinitionId(floatingObjectBuilder.TypeId, floatingObjectBuilder.SubtypeId);
-                if (MyDefinitionManager.Static.TryGetCubeBlockDefinition(id, out cbDef) == false)
+                MyDefinitionId id = floatingObjectBuilder.Item.PhysicalContent.GetId();
+                if (MyDefinitionManager.Static.TryGetPhysicalItemDefinition(id, out cbDef) == false)
                 {
                     return false;
                 }
@@ -273,7 +264,7 @@ namespace Sandbox.Game.Entities
         {
             if (m_copiedFloatingObjects.Count == 0 || !visible)
             {
-                foreach(var grid in m_previewFloatingObjects)
+                foreach (var grid in m_previewFloatingObjects)
                 {
                     MyEntities.EnableEntityBoundingBoxDraw(grid, false);
                     grid.Close();
@@ -298,7 +289,8 @@ namespace Sandbox.Game.Entities
                 IsActive = visible;
                 m_visible = visible;
                 MyEntities.Add(previewFloatingObject);
-
+                // MW: we want the floating object to be added to the scene, but we dont want to treat it as a real floating object
+                MyFloatingObjects.UnregisterFloatingObject(previewFloatingObject);
                 previewFloatingObject.Save = false;
                 DisablePhysicsRecursively(previewFloatingObject);
                 m_previewFloatingObjects.Add(previewFloatingObject);
@@ -333,7 +325,7 @@ namespace Sandbox.Game.Entities
             UpdateFloatingObjectTransformations();
 
             if (m_calculateVelocity)
-                m_objectVelocity = (m_pastePosition - m_pastePositionPrevious) / MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS;
+                m_objectVelocity = (m_pastePosition - m_pastePositionPrevious) / VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS;
 
             m_canBePlaced = TestPlacement();
 
@@ -390,12 +382,12 @@ namespace Sandbox.Game.Entities
 
                 var rotation = Quaternion.CreateFromRotationMatrix(floatingObject.WorldMatrix);
                 var position = floatingObject.PositionComp.GetPosition() + Vector3D.Transform(floatingObject.PositionComp.LocalVolume.Center, rotation);
-                var bodies = new List<HkRigidBody>();
+                var bodies = new List<HkBodyCollision>();
 
-                MyPhysics.GetPenetrationsShape(floatingObject.Physics.RigidBody.GetShape(), ref position, ref rotation, bodies, MyPhysics.FloatingObjectCollisionLayer);
+                MyPhysics.GetPenetrationsShape(floatingObject.Physics.RigidBody.GetShape(), ref position, ref rotation, bodies, MyPhysics.CollisionLayers.FloatingObjectCollisionLayer);
                 foreach (var body in bodies)
                 {
-                    var ent = body.GetEntity();
+                    var ent = body.GetCollisionEntity();
                     if (ent != null && !ent.Closed)
                     {
                         return false;
@@ -417,6 +409,7 @@ namespace Sandbox.Game.Entities
                 var offset = worldMatrix2.Translation - m_copiedFloatingObjects[0].PositionAndOrientation.Value.Position; //calculate offset to first pasted grid
                 m_copiedFloatingObjectOffsets[i] = Vector3.TransformNormal(offset, orientationDelta); // Transform the offset to new orientation
                 Vector3 translation = m_pastePosition + m_copiedFloatingObjectOffsets[i]; //correct position
+                worldMatrix2 = worldMatrix2 * orientationDelta;
 
                 worldMatrix2.Translation = Vector3.Zero;
                 worldMatrix2 = Matrix.Orthogonalize(worldMatrix2);
@@ -448,10 +441,10 @@ namespace Sandbox.Game.Entities
 
         private static MatrixD GetPasteMatrix()
         {
-            if (MySession.ControlledEntity != null &&
-                (MySession.GetCameraControllerEnum() == MyCameraControllerEnum.Entity || MySession.GetCameraControllerEnum() == MyCameraControllerEnum.ThirdPersonSpectator))
+            if (MySession.Static.ControlledEntity != null &&
+                (MySession.Static.GetCameraControllerEnum() == MyCameraControllerEnum.Entity || MySession.Static.GetCameraControllerEnum() == MyCameraControllerEnum.ThirdPersonSpectator))
             {
-                return MySession.ControlledEntity.GetHeadMatrix(true);
+                return MySession.Static.ControlledEntity.GetHeadMatrix(true);
             }
             else
             {
@@ -526,11 +519,11 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        public void HideWhenColliding(List<Vector3> m_collisionTestPoints)
+        public void HideWhenColliding(List<Vector3D> collisionTestPoints)
         {
             if (m_previewFloatingObjects.Count == 0) return;
             bool visible = true;
-            foreach (var point in m_collisionTestPoints)
+            foreach (var point in collisionTestPoints)
             {
                 foreach (var floatingObject in m_previewFloatingObjects)
                 {
@@ -548,6 +541,14 @@ namespace Sandbox.Game.Entities
             {
                 floatingObject.Render.Visible = visible;
             }
+        }
+
+        public void ClearClipboard()
+        {
+            if (IsActive)
+                Deactivate();
+            m_copiedFloatingObjects.Clear();
+            m_copiedFloatingObjectOffsets.Clear();
         }
 
         #region Pasting transform control

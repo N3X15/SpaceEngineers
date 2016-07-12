@@ -1,8 +1,7 @@
-﻿using Sandbox.Common;
-using Sandbox.Common.ObjectBuilders.Gui;
-using System;
+﻿using System;
 using System.Text;
 using VRage;
+using VRage.Game;
 using VRage.Library.Utils;
 using VRage.Utils;
 using VRageMath;
@@ -106,7 +105,9 @@ namespace Sandbox.Graphics.GUI
             Action<ResultEnum> callback,
             int timeoutInMiliseconds,
             ResultEnum focusedResult,
-            bool canHideOthers):
+            bool canHideOthers,
+            Vector2? size
+            ):
             base(position: new Vector2(0.5f, 0.5f),
                  backgroundColor: null,
                  size: null,
@@ -134,7 +135,14 @@ namespace Sandbox.Graphics.GUI
             CanHideOthers = canHideOthers;
 
             // Size of the message box is given by its background.
-            m_size = m_style.BackgroundTexture.SizeGui;
+            if (size.HasValue)
+            {
+                m_size = size;
+            }
+            else
+            {
+                m_size = m_style.BackgroundTexture.SizeGui;
+            }
 
             m_messageText = messageText;
             m_messageCaption = messageCaption ?? new StringBuilder();

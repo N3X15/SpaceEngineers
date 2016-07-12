@@ -1,10 +1,6 @@
-﻿using Sandbox.Common.ObjectBuilders.ComponentSystem;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using VRage.Game.ObjectBuilders.ComponentSystem;
 
-namespace VRage.Components
+namespace VRage.Game.Components
 {
     public abstract class MyComponentBase
     {
@@ -24,9 +20,9 @@ namespace VRage.Components
         /// will in turn call this method. Actually, you should seldom have the need to call this method yourself.
         /// </summary>
         /// <param name="container">The new container of the component</param>
-        public void SetContainer(MyComponentContainer container)
+        public virtual void SetContainer(MyComponentContainer container)
         {
-            if (container == null)
+            if (m_container != null)
                 OnBeforeRemovedFromContainer();
 
             m_container = container;
@@ -35,6 +31,7 @@ namespace VRage.Components
             {
                 foreach (var child in aggregate.ChildList.Reader)
                 {
+                    System.Diagnostics.Debug.Assert(child != this, "Error, the child is the same as this object!");
                     child.SetContainer(container);
                 }
             }
@@ -42,12 +39,12 @@ namespace VRage.Components
             if (container != null)
                 OnAddedToContainer();
         }
-
+#if !UNSHARPER
         public virtual T GetAs<T>() where T : MyComponentBase
         {
             return this as T;
         }
-
+#endif
         /// <summary>
         /// Gets called after the container of this component changes
         /// </summary>
@@ -62,10 +59,16 @@ namespace VRage.Components
         {
         }
 
+        /// <summary>
+        /// CH: TOOD: Be careful! This does not get called if the component is added to a container that is in the scene already!
+        /// </summary>
         public virtual void OnAddedToScene()
         {
         }
 
+        /// <summary>
+        /// CH: TOOD: Be careful! This does not get called if the component is removed from a container that is still in the scene!
+        /// </summary>
         public virtual void OnRemovedFromScene()
         {
         }
@@ -78,5 +81,16 @@ namespace VRage.Components
         public virtual void Deserialize(MyObjectBuilder_ComponentBase builder)
         {
         }
+
+        public virtual void Init(MyComponentDefinitionBase definition) { }
+
+		/// <summary>
+		/// Tells the component container serializer whether this component should be saved
+		/// </summary>
+		/// <returns></returns>
+		public virtual bool IsSerialized()
+		{
+			return false;
+		}
     }
 }

@@ -7,6 +7,8 @@ using VRage.Input;
 using VRage.Library.Utils;
 using VRage.Utils;
 using VRageMath;
+using Sandbox.Common.ObjectBuilders;
+using VRage.Game;
 
 namespace Sandbox.Game.Gui
 {
@@ -14,6 +16,7 @@ namespace Sandbox.Game.Gui
     {
         private bool m_drawSeeds = false;
         private bool m_drawTrackedEntities = false;
+        private bool m_drawAroundCamera = false;
         private bool m_drawRadius = false;
         private bool m_drawDistance = false;
         private bool m_drawCells = false;
@@ -34,11 +37,19 @@ namespace Sandbox.Game.Gui
                     return true;
                 });
 
-            AddShortcut(MyKeys.NumPad3, true, false, false, false,
+            AddShortcut(MyKeys.NumPad2, true, false, false, false,
                 () => "Debug draw procedural tracked entities: " + m_drawTrackedEntities,
                 delegate
                 {
                     m_drawTrackedEntities = !m_drawTrackedEntities;
+                    return true;
+                });
+
+            AddShortcut(MyKeys.NumPad3, true, false, false, false,
+                () => "Debug draw around camera: " + m_drawAroundCamera,
+                delegate
+                {
+                    m_drawAroundCamera = !m_drawAroundCamera;
                     return true;
                 });
 
@@ -101,7 +112,7 @@ namespace Sandbox.Game.Gui
                     var pos = new Vector3D(MyRandom.Instance.NextFloat() * 2 - 1f, MyRandom.Instance.NextFloat() * 2 - 1f, MyRandom.Instance.NextFloat() * 2 - 1f) * 150000;
                     var vel = new Vector3(MyRandom.Instance.NextFloat() * 2 - 1f, MyRandom.Instance.NextFloat() * 2 - 1f, MyRandom.Instance.NextFloat() * 2 - 1f);
                     vel.Normalize();
-                    var ply = MyCharacter.CreateCharacter(MatrixD.CreateTranslation(pos), vel * 100 * (MyRandom.Instance.NextFloat() * 0.5f + 0.5f), "ALIEN SPACE NINJA", MyCharacter.DefaultModel, null, false);
+                    var ply = MyCharacter.CreateCharacter(MatrixD.CreateTranslation(pos), vel * 100 * (MyRandom.Instance.NextFloat() * 0.5f + 0.5f), "ALIEN SPACE NINJA", MyCharacter.DefaultModel, null, null, false);
                     m_plys.Add(ply);
                     return true;
                 });
@@ -138,8 +149,14 @@ namespace Sandbox.Game.Gui
             if (MyProceduralWorldGenerator.Static == null)
                 return;
 
-            MyProceduralWorldGenerator.Static.GetAll(m_tmpSeedsList);
-            double max_distance = 20 * 1000;
+            if (m_drawAroundCamera)
+            {
+                MyProceduralWorldGenerator.Static.OverlapAllPlanetSeedsInSphere(new BoundingSphereD(MySector.MainCamera.Position, MySector.MainCamera.FarPlaneDistance * 2), m_tmpSeedsList);
+            }
+
+            MyProceduralWorldGenerator.Static.GetAllExisting(m_tmpSeedsList);
+
+            double max_distance = 100 * 2 * 60 * 60;
             foreach (var seed in m_tmpSeedsList)
             {
                 if (!m_drawSeeds)
@@ -147,7 +164,7 @@ namespace Sandbox.Game.Gui
 
                 var pos = seed.BoundingVolume.Center;
 
-                VRageRender.MyRenderProxy.DebugDrawSphere(pos, seed.Size / 2, seed.Type == MyObjectSeedType.Asteroid ? Color.Green : Color.Red, 1.0f, true);
+                VRageRender.MyRenderProxy.DebugDrawSphere(pos, seed.Size / 2, seed.Params.Type == MyObjectSeedType.Asteroid ? Color.Green : Color.Red, 1.0f, true);
                 //if ((pos - MySector.MainCamera.Position).Length() < max_distance)
                 {
                     if (m_drawRadius)
@@ -173,13 +190,15 @@ namespace Sandbox.Game.Gui
 
             if (m_drawCells)
             {
-                MyProceduralWorldGenerator.Static.GetAllCells(m_tmpCellsList);
+                MyProceduralWorldGenerator.Static.GetAllExistingCells(m_tmpCellsList);
                 foreach (var cell in m_tmpCellsList)
                 {
                     VRageRender.MyRenderProxy.DebugDrawAABB(cell.BoundingVolume, Color.Blue, 1f, 1f, true);
                 }
             }
             m_tmpCellsList.Clear();
+
+            VRageRender.MyRenderProxy.DebugDrawSphere(Vector3D.Zero, 0, Color.White, 0.0f, false);
         }
 
         List<MyObjectSeed> m_tmpSeedsList = new List<MyObjectSeed>();

@@ -4,15 +4,14 @@ using VRageMath;
 using System.ComponentModel;
 using System.Collections.Generic;
 using VRage.Serialization;
-using Sandbox.Common.ObjectBuilders.VRageData;
 using System.Diagnostics;
 using System.Xml.Serialization;
 using VRage.ObjectBuilders;
-using VRage;
-using Sandbox.Common.ObjectBuilders.Definitions;
+using VRage.Game.Definitions;
+using VRage.Library.Utils;
 
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     public enum MyCameraControllerEnum
     {
@@ -52,6 +51,228 @@ namespace Sandbox.Common.ObjectBuilders
         public SerializableVector3I CurrentSector;
 
         /// <summary>
+        /// This is long because TimeSpan is not serialized
+        /// </summary>
+        [ProtoMember]
+        public long ElapsedGameTime;
+
+        [ProtoMember]
+        public string SessionName;
+
+        [ProtoMember]
+        public MyPositionAndOrientation SpectatorPosition = new MyPositionAndOrientation(Matrix.Identity);
+
+        [ProtoMember]
+        public bool SpectatorIsLightOn = false;
+
+        //[ProtoMember, DefaultValue(MySpectatorCameraMovementEnum.UserControlled)]
+        //public MySpectatorCameraMovementEnum SpectatorCameraMovement = MySpectatorCameraMovementEnum.UserControlled;
+
+        [ProtoMember, DefaultValue(MyCameraControllerEnum.Spectator)]
+        public MyCameraControllerEnum CameraController = MyCameraControllerEnum.Spectator;
+
+        [ProtoMember]
+        public long CameraEntity;
+
+        [ProtoMember, DefaultValue(-1)]
+        public long ControlledObject = -1;
+
+        [ProtoMember]
+        public string Password;
+
+        [ProtoMember]
+        public string Description;
+
+        [ProtoMember]
+        public DateTime LastSaveTime;
+
+        [ProtoMember]
+        public float SpectatorDistance;
+
+        [ProtoMember, DefaultValue(null)]
+        public ulong? WorkshopId = null;
+        public bool ShouldSerializeWorkshopId() { return WorkshopId.HasValue; }
+
+        [ProtoMember]
+        public MyObjectBuilder_Toolbar CharacterToolbar;
+
+        [ProtoMember]
+        public SerializableDictionaryCompat<long, PlayerId, ulong> ControlledEntities;
+
+        [ProtoMember]
+        [XmlElement("Settings", Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_SessionSettings>))]
+        public MyObjectBuilder_SessionSettings Settings = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_SessionSettings>();
+
+        public MyObjectBuilder_ScriptManager ScriptManagerData;
+
+        [ProtoMember]
+        public int AppVersion = 0;
+
+        [ProtoMember, DefaultValue(null)]
+        public MyObjectBuilder_FactionCollection Factions = null;
+
+        [ProtoContract]
+        public struct PlayerItem
+        {
+            [ProtoMember]
+            public long   PlayerId;
+            [ProtoMember]
+            public bool   IsDead;
+            [ProtoMember]
+            public string Name;
+            [ProtoMember]
+            public ulong  SteamId;
+            [ProtoMember]
+            public string Model;
+
+            public PlayerItem(long id, string name, bool isDead, ulong steamId, string model)
+            {
+                PlayerId = id;
+                IsDead   = isDead;
+                Name     = name;
+                SteamId  = steamId;
+                Model    = model;
+            }
+        }
+
+        [ProtoContract]
+        public struct ModItem
+        {
+            [ProtoMember]
+            public string Name;
+            public bool ShouldSerializeName() { return Name != null; }
+
+            [ProtoMember, DefaultValue(0)]
+            public ulong PublishedFileId;
+            public bool ShouldSerializePublishedFileId() { return PublishedFileId != 0; }
+
+            [XmlIgnore]
+            public string FriendlyName;
+
+            public ModItem(ulong publishedFileId)
+            {
+                Name = publishedFileId.ToString() + ".sbm";
+                PublishedFileId = publishedFileId;
+                FriendlyName = String.Empty;
+            }
+
+            public ModItem(string name, ulong publishedFileId)
+            {
+                Name = name ?? (publishedFileId.ToString() + ".sbm");
+                PublishedFileId = publishedFileId;
+                FriendlyName = String.Empty;
+            }
+
+            public ModItem(string name, ulong publishedFileId, string friendlyName)
+            {
+                Name = name ?? (publishedFileId.ToString() + ".sbm");
+                PublishedFileId = publishedFileId;
+                FriendlyName = friendlyName;
+            }
+        }
+
+        [ProtoMember]
+        public List<ModItem> Mods;
+
+        [ProtoMember]
+        public List<ulong> PromotedUsers;
+
+        [ProtoMember]
+        public SerializableDefinitionId Scenario = DEFAULT_SCENARIO;
+
+        [ProtoContract]
+        public struct RespawnCooldownItem
+        {
+            [ProtoMember]
+            public ulong PlayerSteamId;
+
+            [ProtoMember]
+            public int PlayerSerialId;
+
+            [ProtoMember]
+            public string RespawnShipId;
+
+            [ProtoMember]
+            public int Cooldown;
+        }
+
+        [ProtoMember]
+        public List<RespawnCooldownItem> RespawnCooldowns;
+
+        [ProtoMember]
+        public List<MyObjectBuilder_Identity> Identities = null;
+
+        [ProtoMember]
+        public List<MyObjectBuilder_Client> Clients = null;
+        public bool ShouldSerializeClients() { return Clients != null && Clients.Count != 0; }
+
+        [ProtoMember]
+        public MyEnvironmentHostilityEnum? PreviousEnvironmentHostility = null;
+
+        [ProtoMember]
+        public SerializableDictionary<PlayerId, MyObjectBuilder_Player> AllPlayersData;
+
+        [ProtoMember]
+        public SerializableDictionary<PlayerId, List<Vector3>> AllPlayersColors;
+        public bool ShouldSerializeAllPlayersColors() { return AllPlayersColors != null && AllPlayersColors.Dictionary.Count > 0; }
+
+        [ProtoMember]
+        public List<MyObjectBuilder_ChatHistory> ChatHistory;
+
+        [ProtoMember]
+        public List<MyObjectBuilder_FactionChatHistory> FactionChatHistory;
+
+        [ProtoMember]
+        public List<long> NonPlayerIdentities = null;
+
+        [ProtoMember]
+        public SerializableDictionary<long, MyObjectBuilder_Gps> Gps;
+
+        [ProtoMember]
+        public SerializableBoundingBoxD? WorldBoundaries;
+        public bool ShouldSerializeWorldBoundaries()
+        {
+            return WorldBoundaries.HasValue;
+        }
+
+        [ProtoMember]
+        [XmlArrayItem("MyObjectBuilder_SessionComponent", Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_SessionComponent>))]
+        public List<MyObjectBuilder_SessionComponent> SessionComponents;
+
+        [ProtoMember]
+        // Definition for this game.
+        public SerializableDefinitionId GameDefinition = MyGameDefinition.Default;
+
+        // Session component overrides, these are which components are enabled over the default from definition
+        [ProtoMember]
+        public HashSet<string> SessionComponentEnabled = new HashSet<string>();
+
+        [ProtoMember]
+        // Session component overrides, these are which components are disabled over the default from definition
+        public HashSet<string> SessionComponentDisabled = new HashSet<string>();
+
+        [ProtoMember]
+        public DateTime InGameTime = DEFAULT_DATE;
+        public bool ShouldSerializeInGameTime()
+        {
+            return InGameTime != DEFAULT_DATE;
+        }
+
+        [ProtoMember]
+        public MyObjectBuilder_SessionComponentMission MissionTriggers;
+
+        [ProtoMember]
+        public string Briefing;
+
+        [ProtoMember]
+        public string BriefingVideo;
+
+        [ProtoMember, DefaultValue(9)]
+        public int RequiresDX = 9;
+
+        #region obsolete
+
+        /// <summary>
         /// Obsolete. Use ElapsedGameTime
         /// </summary>
         //[ProtoMember]
@@ -69,33 +290,6 @@ namespace Sandbox.Common.ObjectBuilders
         }
         public bool ShouldSerializeGameTime() { return false; }
 
-        /// <summary>
-        /// This is long because TimeSpan is not serialized
-        /// </summary>
-        [ProtoMember]
-        public long ElapsedGameTime;
-
-        [ProtoMember]
-        public string SessionName;
-
-        [ProtoMember]
-        public MyPositionAndOrientation SpectatorPosition = new MyPositionAndOrientation(Matrix.Identity);
-
-        //[ProtoMember, DefaultValue(MySpectatorCameraMovementEnum.UserControlled)]
-        //public MySpectatorCameraMovementEnum SpectatorCameraMovement = MySpectatorCameraMovementEnum.UserControlled;
-
-        [ProtoMember, DefaultValue(MyCameraControllerEnum.Spectator)]
-        public MyCameraControllerEnum CameraController = MyCameraControllerEnum.Spectator;
-
-        [ProtoMember]
-        public long CameraEntity;
-
-        [ProtoMember, DefaultValue(-1)]
-        public long ControlledObject = -1;
-
-        //[ProtoMember]
-        //public MySessionDifficulty Difficulty;
-
         //[ProtoMember]
         public MyOnlineModeEnum OnlineMode
         {
@@ -103,34 +297,6 @@ namespace Sandbox.Common.ObjectBuilders
             set { Settings.OnlineMode = value; }
         }
         public bool ShouldSerializeOnlineMode() { return false; }
-
-
-        //[ProtoMember]
-        //public MySessionHardwareRequirements HardwareRequirements;
-        //{
-        //    get { Debug.Fail("Obsolete."); return Settings.HardwareRequirements; }
-        //    set { Settings.HardwareRequirements = value; }
-        //}
-        //public bool ShouldSerializeHardwareRequirements() { return false; }
-
-        //[ProtoMember]
-        //public MyEnvironmentHostilityEnum EnvironmentHostility
-        //{
-        //    get { Debug.Fail("Obsolete."); return Settings.EnvironmentHostility; }
-        //    set { Settings.EnvironmentHostility = value; }
-        //}
-        //public bool ShouldSerializeEnvironmentHostility() { return false; }
-
-        [ProtoMember]
-        public string Password;
-
-        //[ProtoMember]
-        //public bool FriendlyFire
-        //{
-        //    get { Debug.Fail("Obsolete."); return Settings.FriendlyFire; }
-        //    set { Settings.FriendlyFire = value; }
-        //}
-        //public bool ShouldSerializeFriendlyFire() { return false; }
 
         //[ProtoMember]
         public bool AutoHealing
@@ -141,71 +307,18 @@ namespace Sandbox.Common.ObjectBuilders
         public bool ShouldSerializeAutoHealing() { return false; }
 
         //[ProtoMember]
-        //public bool SoundInSpace
-        //{
-        //    get { Debug.Fail("Obsolete."); return Settings.SoundInSpace; }
-        //    set { Settings.SoundInSpace = value; }
-        //}
-        //public bool ShouldSerializeSoundInSpace() { return false; }
-
-        //[ProtoMember]
-        //public MySessionGameStyle GameStyle
-        //{
-        //    get { Debug.Fail("Obsolete."); return Settings.GameStyle; }
-        //    set { Settings.GameStyle = value; }
-        //}
-        //public bool ShouldSerializeGameStyle() { return false; }
-
-        [ProtoMember]
-        public string Description;
-
-        //[ProtoMember]
-        public bool AutoSave
-        {
-            get { Debug.Fail("Obsolete."); return Settings.AutoSaveInMinutes > 0; }
-            set { Settings.AutoSaveInMinutes = value ? MyObjectBuilder_SessionSettings.DEFAULT_AUTOSAVE_IN_MINUTES : 0; }
-        }
-        public bool ShouldSerializeAutoSave() { return false; }
-
-        [ProtoMember]
-        public DateTime LastSaveTime;
-
-        //[ProtoMember]
-        //public string WorldID;
-
-        [ProtoMember]
-        public float SpectatorDistance;
-
-        //[ProtoMember]
-        //public DateTime LastLoadTime;
-
-        //[ProtoMember, DefaultValue(MyCameraControllerEnum.ThirdPersonSpectator)]
-        //public MyCameraControllerEnum CharacterCameraController = MyCameraControllerEnum.ThirdPersonSpectator;
-
-        //[ProtoMember]
-        //public float CharacterCameraDistance;
-
-        //[ProtoMember, DefaultValue(MyCameraControllerEnum.ThirdPersonSpectator)]
-        //public MyCameraControllerEnum CockpitCameraController = MyCameraControllerEnum.ThirdPersonSpectator;
-
-        //[ProtoMember]
-        //public float CockpitCameraDistance;
-
-        [ProtoMember, DefaultValue(null)]
-        public ulong? WorkshopId = null;
-        public bool ShouldSerializeWorkshopId() { return WorkshopId.HasValue; }
-
-        //[ProtoMember]
         // Obsolete!
         public SerializableDictionary<ulong, MyObjectBuilder_Player> Players;
 
         [ProtoMember]
         // Obsolete!
         public SerializableDictionary<PlayerId, MyObjectBuilder_Player> ConnectedPlayers;
+        public bool ShouldSerializeConnectedPlayers() { return false; }
 
         [ProtoMember]
         // Obsolete!
         public SerializableDictionary<PlayerId, long> DisconnectedPlayers;
+        public bool ShouldSerializeDisconnectedPlayers() { return false; }
 
         //[ProtoMember, DefaultValue(true)]
         public bool EnableCopyPaste
@@ -223,10 +336,6 @@ namespace Sandbox.Common.ObjectBuilders
         }
         public bool ShouldSerializeMaxPlayers() { return false; }
 
-        [ProtoMember]
-        public MyObjectBuilder_Toolbar CharacterToolbar;
-
-        
         //[ProtoMember, DefaultValue(true)]
         public bool WeaponsEnabled
         {
@@ -235,8 +344,6 @@ namespace Sandbox.Common.ObjectBuilders
         }
         public bool ShouldSerializeWeaponsEnabled() { return false; }
 
-        [ProtoMember]
-        public SerializableDictionaryCompat<long, PlayerId, ulong> ControlledEntities;
 
         //[ProtoMember, DefaultValue(true)]
         public bool ShowPlayerNamesOnHud
@@ -246,7 +353,7 @@ namespace Sandbox.Common.ObjectBuilders
         }
         public bool ShouldSerializeShowPlayerNamesOnHud() { return false; }
 
-      
+
         //[ProtoMember, DefaultValue(256)]
         public short MaxFloatingObjects
         {
@@ -312,158 +419,20 @@ namespace Sandbox.Common.ObjectBuilders
         }
         public bool ShouldSerializeCargoShipsEnabled() { return false; }
 
-        [ProtoMember]
-        [XmlElement("Settings", Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_SessionSettings>))]
-        public MyObjectBuilder_SessionSettings Settings = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_SessionSettings>();
-
-        [ProtoMember]
-        public int AppVersion = 0;
-
-        [ProtoMember, DefaultValue(null)]
-        public MyObjectBuilder_FactionCollection Factions = null;
-
-        [ProtoContract]
-        public struct PlayerItem
-        {
-            [ProtoMember]
-            public long   PlayerId;
-            [ProtoMember]
-            public bool   IsDead;
-            [ProtoMember]
-            public string Name;
-            [ProtoMember]
-            public ulong  SteamId;
-            [ProtoMember]
-            public string Model;
-
-            public PlayerItem(long id, string name, bool isDead, ulong steamId, string model)
-            {
-                PlayerId = id;
-                IsDead   = isDead;
-                Name     = name;
-                SteamId  = steamId;
-                Model    = model;
-            }
-        }
-
         //[ProtoMember]
         // Obsolete!
         public List<PlayerItem> AllPlayers;
-
-        [ProtoContract]
-        public struct ModItem
-        {
-            [ProtoMember]
-            public string Name;
-            public bool ShouldSerializeName() { return Name != null; }
-
-            [ProtoMember, DefaultValue(0)]
-            public ulong PublishedFileId;
-            public bool ShouldSerializePublishedFileId() { return PublishedFileId != 0; }
-
-            [XmlIgnore]
-            public string FriendlyName;
-
-            public ModItem(ulong publishedFileId)
-            {
-                Name = publishedFileId.ToString() + ".sbm";
-                PublishedFileId = publishedFileId;
-                FriendlyName = String.Empty;
-            }
-
-            public ModItem(string name, ulong publishedFileId)
-            {
-                Name = name ?? (publishedFileId.ToString() + ".sbm");
-                PublishedFileId = publishedFileId;
-                FriendlyName = String.Empty;
-            }
-
-            public ModItem(string name, ulong publishedFileId, string friendlyName)
-            {
-                Name = name ?? (publishedFileId.ToString() + ".sbm");
-                PublishedFileId = publishedFileId;
-                FriendlyName = friendlyName;
-            }
-        }
-
-        [ProtoMember]
-        public List<ModItem> Mods;
-
-        [ProtoMember]
-        public SerializableDefinitionId Scenario = DEFAULT_SCENARIO;
-
-        [ProtoContract]
-        public struct RespawnCooldownItem
-        {
-            [ProtoMember]
-            public ulong PlayerSteamId;
-
-            [ProtoMember]
-            public int PlayerSerialId;
-
-            [ProtoMember]
-            public string RespawnShipId;
-
-            [ProtoMember]
-            public int Cooldown;
-        }
-
-        [ProtoMember]
-        public List<RespawnCooldownItem> RespawnCooldowns;
-
-        [ProtoMember]
-        public List<MyObjectBuilder_Identity> Identities = null;
-
-        [ProtoMember]
-        public List<MyObjectBuilder_Client> Clients = null;
-        public bool ShouldSerializeClients() { return Clients != null && Clients.Count != 0; }
-
-        [ProtoMember]
-        public MyEnvironmentHostilityEnum? PreviousEnvironmentHostility = null;
+        public bool ShouldSerializeAllPlayers() { return false; }
 
         //[ProtoMember]
-        //public SerializableDictionary<PlayerId, MyObjectBuilder_Toolbar> PlayerToolbars;
-
-        [ProtoMember]
-        public SerializableDictionary<PlayerId, MyObjectBuilder_Player> AllPlayersData;
-
-        [ProtoMember]
-        public List<MyObjectBuilder_ChatHistory> ChatHistory;
-
-        [ProtoMember]
-        public List<MyObjectBuilder_FactionChatHistory> FactionChatHistory;
-
-        [ProtoMember]
-        public List<long> NonPlayerIdentities = null;
-
-        [ProtoMember]
-        public SerializableDictionary <long,MyObjectBuilder_Gps> Gps;
-
-        [ProtoMember]
-        public SerializableBoundingBoxD WorldBoundaries;
-        public bool ShouldSerializeWorldBoundaries()
+        public bool AutoSave
         {
-            // Prevent this from appearing in SE checkpoints.
-            return WorldBoundaries.Min != Vector3D.Zero ||
-                WorldBoundaries.Max != Vector3D.Zero;
+            get { Debug.Fail("Obsolete."); return Settings.AutoSaveInMinutes > 0; }
+            set { Settings.AutoSaveInMinutes = value ? MyObjectBuilder_SessionSettings.DEFAULT_AUTOSAVE_IN_MINUTES : 0; }
         }
+        public bool ShouldSerializeAutoSave() { return false; }
 
-        [ProtoMember]
-        [XmlArrayItem("MyObjectBuilder_SessionComponent", Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_SessionComponent>))]
-        public List<MyObjectBuilder_SessionComponent> SessionComponents;
-
-        [ProtoMember]
-        public DateTime InGameTime = DEFAULT_DATE;
-        public bool ShouldSerializeInGameTime()
-        {
-            return InGameTime != DEFAULT_DATE;
-        }
-
-        [ProtoMember]
-        public MyObjectBuilder_SessionComponentMission MissionTriggers;
-
-        [ProtoMember]
-        public string Briefing;
+        #endregion
 
     }
 }

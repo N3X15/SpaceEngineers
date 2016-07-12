@@ -1,17 +1,14 @@
-﻿using SharpDX.D3DCompiler;
-using SharpDX.Direct3D11;
-using SharpDX.DXGI;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
-using Buffer = SharpDX.Direct3D11.Buffer;
+using SharpDX.Direct3D11;
+using System.Diagnostics;
 
 namespace VRageRender
 {
-    enum MyVertexInputComponentType
+    public enum MyVertexInputComponentType
     {
         POSITION_PACKED,
         POSITION2,
@@ -86,6 +83,19 @@ namespace VRageRender
         {
             return String.Format("<{0}, {1}, {2}>", Type, Slot, Freq);
         }
+
+        public int CompareTo(MyVertexInputComponent item)
+        {
+            if (Type == item.Type)
+            {
+                if (Slot == item.Slot)
+                {
+                    return Freq - item.Freq;
+                }
+                return Slot - item.Slot;
+            }
+            else return Type - item.Type;
+        }
     }
 
     struct VertexLayoutId
@@ -135,7 +145,7 @@ namespace VRageRender
             return Layouts.Data[id.Index].Elements;
         }
 
-        internal static void Init()
+        static MyVertexLayouts()
         {
             var id = new VertexLayoutId { Index = Layouts.Allocate() };
             HashIndex[0] = id;
@@ -149,17 +159,31 @@ namespace VRageRender
             Empty = id;
         }
 
+        internal static void Init()
+        {
+        }
+
         internal static VertexLayoutId GetLayout(params MyVertexInputComponentType[] components)
         {
             return GetLayout(components.Select(x => new MyVertexInputComponent(x)).ToArray());
         }
 
-        internal static VertexLayoutId GetLayout(VertexLayoutId a, VertexLayoutId b)
+        internal static VertexLayoutId GetLayout(VertexLayoutId firstLayout, VertexLayoutId secondLayout)
         {
-            return GetLayout(a.Info.Components.Concat(b.Info.Components).ToArray());
+            VertexLayoutId combinedLayout = VertexLayoutId.NULL;
+            List<MyVertexInputComponent> firstComponents = new List<MyVertexInputComponent>(firstLayout.Info.Components);
+            MyVertexInputComponent[] secondComponents = secondLayout.Info.Components;
+           
+            firstComponents.AddArray(secondComponents);
+
+            Debug.Assert(firstComponents.Count == firstComponents.Capacity);
+            firstComponents.Capacity = firstComponents.Count;
+
+            combinedLayout = GetLayout(firstComponents.GetInternalArray());
+            return combinedLayout;
         }
 
-        internal static VertexLayoutId GetLayout(params MyVertexInputComponent [] components)
+        internal static VertexLayoutId GetLayout(params MyVertexInputComponent[] components)
         {
             if(components == null || components.Length == 0)
             {
@@ -177,24 +201,27 @@ namespace VRageRender
                 return HashIndex[hash];
             }
 
-
             var id = new VertexLayoutId { Index = Layouts.Allocate() };
             HashIndex[hash] = id;
 
-
             var declarationBuilder = new StringBuilder();
             var sourceBuilder = new StringBuilder();
-            var elementsList = new List<InputElement>();
             var semanticDict = new Dictionary<string, int>();
+
+            // Might save some allocations when each AddComponent only adds one element as then we can use GetInternalArray and Capacity set does nothing
+            var elementsList = new List<InputElement>(components.Length);
 
             foreach (var component in components)
             {
                 MyVertexInputLayout.m_mapComponent[component.Type].AddComponent(component, elementsList, semanticDict, declarationBuilder, sourceBuilder);
             }
 
+            elementsList.Capacity = elementsList.Count;
+            Debug.Assert(elementsList.Count == elementsList.Capacity);
+
             Layouts.Data[id.Index] = new MyVertexLayoutInfo {
                 Components = components,
-                Elements = elementsList.ToArray(),
+                Elements = elementsList.GetInternalArray(),
                 SourceDataMove = sourceBuilder.ToString(),
                 SourceDeclarations = new StringBuilder().AppendFormat("struct __VertexInput {{ \n {0} \n }};", declarationBuilder.ToString()).ToString(),
                 HasBonesInfo = components.Any(x => x.Type == MyVertexInputComponentType.BLEND_INDICES)
@@ -235,10 +262,7 @@ namespace VRageRender
 
         }
 
-        internal static MyVertexInputLayout Empty()
-        {
-            return m_cached[0];
-        }
+        internal static MyVertexInputLayout Empty { get { return m_cached[0]; } }
 
         internal MyVertexInputLayout Append(MyVertexInputLayout other)
         {
@@ -273,7 +297,7 @@ namespace VRageRender
             next = new MyVertexInputLayout();
             next.m_hash = nextHash;
             next.m_id = m_cached.Count;
-            next.m_components = m_components.Concat(component.Yield()).ToArray();
+            next.m_components = m_components.Concat(component.Yield_()).ToArray();
             next.Build();
 
             m_cached[nextHash] = next;

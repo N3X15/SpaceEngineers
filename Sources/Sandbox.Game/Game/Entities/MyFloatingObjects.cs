@@ -16,20 +16,40 @@ using VRageMath;
 using VRage;
 using Sandbox.Engine.Utils;
 using Sandbox.Game.Gui;
-using Sandbox.Common.Components;
-using VRage.Voxels;
-using VRage.Components;
-using VRage.ObjectBuilders;
 
+using VRage.Voxels;
+using VRage.Game.Components;
+using VRage.ObjectBuilders;
+using Sandbox.Game.Entities.Character;
+using VRage.Network;
+using VRage.Serialization;
+using Sandbox.Engine.Multiplayer;
+using VRage.Game.Entity;
+using Sandbox.Game.Entities.Inventory;
+using VRage.Game;
 
 #endregion
 
 namespace Sandbox.Game.Entities
 {
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation, 800)]
+    [StaticEventOwner]
     public class MyFloatingObjects : MySessionComponentBase
     {
         #region Comparer
+
+        private class MyFloatingObjectComparer : IEqualityComparer<MyFloatingObject>
+        {
+            public bool Equals(MyFloatingObject x, MyFloatingObject y)
+            {
+                return x.EntityId == y.EntityId;
+            }
+
+            public int GetHashCode(MyFloatingObject obj)
+            {
+                return (int)obj.EntityId;
+            }
+        }
 
         private class MyFloatingObjectTimestampComparer : IComparer<MyFloatingObject>
         {
@@ -52,11 +72,21 @@ namespace Sandbox.Game.Entities
 
         #endregion
 
+        private struct StabilityInfo
+        {
+            public MyPositionAndOrientation PositionAndOr;
+
+            public StabilityInfo(MyPositionAndOrientation posAndOr)
+            {
+                PositionAndOr = posAndOr;
+            }
+        }
 
         #region Fields
 
         private static MyFloatingObjects m_instance;
 
+        private static MyFloatingObjectComparer m_entityComparer = new MyFloatingObjectComparer();
         private static MyFloatingObjectTimestampComparer m_comparer = new MyFloatingObjectTimestampComparer();
         private static SortedSet<MyFloatingObject> m_floatingOres = new SortedSet<MyFloatingObject>(m_comparer);
         private static SortedSet<MyFloatingObject> m_floatingItems = new SortedSet<MyFloatingObject>(m_comparer);
@@ -66,24 +96,15 @@ namespace Sandbox.Game.Entities
         static List<MyFloatingObject> m_synchronizedFloatingObjects = new List<MyFloatingObject>();
         static List<MyFloatingObject> m_floatingObjectsToSyncCreate = new List<MyFloatingObject>();
         static MyFloatingObjectsSynchronizationComparer m_synchronizationComparer = new MyFloatingObjectsSynchronizationComparer();
-        static MySyncFloatingObjects SyncObject;
         static List<MyFloatingObject> m_highPriority = new List<MyFloatingObject>();
         static List<MyFloatingObject> m_normalPriority = new List<MyFloatingObject>();
         static List<MyFloatingObject> m_lowPriority = new List<MyFloatingObject>();
         static Stopwatch m_measurementTime;
         static int m_updateCounter = 0;
-        static int m_highMessagesSent = 0;
-        static int m_normalMessagesSent = 0;
-        static int m_lowMessagesSent = 0;
-        static int m_highIndex = 0;
-        static int m_normalIndex = 0;
-        static int m_lowIndex = 0;
-        static float m_kilobytesPerSecond = 0;
-        static int m_syncCounter = 0;
         static bool m_needReupdateNewObjects = false;
         static int m_checkObjectInsideVoxel = 0;
 
-        static List<Tuple<MyPhysicalInventoryItem, BoundingBoxD>> m_itemsToSpawnNextUpdate = new List<Tuple<MyPhysicalInventoryItem, BoundingBoxD>>();
+		static List<Tuple<MyPhysicalInventoryItem, BoundingBoxD, Vector3D>> m_itemsToSpawnNextUpdate = new List<Tuple<MyPhysicalInventoryItem, BoundingBoxD, Vector3D>>();
 
         #endregion
 
@@ -94,7 +115,6 @@ namespace Sandbox.Game.Entities
             Debug.Assert(m_instance == null);
             m_instance = this;
 
-            SyncObject = new MySyncFloatingObjects();
             m_measurementTime = new Stopwatch();
             m_measurementTime.Start();
         }
@@ -103,12 +123,29 @@ namespace Sandbox.Game.Entities
         {
             //Debug.Assert(m_instance == this);
             m_instance = null;
-
             base.UnloadData();
         }
 
         public override void UpdateAfterSimulation()
         {
+            if(Sync.IsServer == false)
+            {
+                return;
+            }
+
+            CheckObjectInVoxel();
+
+            if (m_updateCounter++ > 100)
+            {
+                m_updateCounter = 0;
+                ReduceFloatingObjects();
+            }
+
+            if (m_itemsToSpawnNextUpdate.Count > 0)
+            {
+                SpawnInventoryItems();
+            }
+
             base.UpdateAfterSimulation();
 
             if (m_updateCounter++ > 100)
@@ -124,55 +161,6 @@ namespace Sandbox.Game.Entities
             {
                 UpdateObjectCounters();
             }
-
-            m_syncCounter++;
-
-            if (m_syncCounter % 20 == 0)
-            {
-                if (SynchronizeObjects(m_highPriority, ref m_highIndex))
-                    m_highMessagesSent++;
-            }
-
-            if (m_syncCounter % 30 == 0)
-            {
-                if (SynchronizeObjects(m_normalPriority, ref m_normalIndex))
-                    m_normalMessagesSent++;
-            }
-
-            if (m_syncCounter % 50 == 0)
-            {
-                if (SynchronizeObjects(m_lowPriority, ref m_lowIndex))
-                    m_lowMessagesSent++;
-
-                SynchronizeNewObjects();
-            }
-
-            CheckObjectInVoxel();
-
-            if (m_measurementTime.ElapsedMilliseconds > 1000)
-            {
-                int totalMessages = m_highMessagesSent + m_normalMessagesSent + m_lowMessagesSent;
-                //int size = totalMessages * MySyncFloatingObjects.PositionUpdateCompressedMsgSize;
-                int size = totalMessages * MySyncFloatingObjects.PositionUpdateMsgSize;
-                m_kilobytesPerSecond = (size / (m_measurementTime.ElapsedMilliseconds / 1000.0f)) / 1024;
-                m_measurementTime.Restart();
-
-                //MyTrace.Send(TraceWindow.MultiplayerFiltered, "");
-                //MyTrace.Send(TraceWindow.MultiplayerFiltered, "High messages /s: " + m_highMessagesSent.ToString());
-                //MyTrace.Send(TraceWindow.MultiplayerFiltered, "Normal messages /s: " + m_normalMessagesSent.ToString());
-                //MyTrace.Send(TraceWindow.MultiplayerFiltered, "Low messages /s: " + m_lowMessagesSent.ToString());
-                //MyTrace.Send(TraceWindow.MultiplayerFiltered, "Total messages /s: " + totalMessages.ToString());
-                //MyTrace.Send(TraceWindow.MultiplayerFiltered, "Floating objects [KB/s]: " + m_kilobytesPerSecond.ToString());
-
-                m_highMessagesSent = 0;
-                m_normalMessagesSent = 0;
-                m_lowMessagesSent = 0;
-            }
-
-            if (m_itemsToSpawnNextUpdate.Count > 0)
-            {
-                SpawnInventoryItems();
-            }
         }
 
         private void UpdateObjectCounters()
@@ -186,9 +174,7 @@ namespace Sandbox.Game.Entities
         void OptimizeFloatingObjects()
         {
             ReduceFloatingObjects();
-
             OptimizeCloseDistances();
-
             OptimizeQualityType();
         }
 
@@ -202,23 +188,26 @@ namespace Sandbox.Game.Entities
             m_lowPriority.Clear();
             m_needReupdateNewObjects = false;
 
-            float HIGH_DISTANCE = 16 * 16;
+            float CLOSEST_DISTANCE = 4 * 4;
+            float CLOSE_DISTANCE = 16 * 16;
             int HIGH_LIMIT = 32;
             float NORMAL_DISTANCE = 64 * 64;
             int NORMAL_LIMIT = 128;
             float epsilonSq = 0.05f * 0.05f;
+            float lowerEpsilonSq = 0.0005f * 0.0005f;
 
             for (int i = 0; i < m_synchronizedFloatingObjects.Count; i++)
             {
                 var syncObject = m_synchronizedFloatingObjects[i];
 
-                m_needReupdateNewObjects |= syncObject.ClosestDistanceToAnyPlayerSquared == -1;
-
+                m_needReupdateNewObjects |= syncObject.ClosestDistanceToAnyPlayerSquared == -1 || (syncObject.ClosestDistanceToAnyPlayerSquared < CLOSEST_DISTANCE && syncObject.SyncWaitCounter > 5);
+                var linearVelocitySq = syncObject.Physics.LinearVelocity.LengthSquared();
+                var angularVelocitySq = syncObject.Physics.AngularVelocity.LengthSquared();
                 if (syncObject.ClosestDistanceToAnyPlayerSquared == -1 ||
-                syncObject.Physics.LinearVelocity.LengthSquared() > epsilonSq ||
-                syncObject.Physics.AngularVelocity.LengthSquared() > epsilonSq)
+                    linearVelocitySq > epsilonSq ||
+                    angularVelocitySq > epsilonSq)
                 {
-                    if ((syncObject.ClosestDistanceToAnyPlayerSquared < HIGH_DISTANCE) && (i < HIGH_LIMIT))
+                    if ((syncObject.ClosestDistanceToAnyPlayerSquared < CLOSE_DISTANCE) && (i < HIGH_LIMIT))
                         m_highPriority.Add(syncObject);
                     else if ((syncObject.ClosestDistanceToAnyPlayerSquared < NORMAL_DISTANCE) && (i < NORMAL_LIMIT))
                         m_normalPriority.Add(syncObject);
@@ -227,7 +216,6 @@ namespace Sandbox.Game.Entities
                 }
             }
         }
-
 
         void CheckObjectInVoxel()
         {
@@ -280,30 +268,63 @@ namespace Sandbox.Game.Entities
         /// </summary>
         private void SpawnInventoryItems()
         {
-            foreach (var item in m_itemsToSpawnNextUpdate)
+            for (int i = 0; i < Math.Min(m_itemsToSpawnNextUpdate.Count,1); ++i)
             {
-                var entity = item.Item1.Spawn(item.Item1.Amount, item.Item2);
-                entity.Physics.ApplyImpulse(MyUtils.GetRandomVector3Normalized() * entity.Physics.Mass / 5.0f, entity.PositionComp.GetPosition());
-            }
+                var item = m_itemsToSpawnNextUpdate[0];
+                m_itemsToSpawnNextUpdate.RemoveAt(0);
 
-            m_itemsToSpawnNextUpdate.Clear();
+                var entity = item.Item1.Spawn(item.Item1.Amount, item.Item2);
+                if (entity != null)
+                {
+                    entity.Physics.LinearVelocity = item.Item3;
+                    entity.Physics.ApplyImpulse(MyUtils.GetRandomVector3Normalized() * entity.Physics.Mass / 5.0f, entity.PositionComp.GetPosition());
+                }
+            }
         }
 
         #region Spawning
+
         public static MyEntity Spawn(MyPhysicalInventoryItem item, Vector3D position, Vector3D forward, Vector3D up, MyPhysicsComponentBase motionInheritedFrom = null)
         {
-            return Spawn(item, MatrixD.CreateWorld(position, forward, up), motionInheritedFrom);
+            var orientedForward = forward;
+            var orientedUp = up;
+
+            var left = Vector3D.Cross(up, forward);
+
+            MyPhysicalItemDefinition itemDefinition = null;            
+
+            if (MyDefinitionManager.Static.TryGetDefinition<MyPhysicalItemDefinition>(item.Content.GetObjectId(), out itemDefinition))
+            {
+                if (itemDefinition.RotateOnSpawnX)
+                {
+                    orientedForward = up;
+                    orientedUp = -forward;
+                }
+                if (itemDefinition.RotateOnSpawnY)
+                {
+                    orientedForward = left;
+                }
+                if (itemDefinition.RotateOnSpawnZ)
+                {
+                    orientedUp = -left;
+                }
+            }
+
+            return Spawn(item, MatrixD.CreateWorld(position, orientedForward, orientedUp), motionInheritedFrom);
         }
 
-        internal static MyEntity Spawn(MyPhysicalInventoryItem item, MatrixD worldMatrix, MyPhysicsComponentBase motionInheritedFrom = null)
+        public static MyEntity Spawn(MyPhysicalInventoryItem item, MatrixD worldMatrix, MyPhysicsComponentBase motionInheritedFrom = null)
         {
             var floatingBuilder = PrepareBuilder(ref item);
 
             floatingBuilder.PositionAndOrientation = new MyPositionAndOrientation(worldMatrix);
             var thrownEntity = MyEntities.CreateFromObjectBuilderAndAdd(floatingBuilder);
-            thrownEntity.Physics.ForceActivate();
-            ApplyPhysics(thrownEntity, motionInheritedFrom);
-            Debug.Assert(thrownEntity.Save == true, "Thrown item will not be saved. Feel free to ignore this.");
+            if (thrownEntity != null)
+            {
+                thrownEntity.Physics.ForceActivate();
+                ApplyPhysics(thrownEntity, motionInheritedFrom);
+                Debug.Assert(thrownEntity.Save == true, "Thrown item will not be saved. Feel free to ignore this.");
+            }
             return thrownEntity;
         }
 
@@ -349,17 +370,35 @@ namespace Sandbox.Game.Entities
             return thrownEntity;
         }
 
-        public static void EnqueueInventoryItemSpawn(MyPhysicalInventoryItem inventoryItem, BoundingBoxD boundingBox)
+        public static MyEntity Spawn(MyPhysicalItemDefinition itemDefinition, Vector3D translation, Vector3D forward, Vector3D up, int amount = 1, float scale = 1)
         {
-            m_itemsToSpawnNextUpdate.Add(Tuple.Create(inventoryItem, boundingBox));
+            var objectBuilder = MyObjectBuilderSerializer.CreateNewObject(itemDefinition.Id.TypeId, itemDefinition.Id.SubtypeName) as MyObjectBuilder_PhysicalObject;
+
+            var floatingObj = MyFloatingObjects.Spawn(
+                new MyPhysicalInventoryItem((MyFixedPoint)amount, objectBuilder, scale),
+                translation,
+                forward,
+                up);
+
+            return floatingObj;
+        }
+
+        public static void EnqueueInventoryItemSpawn(MyPhysicalInventoryItem inventoryItem, BoundingBoxD boundingBox, Vector3D inheritedVelocity)
+        {
+			m_itemsToSpawnNextUpdate.Add(Tuple.Create(inventoryItem, boundingBox, inheritedVelocity));
         }
 
         private static MyObjectBuilder_FloatingObject PrepareBuilder(ref MyPhysicalInventoryItem item)
         {
             Debug.Assert(item.Amount > 0, "FloatObject item amount must be > 0");
+            Debug.Assert(item.Scale > 0, "FloatObject item scale must be > 0");
 
             var floatingBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_FloatingObject>();
             floatingBuilder.Item = item.GetObjectBuilder();
+
+            var itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(item.Content);
+            floatingBuilder.ModelVariant = itemDefinition.HasModelVariants ? MyUtils.GetRandomInt(itemDefinition.Models.Length) : 0;
+
             floatingBuilder.PersistentFlags |= MyPersistentEntityFlags2.Enabled | MyPersistentEntityFlags2.InScene;
             return floatingBuilder;
         }
@@ -461,7 +500,35 @@ namespace Sandbox.Game.Entities
             obj.WasRemovedFromWorld = true;
         }
 
-        internal static void RemoveFloatingObject(MyFloatingObject obj)
+        public static void AddFloatingObjectAmount(MyFloatingObject obj, MyFixedPoint amount)
+        {
+            var item = obj.Item;
+            item.Amount += amount;
+            obj.Item = item;
+            obj.Amount.Value = item.Amount;
+            obj.UpdateInternalState();
+        }
+
+        public static void RemoveFloatingObject(MyFloatingObject obj, bool sync)
+        {
+            if (sync)
+            {
+                if (Sync.IsServer)
+                {
+                    RemoveFloatingObject(obj);
+                }
+                else
+                {
+                    obj.SendCloseRequest();
+                }
+            }
+            else
+            {
+                RemoveFloatingObject(obj);
+            }
+        }
+
+        public static void RemoveFloatingObject(MyFloatingObject obj)
         {
             RemoveFloatingObject(obj, MyFixedPoint.MaxValue);
         }
@@ -479,14 +546,13 @@ namespace Sandbox.Game.Entities
             {
                 obj.Item.Amount -= amount;
                 obj.RefreshDisplayName();
+                //In this case do not use obj.WasRemovedFromWorld = true; cause it causes the object not being picked up after removed by the collector
             }
             else
+            {
                 obj.Close();
-
-            obj.WasRemovedFromWorld = true;
-
-            if (Sync.IsServer)
-                SyncObject.OnRemoveFloatingObject(obj, amount);
+                obj.WasRemovedFromWorld = true;
+            }
         }
 
 
@@ -504,6 +570,9 @@ namespace Sandbox.Game.Entities
                 if (set.Count > 0)
                 {
                     var floatingObject = set.Last();
+                    if (MyManipulationTool.IsEntityManipulated(floatingObject))
+                        break;
+
                     set.Remove(floatingObject);
                     if (Sync.IsServer)
                         RemoveFloatingObject(floatingObject);
@@ -525,13 +594,25 @@ namespace Sandbox.Game.Entities
 
             m_synchronizedFloatingObjects.Add(floatingObject);
 
+            floatingObject.OnClose += floatingObject_OnClose;
             m_needReupdateNewObjects = true;
+        }
+
+        static void floatingObject_OnClose(MyEntity obj)
+        {
+            var floating = obj as MyFloatingObject;
+            System.Diagnostics.Debug.Assert(!m_synchronizedFloatingObjects.Contains(floating), "Must be already removed in RemoveFromSynchronization");
+            System.Diagnostics.Debug.Assert(!m_floatingObjectsToSyncCreate.Contains(floating), "Must be already removed in RemoveFromSynchronization");
         }
 
         static void RemoveFromSynchronization(MyFloatingObject floatingObject)
         {
+            floatingObject.OnClose -= floatingObject_OnClose;
             m_synchronizedFloatingObjects.Remove(floatingObject);
             m_floatingObjectsToSyncCreate.Remove(floatingObject);
+            m_highPriority.Remove(floatingObject);
+            m_normalPriority.Remove(floatingObject);
+            m_lowPriority.Remove(floatingObject);
         }
 
         void UpdateClosestDistancesToPlayers()
@@ -557,32 +638,50 @@ namespace Sandbox.Game.Entities
                 }
             }
         }
-
-        bool SynchronizeObjects(List<MyFloatingObject> objects, ref int index)
-        {
-            if (objects.Count == 0)
-                return false;
-
-            if (index >= objects.Count)
-                index = 0;
-
-            var floatingObject = objects[index];
-            SyncObject.UpdatePosition(floatingObject);
-
-            if (floatingObject.ClosestDistanceToAnyPlayerSquared == -1)
-                floatingObject.ClosestDistanceToAnyPlayerSquared = 0;
-
-            index++;
-
-            return true;
-        }
-
-        void SynchronizeNewObjects()
-        {
-            SyncObject.OnCreateFloatingObjects(m_floatingObjectsToSyncCreate);
-            m_floatingObjectsToSyncCreate.Clear();
-        }
-
+        
         #endregion
+
+        /// <summary>
+        /// This is used mainly for compactibility issues, it takes the builder of an entity of old object representation and creates a floating object builder for it
+        /// </summary>
+        public static MyObjectBuilder_FloatingObject ChangeObjectBuilder(MyComponentDefinition componentDef, MyObjectBuilder_EntityBase entityOb)
+        {
+            var componentBuilder = MyObjectBuilderSerializer.CreateNewObject(componentDef.Id.TypeId, componentDef.Id.SubtypeName) as MyObjectBuilder_PhysicalObject;
+
+            Vector3 up = entityOb.PositionAndOrientation.Value.Up;
+            Vector3 forward = entityOb.PositionAndOrientation.Value.Forward;
+            Vector3D position = entityOb.PositionAndOrientation.Value.Position;
+
+            var item = new MyPhysicalInventoryItem((MyFixedPoint)1, componentBuilder);
+            var floatingBuilder = PrepareBuilder(ref item);
+
+            floatingBuilder.PositionAndOrientation = new MyPositionAndOrientation(position, forward, up);
+            floatingBuilder.EntityId = entityOb.EntityId;
+
+            return floatingBuilder;
+        }
+        /// <summary>
+        /// Players are allowed to spawn any object in creative
+        /// </summary>
+        public static void RequestSpawnCreative(MyObjectBuilder_FloatingObject obj)
+        {
+            if (MySession.Static.HasAdminRights||MySession.Static.CreativeMode)
+            {
+                MyMultiplayer.RaiseStaticEvent(x => RequestSpawnCreative_Implementation, obj);
+            }
+        }
+
+        [Event, Reliable, Server]
+        private static void RequestSpawnCreative_Implementation(MyObjectBuilder_FloatingObject obj)
+        {
+            if (MySession.Static.CreativeMode ||MyEventContext.Current.IsLocallyInvoked|| MySession.Static.HasPlayerAdminRights(MyEventContext.Current.Sender.Value))
+            {
+                MyEntities.CreateFromObjectBuilderAndAdd(obj);
+            }
+            else
+            {
+                MyEventContext.ValidationFailed();
+            }
+        }
     }
 }

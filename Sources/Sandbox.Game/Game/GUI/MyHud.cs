@@ -4,6 +4,7 @@ using Sandbox.Common;
 using Sandbox.Engine.Utils;
 using Sandbox.Game.World;
 using System.Diagnostics;
+using VRage.Game.Components;
 
 
 #endregion
@@ -21,7 +22,7 @@ namespace Sandbox.Game.Gui
         public static MyHudScenarioInfo ScenarioInfo = new MyHudScenarioInfo();
         public static MyHudBlockInfo BlockInfo = new MyHudBlockInfo();
         public static MyHudGravityIndicator GravityIndicator = new MyHudGravityIndicator();
-        public static MyHudConsumerGroupInfo ConsumerGroupInfo = new MyHudConsumerGroupInfo();
+        public static MyHudSinkGroupInfo SinkGroupInfo = new MyHudSinkGroupInfo();
         public static MyHudSelectedObject SelectedObjectHighlight = new MyHudSelectedObject();
         public static MyHudLocationMarkers LocationMarkers = new MyHudLocationMarkers();
         public static MyHudGpsMarkers ButtonPanelMarkers = new MyHudGpsMarkers();
@@ -35,6 +36,7 @@ namespace Sandbox.Game.Gui
         public static MyHudObjectiveLine ObjectiveLine = new MyHudObjectiveLine();
         public static MyHudNetgraph Netgraph = new MyHudNetgraph();
         public static MyHudVoiceChat VoiceChat = new MyHudVoiceChat();
+        public static MyHudChangedInventoryItems ChangedInventoryItems = new MyHudChangedInventoryItems();
 
         private static int m_rotatingWheelVisibleCounter;
         public static bool RotatingWheelVisible
@@ -81,7 +83,7 @@ namespace Sandbox.Game.Gui
             Notifications.ReloadTexts();
             ShipInfo.Reload();
             CharacterInfo.Reload();
-            ConsumerGroupInfo.Reload();
+            SinkGroupInfo.Reload();
             ScenarioInfo.Reload();
         }
 
@@ -112,6 +114,7 @@ namespace Sandbox.Game.Gui
             GpsMarkers.Clear();
             HackingMarkers.Clear();
             ObjectiveLine.Clear();
+            ChangedInventoryItems.Clear();
             if (MyFakes.ENABLE_NETGRAPH)
             {
                 Netgraph.ClearNetgraph();
@@ -128,12 +131,12 @@ namespace Sandbox.Game.Gui
 
         internal static void HideAll()
         {
-            Crosshair.Hide();
+            Crosshair.HideDefaultSprite();
             ShipInfo.Hide();
             CharacterInfo.Hide();
             BlockInfo.Visible = false;
             GravityIndicator.Hide();
-            ConsumerGroupInfo.Visible = false;
+            SinkGroupInfo.Visible = false;
             LargeTurretTargets.Visible = false;
         }
     }

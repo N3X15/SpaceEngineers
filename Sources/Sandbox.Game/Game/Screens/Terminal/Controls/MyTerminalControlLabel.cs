@@ -1,4 +1,5 @@
 ﻿using Sandbox.Game.Entities.Cube;
+using Sandbox.Game.Gui;
 using Sandbox.Graphics.GUI;
 using System;
 using System.Collections.Generic;
@@ -6,16 +7,18 @@ using System.Linq;
 using System.Text;
 using VRage;
 using VRage.Utils;
+using Sandbox.ModAPI;
+using Sandbox.ModAPI.Interfaces.Terminal;
 
 namespace Sandbox.Game.Screens.Terminal.Controls
 {
-    public class MyTerminalControlLabel<TBlock> : MyTerminalValueControl<TBlock, bool>       
+    public class MyTerminalControlLabel<TBlock> : MyTerminalControl<TBlock>, IMyTerminalControlLabel
         where TBlock : MyTerminalBlock
     {
-        public readonly MyStringId Label;
+        public MyStringId Label;
         MyGuiControlLabel m_label;
-        public MyTerminalControlLabel(string id, MyStringId label)
-            : base(id)
+        public MyTerminalControlLabel(MyStringId label)
+            : base("Label")
         {
             Label = label;
         }
@@ -26,30 +29,20 @@ namespace Sandbox.Game.Screens.Terminal.Controls
             return new MyGuiControlBlockProperty(MyTexts.GetString(Label), null, m_label, MyGuiControlBlockPropertyLayoutEnum.Horizontal);
         }
 
-
-
-        public override bool GetValue(TBlock block)
+        /// <summary>
+        /// Implement IMyTerminalControlLabel for Mods
+        /// </summary>
+        MyStringId IMyTerminalControlLabel.Label
         {
-            return true;
-        }
+            get
+            {
+                return Label;
+            }
 
-        public override void SetValue(TBlock block, bool value)
-        {
-        }
-
-        public override bool GetDefaultValue(TBlock block)
-        {
-            return false;
-        }
-
-        public override bool GetMininum(TBlock block)
-        {
-            return false;
-        }
-
-        public override bool GetMaximum(TBlock block)
-        {
-            return true;
+            set
+            {
+                Label = value;
+            }
         }
     }
 }

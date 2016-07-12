@@ -39,7 +39,7 @@ namespace VRage.Animations
         { }
 
         public MyAnimatedProperty2D(string name, MyAnimatedProperty<V>.InterpolatorDelegate interpolator)
-            : base(name, null)
+            : base(name, false, null)
         {
             m_interpolator2 = interpolator;
         }
@@ -66,6 +66,11 @@ namespace VRage.Animations
             GetInterpolatedKeys(overallTime, default(W), multiplier, interpolatedKeys);
         }
 
+        public override bool Is2D
+        {
+            get { return true; }
+        }
+
         public void GetInterpolatedKeys(float overallTime, W variance, float multiplier, IMyAnimatedProperty interpolatedKeysOb)
         {
             T previousKeys, nextKeys;
@@ -75,6 +80,10 @@ namespace VRage.Animations
 
             T interpolatedKeys = interpolatedKeysOb as T;
             interpolatedKeys.ClearKeys();
+
+            if (previousKeys == null)
+                return;
+
             if (m_interpolator2 != null)
                 interpolatedKeys.Interpolator = m_interpolator2;
 
@@ -133,7 +142,22 @@ namespace VRage.Animations
 
             foreach (ValueHolder key in m_keys)
             {
-                animatedTargetProp.AddKey(key);
+                animatedTargetProp.AddKey(key.Duplicate());
+            }
+        }
+
+        public override void DeserializeFromObjectBuilder(GenerationProperty property)
+        {
+            m_name = property.Name;
+
+            m_keys.Clear();
+
+            foreach (var key in property.Keys)
+            {
+                T value = new T();
+                value.DeserializeFromObjectBuilder_Animation(key.Value2D, property.Type);
+
+                AddKey<T>(key.Time, value);
             }
         }
     }
@@ -153,9 +177,14 @@ namespace VRage.Animations
         {
         }
 
+        public override string ValueType
+        {
+            get { return "Float"; }
+        }
+
         public override void DeserializeValue(XmlReader reader, out object value)
         {
-            MyAnimatedPropertyFloat prop = new MyAnimatedPropertyFloat(this.Name, m_interpolator2);
+            MyAnimatedPropertyFloat prop = new MyAnimatedPropertyFloat(this.Name, false, m_interpolator2);
             prop.Deserialize(reader);
             value = prop;
         }
@@ -187,6 +216,11 @@ namespace VRage.Animations
         public MyAnimatedProperty2DInt(string name, MyAnimatedProperty<int>.InterpolatorDelegate interpolator)
             : base(name, interpolator)
         {
+        }
+
+        public override string ValueType
+        {
+            get { return "Int"; }
         }
 
         public override void DeserializeValue(XmlReader reader, out object value)
@@ -226,6 +260,11 @@ namespace VRage.Animations
         public MyAnimatedProperty2DEnum(string name, Type enumType, List<string> enumStrings)
             : this(name, null, enumType, enumStrings)
         { }
+
+        public override string BaseValueType
+        {
+            get { return "Enum"; }
+        }
 
         public MyAnimatedProperty2DEnum(string name, MyAnimatedProperty<int>.InterpolatorDelegate interpolator, Type enumType, List<string> enumStrings)
             : base(name, interpolator)
@@ -273,9 +312,14 @@ namespace VRage.Animations
         {
         }
 
+        public override string ValueType
+        {
+            get { return "Vector3"; }
+        }
+
         public override void DeserializeValue(XmlReader reader, out object value)
         {
-            MyAnimatedPropertyVector3 prop = new MyAnimatedPropertyVector3(this.Name, m_interpolator2);
+            MyAnimatedPropertyVector3 prop = new MyAnimatedPropertyVector3(this.Name, false, m_interpolator2);
             prop.Deserialize(reader);
             value = prop;
         }
@@ -311,6 +355,11 @@ namespace VRage.Animations
         {
         }
 
+        public override string ValueType
+        {
+            get { return "Vector4"; }
+        }
+
         public override void DeserializeValue(XmlReader reader, out object value)
         {
             MyAnimatedPropertyVector4 prop = new MyAnimatedPropertyVector4(this.Name, m_interpolator2);
@@ -334,9 +383,9 @@ namespace VRage.Animations
             value.Z = interpolatedValue.Z * rnd;
             value.W = interpolatedValue.W;
             //value.W = interpolatedValue.W * rnd;
-            MathHelper.Clamp(value.X, 0, 1);
-            MathHelper.Clamp(value.Y, 0, 1);
-            MathHelper.Clamp(value.Z, 0, 1);
+            value.X = MathHelper.Clamp(value.X, 0, 1);
+            value.Y = MathHelper.Clamp(value.Y, 0, 1);
+            value.Z = MathHelper.Clamp(value.Z, 0, 1);
             //MathHelper.Clamp(value.W, 0, 1);
         }
     }

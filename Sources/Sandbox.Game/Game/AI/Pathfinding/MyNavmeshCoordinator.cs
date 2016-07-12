@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using VRage;
+using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Voxels;
 using VRageMath;
 using VRageRender;
@@ -22,6 +24,7 @@ namespace Sandbox.Game.AI.Pathfinding
 
         private MyGridPathfinding m_gridPathfinding;
         private MyVoxelPathfinding m_voxelPathfinding;
+        private MyDynamicObstacles m_obstacles;
 
         // List of all linked triangles per a voxel mesh cell
         private Dictionary<MyVoxelPathfinding.CellId, List<MyNavigationPrimitive>> m_voxelLinkDictionary = new Dictionary<MyVoxelPathfinding.CellId, List<MyNavigationPrimitive>>();
@@ -32,10 +35,11 @@ namespace Sandbox.Game.AI.Pathfinding
         public MyNavgroupLinks Links { get { return m_links; } }
         public MyNavgroupLinks HighLevelLinks { get { return m_highLevelLinks; } }
 
-        public MyNavmeshCoordinator()
+        public MyNavmeshCoordinator(MyDynamicObstacles obstacles)
         {
             m_links = new MyNavgroupLinks();
             m_highLevelLinks = new MyNavgroupLinks();
+            m_obstacles = obstacles;
         }
 
         public void SetGridPathfinding(MyGridPathfinding gridPathfinding)
@@ -55,11 +59,11 @@ namespace Sandbox.Game.AI.Pathfinding
             m_tmpEntityList.Clear();
 
             // Each triangle will be tested with grids up to one largest cube further away from them, so we have to reflect this in the bounding box.
-            float largeCubeSize = MyDefinitionManager.Static.GetCubeSize(Common.ObjectBuilders.MyCubeSize.Large);
+            float largeCubeSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
             cellBoundingBox.Inflate(largeCubeSize);
 
             // Furthermore, a triangle cannot lie in a cube under existing block, so we have to extend the bbox even further
-            if (MyFakes.NAVMESH_PRESUMES_DOWNWARD_GRAVITY)
+            if (MyPerGameSettings.NavmeshPresumesDownwardGravity)
             {
                 var min = cellBoundingBox.Min;
                 min.Y -= largeCubeSize;
@@ -86,10 +90,21 @@ namespace Sandbox.Game.AI.Pathfinding
         {
             ProfilerShort.Begin("TestVoxelNavmeshTriangle");
 
+            ProfilerShort.Begin("Triangle-obstacle tests");
+            Vector3D s = (a + b + c) / 3.0;
+            if (m_obstacles.IsInObstacle(s))
+            {
+                intersecting = true;
+                ProfilerShort.End();
+                ProfilerShort.End();
+                return;
+            }
+            ProfilerShort.End();
+
             BoundingBoxD triBB;
             Vector3D aLocal, bLocal, cLocal, gLocal;
             Vector3D g = Vector3D.Zero;
-            if (MyFakes.NAVMESH_PRESUMES_DOWNWARD_GRAVITY)
+            if (MyPerGameSettings.NavmeshPresumesDownwardGravity)
             {
                 g = Vector3.Down * 2.0f;
             }
@@ -113,7 +128,7 @@ namespace Sandbox.Game.AI.Pathfinding
                 Vector3I max = grid.LocalToGridInteger(triBB.Max);
                 Vector3I pos = min - Vector3I.One;
                 Vector3I max2 = max + Vector3I.One;
-                for (var it = new Vector3I.RangeIterator(ref pos, ref max2); it.IsValid(); it.GetNext(out pos))
+                for (var it = new Vector3I_RangeIterator(ref pos, ref max2); it.IsValid(); it.GetNext(out pos))
                 {
                     if (grid.GetCubeBlock(pos) != null)
                     {
@@ -184,7 +199,7 @@ namespace Sandbox.Game.AI.Pathfinding
                 foreach (var tri in m_tmpNavTris)
                 {
                     Vector3D posDiff = addedPrimitive.WorldPosition - tri.WorldPosition;
-                    if (MyFakes.NAVMESH_PRESUMES_DOWNWARD_GRAVITY)
+                    if (MyPerGameSettings.NavmeshPresumesDownwardGravity)
                     {
                         if (Math.Abs(posDiff.Y) < 0.3)
                         {

@@ -2,16 +2,16 @@
 using ProtoBuf;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_ToolbarItemActionParameter : MyObjectBuilder_Base
     {
-        [ProtoMember] 
+        [ProtoMember]
         public TypeCode TypeCode;
 
-        [ProtoMember] 
+        [ProtoMember]
         public string Value;
     }
 }

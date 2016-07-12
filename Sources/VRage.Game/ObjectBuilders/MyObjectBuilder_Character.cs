@@ -1,13 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using ProtoBuf;
-using VRageMath;
 using System.Xml.Serialization;
 using System.ComponentModel;
 using VRage.ObjectBuilders;
-using VRage;
+using VRage.Serialization;
 
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     public enum MyCharacterModelEnum
     {
@@ -20,7 +20,7 @@ namespace Sandbox.Common.ObjectBuilders
         Astronaut_White  = 6,
         Astronaut_Yellow = 7,
     }
-    
+
     public static class MyCharacterMovement
     {
         public const ushort MovementTypeMask      = 0x000f; // 4 bits (0 - 3) for movement type should be enough even for the future
@@ -66,9 +66,13 @@ namespace Sandbox.Common.ObjectBuilders
         {
             return (ushort)((ushort)value & MovementDirectionMask);
         }
+
+        public static ushort GetSpeed(this MyCharacterMovementEnum value)
+        {
+            return (ushort)((ushort)value & MovementSpeedMask); 
+        }
     }
 
-    // This enum references constants in MyCharacterMovement to enable bitwise operations and at the same time prevent duplicate values in the enum
     public enum MyCharacterMovementEnum : ushort
     {
         Standing   = MyCharacterMovement.Standing,
@@ -122,6 +126,15 @@ namespace Sandbox.Common.ObjectBuilders
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_Character : MyObjectBuilder_EntityBase
     {
+        [ProtoContract]
+        public struct StoredGas
+        {
+            [ProtoMember]
+            public SerializableDefinitionId Id;
+
+            [ProtoMember]
+            public float FillLevel;
+        }
         public static Dictionary<string, SerializableVector3> CharacterModels = new Dictionary<string, SerializableVector3>()
         {
             {"Soldier",          new SerializableVector3(0f, 0f, 0.05f)},
@@ -131,17 +144,20 @@ namespace Sandbox.Common.ObjectBuilders
             {"Astronaut_Green",  new SerializableVector3(0.333f, -0.33f, -0.05f)},
             {"Astronaut_Red",    new SerializableVector3(0f, 0f, 0.05f)},
             {"Astronaut_White",  new SerializableVector3(0f, -0.8f, 0.6f)},
-            {"Astronaut_Yellow", new SerializableVector3(0.122f, 0.05f, 0.46f)}
+            {"Astronaut_Yellow", new SerializableVector3(0.122f, 0.05f, 0.46f)},
+            {"Engineer_suit_no_helmet", new SerializableVector3(-100.0f, -100.0f, -100.0f)} // invalid color, just reuse existing
         };
 
         [ProtoMember]
         public string CharacterModel;
 
-        [ProtoMember]
+        [ProtoMember, DefaultValue(null)]
+        [Serialize(MyObjectFlags.Nullable)]
         public MyObjectBuilder_Inventory Inventory;
 
         [ProtoMember]
         [XmlElement("HandWeapon", Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_EntityBase>))]
+        [Nullable, DynamicObjectBuilder]
         public MyObjectBuilder_EntityBase HandWeapon;
 
         [ProtoMember]
@@ -169,7 +185,9 @@ namespace Sandbox.Common.ObjectBuilders
         public bool JetpackEnabled;
 
         [ProtoMember]
+        [NoSerialize]
         public float? Health;
+        public bool ShouldSerializeHealth() { return false; } // Has been moved to MyEntityStatComponent
 
         [ProtoMember, DefaultValue(false)]
         public bool AIMode = false;
@@ -193,7 +211,29 @@ namespace Sandbox.Common.ObjectBuilders
         public float OxygenLevel = 1f;
 
         [ProtoMember]
+        public float EnvironmentOxygenLevel = 1f;
+
+        [ProtoMember]
+        [Nullable]
+        public List<StoredGas> StoredGases;
+
+        [ProtoMember]
         public MyCharacterMovementEnum MovementState = MyCharacterMovementEnum.Standing;
         public bool ShouldSerializeMovementState() { return MovementState != MyCharacterMovementEnum.Standing; }
+
+        [ProtoMember]
+        [Nullable]
+        public List<string> EnabledComponents = null;
+
+        [ProtoMember]
+        public ulong PlayerSteamId = 0;
+        [ProtoMember]
+        public int PlayerSerialId = 0;
+
+        [ProtoMember]
+        public bool IsPromoted;
+
+        [ProtoMember]
+        public bool NeedsOxygenFromSuit;
     }
 }

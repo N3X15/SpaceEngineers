@@ -117,23 +117,6 @@ namespace VRageRender
 
             RenderPostProcesses(PostProcessStage.PostLighting, null, null, GetRenderTarget(MyRenderTargets.EnvironmentMap), false);
 
-            SetupAtmosphereShader();
-            DrawNearPlanetSurfaceFromSpace();
-            DrawNearPlanetSurfaceFromAtmosphere();
-
-            GetRenderProfiler().StartProfilingBlock("PrepareRenderObjectsForFarDraw");
-            // Prepare entities for draw
-            PrepareRenderObjectsForDraw(true);
-            GetRenderProfiler().EndProfilingBlock();
-
-            GetRenderProfiler().StartProfilingBlock("Draw far objects");
-            DrawScene_BackgroundObjects(MyLodTypeEnum.LOD_BACKGROUND);
-            GetRenderProfiler().EndProfilingBlock();
-
-            DrawAtmosphere(false);
-            DrawAtmosphere(true);
-          
-
             GetRenderProfiler().StartProfilingBlock("AlphaBlendPreHDR");
             DrawRenderModules(MyRenderStage.AlphaBlendPreHDR);
             GetRenderProfiler().EndProfilingBlock();
@@ -232,7 +215,7 @@ namespace VRageRender
                     else if (target is CubeTexture)
                     {
                         string filename = m_screenshot.GetFilename(name + ".dds");
-                        CubeTexture.ToFile(target, filename, ImageFileFormat.Dds);
+                        CubeTexture.ToFile(target, filename, SharpDX.Direct3D9.ImageFileFormat.Dds);
 
                         MyRenderProxy.ScreenshotTaken(true, filename, m_screenshot.ShowNotification);
                     }
@@ -757,20 +740,24 @@ namespace VRageRender
             GetRenderProfiler().StartProfilingBlock("Render Post process: " + postProcessStage.ToString());
 
             {
-                (MyRender.GetEffect(MyEffects.BlendLights) as MyEffectBlendLights).DefaultTechnique = MyEffectBlendLights.Technique.LightsEnabled;
-                (MyRender.GetEffect(MyEffects.BlendLights) as MyEffectBlendLights).CopyEmissivityTechnique = MyEffectBlendLights.Technique.CopyEmissivity;
+                if (Settings.EnableLightsRuntime)
+                {
+                    (MyRender.GetEffect(MyEffects.BlendLights) as MyEffectBlendLights).DefaultTechnique = MyEffectBlendLights.Technique.LightsEnabled;
+                    (MyRender.GetEffect(MyEffects.BlendLights) as MyEffectBlendLights).CopyEmissivityTechnique = MyEffectBlendLights.Technique.CopyEmissivity;
 
-                MyEffectDirectionalLight directionalLight = MyRender.GetEffect(MyEffects.DirectionalLight) as MyEffectDirectionalLight;
-                directionalLight.DefaultTechnique = MyEffectDirectionalLight.Technique.Default;
-                directionalLight.DefaultWithoutShadowsTechnique = MyEffectDirectionalLight.Technique.WithoutShadows;
-                directionalLight.DefaultNoLightingTechnique = MyEffectDirectionalLight.Technique.NoLighting;
 
-                MyEffectPointLight pointLight = MyRender.GetEffect(MyEffects.PointLight) as MyEffectPointLight;
-                pointLight.PointTechnique = MyEffectPointLight.MyEffectPointLightTechnique.Point;
-                pointLight.PointWithShadowsTechnique = MyEffectPointLight.MyEffectPointLightTechnique.PointShadows;
-                pointLight.HemisphereTechnique = MyEffectPointLight.MyEffectPointLightTechnique.Point;
-                pointLight.SpotTechnique = MyEffectPointLight.MyEffectPointLightTechnique.Spot;
-                pointLight.SpotShadowTechnique = MyEffectPointLight.MyEffectPointLightTechnique.SpotShadows;
+                    MyEffectDirectionalLight directionalLight = MyRender.GetEffect(MyEffects.DirectionalLight) as MyEffectDirectionalLight;
+                    directionalLight.DefaultTechnique = MyEffectDirectionalLight.Technique.Default;
+                    directionalLight.DefaultWithoutShadowsTechnique = MyEffectDirectionalLight.Technique.WithoutShadows;
+                    directionalLight.DefaultNoLightingTechnique = MyEffectDirectionalLight.Technique.NoLighting;
+
+                    MyEffectPointLight pointLight = MyRender.GetEffect(MyEffects.PointLight) as MyEffectPointLight;
+                    pointLight.PointTechnique = MyEffectPointLight.MyEffectPointLightTechnique.Point;
+                    pointLight.PointWithShadowsTechnique = MyEffectPointLight.MyEffectPointLightTechnique.PointShadows;
+                    pointLight.HemisphereTechnique = MyEffectPointLight.MyEffectPointLightTechnique.Point;
+                    pointLight.SpotTechnique = MyEffectPointLight.MyEffectPointLightTechnique.Spot;
+                    pointLight.SpotShadowTechnique = MyEffectPointLight.MyEffectPointLightTechnique.SpotShadows;
+                }
             }
 
 
@@ -1287,7 +1274,9 @@ namespace VRageRender
                 return;
 
             m_sortedElements.Clear();
-            m_renderObjectsToDebugDraw.Clear();
+
+            if (!backgroundObjects)
+                m_renderObjectsToDebugDraw.Clear();
 
             Matrix optProjection = Matrix.CreatePerspectiveFieldOfView(MyRenderCamera.FieldOfView, MyRenderCamera.AspectRatio, backgroundObjects ? MyRenderCamera.NEAR_PLANE_FOR_BACKGROUND : MyRenderCamera.NEAR_PLANE_DISTANCE, backgroundObjects ? MyRenderCamera.FAR_PLANE_FOR_BACKGROUND : MyRenderCamera.FAR_PLANE_DISTANCE);
             m_cameraFrustum.Matrix = MyRenderCamera.ViewMatrix * optProjection;
@@ -1595,7 +1584,7 @@ namespace VRageRender
 
                         isVisibleFromQuery = query.OcclusionQuery.PixelCount > 0;
 
-                        //Holy ATI shit
+                        //Holy ATI 
                         if (query.OcclusionQuery.PixelCount < 0)
                         {
                             isVisibleFromQuery = true;

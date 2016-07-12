@@ -2,10 +2,11 @@
 
 using ParallelTasks;
 using Sandbox.Common;
-using Sandbox.Common.News;
-using Sandbox.Common.ObjectBuilders.Gui;
+using Sandbox.Engine.Multiplayer;
 using Sandbox.Engine.Networking;
 using Sandbox.Engine.Utils;
+using Sandbox.Game.Audio;
+using Sandbox.Game.Entities;
 using Sandbox.Game.Gui.DebugInputComponents;
 using Sandbox.Game.Localization;
 using Sandbox.Game.Multiplayer;
@@ -22,6 +23,8 @@ using System.Xml.Serialization;
 using VRage;
 using VRage;
 using VRage.Audio;
+using VRage.Game;
+using VRage.Game.News;
 using VRage.Input;
 using VRage.Library.Utils;
 using VRage.Utils;
@@ -55,6 +58,7 @@ namespace Sandbox.Game.Gui
         XmlSerializer m_newsSerializer;
         bool m_downloadedNewsOK = false;
         bool m_downloadedNewsFinished = false;
+        bool m_pauseGame = false;
         private static readonly char[] m_trimArray = new char[] { ' ', (char)13, '\r', '\n' };
         private static readonly char[] m_splitArray = new char[] { '\r', '\n' };
 
@@ -64,17 +68,25 @@ namespace Sandbox.Game.Gui
         }
 
         //  This is for adding main menu the easy way
-        public static void AddMainMenu()
+        public static void AddMainMenu(bool pauseGame = false)
         {
-            MyGuiSandbox.AddScreen(new MyGuiScreenMainMenu());
+            MyGuiSandbox.AddScreen(new MyGuiScreenMainMenu(pauseGame));
         }
 
-        public MyGuiScreenMainMenu()
+        public MyGuiScreenMainMenu(bool pauseGame)
             : base(Vector2.Zero, null, null)
         {
             if (MyGuiScreenGamePlay.Static == null)
             {
                 m_closeOnEsc = false;
+            }
+            else
+            {
+                m_pauseGame = pauseGame;
+                if(m_pauseGame&&MySandboxGame.IsPaused ==false)
+                {
+                    MySandboxGame.UserPauseToggle();
+                }
             }
 
             //if (MyGuiScreenGamePlay.Static.GetGameType() == MyGuiScreenGamePlayType.MAIN_MENU) m_closeOnEsc = false;
@@ -103,6 +115,7 @@ namespace Sandbox.Game.Gui
         {
             base.RecreateControls(constructor);
 
+
             // Enable background fade when we're in game, but in main menu we disable it.
             var buttonSize = MyGuiControlButton.GetVisualStyle(MyGuiControlButtonStyleEnum.Default).NormalTexture.MinSizeGui;
             Vector2 leftButtonPositionOrigin = MyGuiManager.ComputeFullscreenGuiCoordinate(MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_BOTTOM) + new Vector2(buttonSize.X / 2f, 0f);
@@ -127,22 +140,24 @@ namespace Sandbox.Game.Gui
                 // Credits
                 // Exit to windows
                 int buttonIndex = MyPerGameSettings.MultiplayerEnabled ? 8 : 7;
-                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonNewWorld, OnClickNewWorld));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonLoadWorld, OnClickLoad));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonNewWorld, OnClickNewWorld));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonLoadWorld, OnClickLoad));
                 if (MyPerGameSettings.MultiplayerEnabled)
-                    Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonJoinWorld, OnJoinWorld));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonSubscribedWorlds, OnClickSubscribedWorlds, MySpaceTexts.ToolTipMenuSubscribedWorlds));
+                    Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonJoinWorld, OnJoinWorld));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonSubscribedWorlds, OnClickSubscribedWorlds, MyCommonTexts.ToolTipMenuSubscribedWorlds));
                 --buttonIndex;
-                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonOptions, OnClickOptions));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonHelp, OnClickHelp));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonCredits, OnClickCredits));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonExitToWindows, OnClickExitToWindows));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonOptions, OnClickOptions));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonHelp, OnClickHelp));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonCredits, OnClickCredits));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - (buttonIndex--) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonExitToWindows, OnClickExitToWindows));
 
                 Vector2 textRightTopPosition = MyGuiManager.GetScreenTextRightTopPosition();
                 Vector2 position = textRightTopPosition + 8f * MyGuiConstants.CONTROLS_DELTA + new Vector2(-.1f, .06f);
             }
             else // In-game
             {
+                MyAnalyticsHelper.ReportActivityStart(null, "show_main_menu", string.Empty, "gui", string.Empty);
+
                 EnabledBackgroundFade = true;
                 int buttonRowIndex = Sync.MultiplayerActive ? 6 : 5;
 
@@ -152,18 +167,18 @@ namespace Sandbox.Game.Gui
                 // Options
                 // Help
                 // Exit to main menu
-                var saveButton = MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonSave, OnClickSaveWorld);
-                var saveAsButton = MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.LoadScreenButtonSaveAs, OnClickSaveAs);
+                var saveButton = MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonSave, OnClickSaveWorld);
+                var saveAsButton = MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.LoadScreenButtonSaveAs, OnClickSaveAs);
 
-                if ((!Sync.IsServer && !MySession.Static.ClientCanSave) || (MySession.Static.Battle))
+                if (!Sync.IsServer || (MySession.Static.Battle))
                 {
                     saveButton.Enabled = false;
                     saveButton.ShowTooltipWhenDisabled = true;
-                    saveButton.SetToolTip(MySpaceTexts.NotificationClientCannotSave);
+                    saveButton.SetToolTip(MyCommonTexts.NotificationClientCannotSave);
 
                     saveAsButton.Enabled = false;
                     saveButton.ShowTooltipWhenDisabled = true;
-                    saveButton.SetToolTip(MySpaceTexts.NotificationClientCannotSave);
+                    saveButton.SetToolTip(MyCommonTexts.NotificationClientCannotSave);
                 }
 
                 Controls.Add(saveButton);
@@ -171,10 +186,10 @@ namespace Sandbox.Game.Gui
 
  //               --buttonRowIndex; // empty line
                 if (Sync.MultiplayerActive)
-                    Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonPlayers, OnClickPlayers));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonOptions, OnClickOptions));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonHelp, OnClickHelp));
-                Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MySpaceTexts.ScreenMenuButtonExitToMainMenu, OnExitToMainMenuClick));
+                    Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonPlayers, OnClickPlayers));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonOptions, OnClickOptions));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonHelp, OnClickHelp));
+                Controls.Add(MakeButton(leftButtonPositionOrigin - ((float)(--buttonRowIndex)) * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA, MyCommonTexts.ScreenMenuButtonExitToMainMenu, OnExitToMainMenuClick));
             }
 
             var logoPanel = new MyGuiControlPanel(
@@ -187,7 +202,7 @@ namespace Sandbox.Game.Gui
 
             // Recommend button
             Vector2 pos = rightButtonPositionOrigin - 8f * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA;
-            Controls.Add(MakeButton(pos, MySpaceTexts.ScreenMenuButtonRecommend, OnClickRecommend));
+            Controls.Add(MakeButton(pos, MyCommonTexts.ScreenMenuButtonRecommend, OnClickRecommend));
             m_newsControl = new MyGuiControlNews()
             {
                 Position = MyGuiManager.ComputeFullscreenGuiCoordinate(MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_BOTTOM) - 7f * MyGuiConstants.MENU_BUTTONS_POSITION_DELTA,
@@ -206,18 +221,53 @@ namespace Sandbox.Game.Gui
             var reportButton = MakeButton(
                 new Vector2(m_newsControl.Position.X , m_newsControl.Position.Y + m_newsControl.Size.Y),
                 //MyGuiManager.ComputeFullscreenGuiCoordinate(MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_BOTTOM, 140,80),
-                MySpaceTexts.ReportBug, OnClickReportBug);
+                MyCommonTexts.ReportBug, OnClickReportBug);
             reportButton.OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_TOP;
             reportButton.VisualStyle = MyGuiControlButtonStyleEnum.UrlText;
             Controls.Add(reportButton);
 
             m_newsControl.State = MyGuiControlNews.StateEnum.Loading;
             DownloadNews();
+            CheckLowMemSwitchToLow();
+        }
+
+        private void CheckLowMemSwitchToLow()
+        {
+            if (MySandboxGame.Config.LowMemSwitchToLow==MyConfig.LowMemSwitch.TRIGGERED)
+            {
+                MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
+                    callback: delegate(MyGuiScreenMessageBox.ResultEnum result)
+                        {
+                            if (result == MyGuiScreenMessageBox.ResultEnum.YES)
+                            {
+                                MySandboxGame.Config.LowMemSwitchToLow = MyConfig.LowMemSwitch.ARMED;
+                                MySandboxGame.Config.SetToLowQuality();
+                                MySandboxGame.Config.Save();
+                                ExitGame();
+                            }
+                            else
+                            {
+                                MySandboxGame.Config.LowMemSwitchToLow = MyConfig.LowMemSwitch.USER_SAID_NO;
+                                MySandboxGame.Config.Save();
+                            };
+                            
+                        },
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                    messageText: MyTexts.Get(MySpaceTexts.LowMemSwitchToLowQuestion),
+                    buttonType: MyMessageBoxButtonsType.YES_NO));
+            }
+        }
+
+        public static void ExitGame()
+        {
+            MyAnalyticsTracker.SendGameEnd("Exit to Windows", MySandboxGame.TotalTimeInMilliseconds / 1000);
+            MyScreenManager.CloseAllScreensNowExcept(null);
+            MySandboxGame.ExitThreadSafe();
         }
 
         private void OnClickReportBug(MyGuiControlButton obj)
         {
-            MyGuiSandbox.OpenUrl(MyPerGameSettings.BugReportUrl, UrlOpenMode.SteamOrExternalWithConfirm, MyTexts.AppendFormat(new StringBuilder(), MySpaceTexts.MessageBoxTextOpenBrowser, "forums.keenswh.com"));
+            MyGuiSandbox.OpenUrl(MyPerGameSettings.BugReportUrl, UrlOpenMode.SteamOrExternalWithConfirm, MyTexts.AppendFormat(new StringBuilder(), MyCommonTexts.MessageBoxTextOpenBrowser, "forums.keenswh.com"));
         }
 
         private void SetNews(MyNews news)
@@ -310,7 +360,7 @@ namespace Sandbox.Game.Gui
                         {
                             MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                                 messageText: MyTexts.Get(MySpaceTexts.NewVersionAvailable),
-                                messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionInfo),
+                                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionInfo),
                                 styleEnum: MyMessageBoxStyleEnum.Info));
 
                             MySandboxGame.Config.LastCheckedVersion = MyFinalBuildConstants.APP_VERSION;
@@ -345,12 +395,24 @@ namespace Sandbox.Game.Gui
         public static void UnloadAndExitToMenu()
         {
             MyScreenManager.CloseAllScreensNowExcept(null);
-            MyGuiSandbox.Update(MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
+            MyGuiSandbox.Update(VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
 
             if (MySession.Static != null)
             {
                 MySession.Static.Unload();
                 MySession.Static = null;
+            }
+
+            if (MyMusicController.Static != null)
+            {
+                MyMusicController.Static.Unload();
+                MyMusicController.Static = null;
+                MyAudio.Static.MusicAllowed = true;
+            }
+
+            if(MyMultiplayer.Static != null)
+            {
+                MyMultiplayer.Static.Dispose();
             }
 
             //  This will quit actual game-play screen and move us to fly-through with main menu on top
@@ -369,8 +431,8 @@ namespace Sandbox.Game.Gui
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                     buttonType: MyMessageBoxButtonsType.OK,
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                    messageText: MyTexts.Get(MySpaceTexts.SteamIsOfflinePleaseRestart)
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                    messageText: MyTexts.Get(MyCommonTexts.SteamIsOfflinePleaseRestart)
                 ));
             }
         }
@@ -393,7 +455,7 @@ namespace Sandbox.Game.Gui
             }
             else
             {
-                MyGuiSandbox.Show(MySpaceTexts.MessageBoxTextErrorFeatureNotAvailableYet, MySpaceTexts.MessageBoxCaptionError);
+                MyGuiSandbox.Show(MyCommonTexts.MessageBoxTextErrorFeatureNotAvailableYet, MyCommonTexts.MessageBoxCaptionError);
             }
         }
 
@@ -407,12 +469,15 @@ namespace Sandbox.Game.Gui
             if (MyFakes.ENABLE_TUTORIAL_PROMPT && MySandboxGame.Config.NeedShowTutorialQuestion)
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(buttonType: MyMessageBoxButtonsType.YES_NO,
-                    messageText: MyTexts.Get(MySpaceTexts.MessageBoxTextTutorialQuestion),
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionVideoTutorial),
+                    messageText: MyTexts.Get(MyPerGameSettings.EnableTutorials ? MySpaceTexts.MessageBoxTextTutorialQuestion : MyCommonTexts.MessageBoxTextGuideQuestion),
+                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionTutorial),
                     callback: delegate(MyGuiScreenMessageBox.ResultEnum val)
                     {
                         if (val == MyGuiScreenMessageBox.ResultEnum.YES)
+                        {
+                            MyAnalyticsHelper.ReportTutorialScreen("FirstTime");
                             MyGuiSandbox.OpenUrlWithFallback(MySteamConstants.URL_GUIDE_DEFAULT, "Steam Guide");
+                        }
                         else
                             MyGuiSandbox.AddScreen(MyGuiSandbox.CreateScreen<MyGuiScreenStartSandbox>());
                     }));
@@ -431,7 +496,7 @@ namespace Sandbox.Game.Gui
 
         private void OnClickPlayers(MyGuiControlButton obj)
         {
-            MyGuiSandbox.AddScreen(new MyGuiScreenPlayers());
+            MyGuiSandbox.AddScreen(MyGuiSandbox.CreateScreen(MyPerGameSettings.GUI.PlayersScreen));
         }
 
         private void OnClickSubscribedWorlds(MyGuiControlButton obj)
@@ -439,7 +504,7 @@ namespace Sandbox.Game.Gui
             if (!MyFakes.XBOX_PREVIEW)
                 MyGuiSandbox.AddScreen(new MyGuiScreenLoadSubscribedWorld());
             else
-                MyGuiSandbox.Show(MySpaceTexts.MessageBoxTextErrorFeatureNotAvailableYet, MySpaceTexts.MessageBoxCaptionError);
+                MyGuiSandbox.Show(MyCommonTexts.MessageBoxTextErrorFeatureNotAvailableYet, MyCommonTexts.MessageBoxCaptionError);
         }
 
         private void OnExitToMainMenuClick(MyGuiControlButton sender)
@@ -454,8 +519,8 @@ namespace Sandbox.Game.Gui
 
             var messageBox = MyGuiSandbox.CreateMessageBox(
                 buttonType: MyMessageBoxButtonsType.YES_NO_CANCEL,
-                messageText: MyTexts.Get(MySpaceTexts.MessageBoxTextSaveChangesBeforeExit),
-                messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionExit),
+                messageText: MyTexts.Get(MyCommonTexts.MessageBoxTextSaveChangesBeforeExit),
+                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionExit),
                 callback: OnExitToMainMenuMessageBoxCallback);
             messageBox.SkipTransition = true;
             messageBox.InstantClose = false;
@@ -510,8 +575,8 @@ namespace Sandbox.Game.Gui
         {
             MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                 buttonType: MyMessageBoxButtonsType.YES_NO,
-                messageText: MyTexts.Get(MySpaceTexts.MessageBoxTextAreYouSureYouWantToExit),
-                messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionExit),
+                messageText: MyTexts.Get(MyCommonTexts.MessageBoxTextAreYouSureYouWantToExit),
+                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionExit),
                 callback: OnExitToWindowsMessageBoxCallback));
         }
 
@@ -542,15 +607,15 @@ namespace Sandbox.Game.Gui
             {
                 messageBox = MyGuiSandbox.CreateMessageBox(
                     buttonType: MyMessageBoxButtonsType.OK,
-                    messageText: MyTexts.Get(MySpaceTexts.MessageBoxTextSavingInProgress),
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError));
+                    messageText: MyTexts.Get(MyCommonTexts.MessageBoxTextSavingInProgress),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError));
             }
             else
             {
                 messageBox = MyGuiSandbox.CreateMessageBox(
                     buttonType: MyMessageBoxButtonsType.YES_NO,
-                    messageText: MyTexts.Get(MySpaceTexts.MessageBoxTextDoYouWantToSaveYourProgress),
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionPleaseConfirm),
+                    messageText: MyTexts.Get(MyCommonTexts.MessageBoxTextDoYouWantToSaveYourProgress),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionPleaseConfirm),
                     callback: OnSaveWorldMessageBoxCallback);
             }
             messageBox.SkipTransition = true;
@@ -599,44 +664,21 @@ namespace Sandbox.Game.Gui
                     RecreateControls(false);
                 }
             }
-
-            /*
-       if (MyGuiScreenGamePlay.Static == null || MyGuiScreenGamePlay.Static.GetGameType() == MyGuiScreenGamePlayType.MAIN_MENU)
-       {
-           if (input.IsNewKeyPress(Keys.Escape))
-           {
-               MyAudio.Static.AddCue2D(MySoundCuesEnum.HudMouseClick);
-               OnExitToWindowsClick(null);
-           }
-       }
-             */
-            //if (input.IsNewKeyPress(Keys.Enter))
-            //{
-            //    MyGuiSandbox.AddScreen(new MyGuiScreenLoading(Vector2.Zero, null, null, null, new MyGuiScreenGamePlay(Vector2.Zero, null, null, null, false), MyGuiScreenGamePlay.Static));
-            //    CloseScreen();
-            //}
-
-            //if (input.IsNewKeyPress(Keys.Escape))
-            //{
-            //    CloseScreen();
-            //}
-
-            //if (input.IsNewKeyPress(VRageMath.Input.Keys.P))
-            //{
-            //    MySandboxGame.Static.UnloadContent();
-            //}
         }
 
         public override bool CloseScreen()
         {
+            if (m_pauseGame)
+            {
+                MySandboxGame.UserPauseToggle();
+            }
+
             bool ret = base.CloseScreen();
+
             m_musicPlayed = false;
-            /*
-         if (ret == true)
-         {
-             if (MyGuiScreenGamePlay.Static != null && MyGuiScreenGamePlay.Static.IsPausable() && MySandboxGame.IsPaused())
-                 MySandboxGame.SwitchPause();
-         }    */
+
+            MyAnalyticsHelper.ReportActivityEnd(null, "show_main_menu");
+
             return ret;
         }
 
@@ -671,7 +713,7 @@ namespace Sandbox.Game.Gui
                 else
                 {
                     m_newsControl.State = MyGuiControlNews.StateEnum.Error;
-                    m_newsControl.ErrorText = MyTexts.Get(MySpaceTexts.NewsDownloadingFailed);
+                    m_newsControl.ErrorText = MyTexts.Get(MyCommonTexts.NewsDownloadingFailed);
                 }
 
                 m_downloadedNewsFinished = false;
@@ -692,7 +734,7 @@ namespace Sandbox.Game.Gui
             return true;
         }
 
-        void emmiter_StoppedPlaying(Entities.MyEntity3DSoundEmitter obj)
+        void emmiter_StoppedPlaying(MyEntity3DSoundEmitter obj)
         {
             obj.StoppedPlaying -= emmiter_StoppedPlaying;
             MyAudio.Static.PlayMusic();
@@ -748,7 +790,7 @@ namespace Sandbox.Game.Gui
 
         private void DrawSteamStatus()
         {
-            if (MySandboxGame.Services.SteamService == null || !MySteam.IsActive)
+            if (MySandboxGame.Services == null || MySandboxGame.Services.SteamService == null || !MySteam.IsActive)
             {
                 Vector2 textRightBottomPosition = MyGuiManager.ComputeFullscreenGuiCoordinate(MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_BOTTOM);
                 textRightBottomPosition.Y -= 2 * TEXT_LINE_HEIGHT;

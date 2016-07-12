@@ -2,13 +2,18 @@
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character;
+using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.Multiplayer;
+using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using VRage;
+using VRage.Game;
+using VRage.Game.Entity;
+using VRage.Game.ModAPI;
+using VRage.ModAPI;
 using VRageMath;
 
 namespace Sandbox.Game.World
@@ -42,9 +47,9 @@ namespace Sandbox.Game.World
         public Vector3? ColorMask { get; private set; }
 
         public bool IsDead { get; private set; }
+        public bool FirstSpawnDone { get; private set; }
 
         public event Action<MyCharacter, MyCharacter> CharacterChanged;
-
 
         private MyIdentity(string name, MyEntityIdentifier.ID_OBJECT_TYPE identityType, string model = null)
         {
@@ -109,18 +114,19 @@ namespace Sandbox.Game.World
 
             if (Character != null)
             {
-                Character.SyncObject.CharacterModelSwitched -= character_CharacterModelSwitched;
                 Character.OnClosing -= character_OnClosing;
             }
 
             Character = character;
 
-            character.OnClosing += character_OnClosing;
-            character.SyncObject.CharacterModelSwitched += character_CharacterModelSwitched;
+            if (character != null)
+            {
+                character.OnClosing += character_OnClosing;
 
-            SaveModelAndColorFromCharacter();
+                SaveModelAndColorFromCharacter();
 
-            IsDead = character.IsDead;
+                IsDead = character.IsDead;
+            }
 
             if (CharacterChanged != null)
                 CharacterChanged(oldCharacter, Character);
@@ -138,6 +144,14 @@ namespace Sandbox.Game.World
         }
 
         /// <summary>
+        /// This is to prevent spawning after permadeath - in such cases, the player needs new identity!
+        /// </summary>
+        public void PerformFirstSpawn()
+        {
+            FirstSpawnDone = true;
+        }
+
+        /// <summary>
         /// This should only be called during initialization
         /// It is used to assume the identity of someone else,
         /// but keep your name
@@ -150,7 +164,6 @@ namespace Sandbox.Game.World
 
         private void character_OnClosing(MyEntity obj)
         {
-            Character.SyncObject.CharacterModelSwitched -= character_CharacterModelSwitched;
             Character.OnClosing -= character_OnClosing;
             Character = null;
         }
@@ -161,19 +174,30 @@ namespace Sandbox.Game.World
             ColorMask = colorMaskHSV;
         }
 
-        public void ChangeToOxygenSafeSuit()
+        private static List<MyCubeGrid.MySingleOwnershipRequest> m_requests = new List<MyCubeGrid.MySingleOwnershipRequest>();
+        private static HashSet<IMyEntity> m_entitiesCache = new HashSet<IMyEntity>();
+        public void TransferAllBlocksTo(long newOwnerIdentityId)
         {
-            if (Model == null)
+            MyAPIGateway.Entities.GetEntities(m_entitiesCache, (x) => x is IMyCubeGrid);
+            foreach (var ent in m_entitiesCache)
             {
-                return;
+                var grid = ent as MyCubeGrid;
+                foreach (var block in grid.GetFatBlocks<MyTerminalBlock>())
+                    if (block.IDModule != null && block.OwnerId == IdentityId)
+                        m_requests.Add(new MyCubeGrid.MySingleOwnershipRequest()
+                        {
+                            BlockId = block.EntityId,
+                            Owner = newOwnerIdentityId
+                        });
             }
-            MyCharacterDefinition characterDefinition;
-            MyDefinitionManager.Static.Characters.TryGetValue(Model, out characterDefinition);
+            m_entitiesCache.Clear();
 
-            if (characterDefinition != null && characterDefinition.NeedsOxygen)
-            {
-               Model = MyDefinitionManager.Static.Characters.First().Model;
-            }
+            if (m_requests.Count > 0)
+                MyCubeGrid.ChangeOwnersRequest(MyOwnershipShareModeEnum.None, m_requests, IdentityId);
+
+            m_requests.Clear();
+
         }
+        
     }
 }

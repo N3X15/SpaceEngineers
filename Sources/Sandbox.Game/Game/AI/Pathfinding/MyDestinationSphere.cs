@@ -63,7 +63,7 @@ namespace Sandbox.Game.AI.Pathfinding
             return m_center;
         }
 
-        public Vector3D GetCenter()
+        public Vector3D GetDestination()
         {
             return m_center;
         }
@@ -71,6 +71,8 @@ namespace Sandbox.Game.AI.Pathfinding
         public void DebugDraw()
         {
             MyRenderProxy.DebugDrawSphere(m_center, Math.Max(m_radius, 0.05f), Color.Pink, 1.0f, false);
+            MyRenderProxy.DebugDrawSphere(m_center, m_radius, Color.Pink, 1.0f, false);
+            MyRenderProxy.DebugDrawText3D(m_center, "Destination", Color.Pink, 1, false, VRage.Utils.MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER);
         }
     }
 }

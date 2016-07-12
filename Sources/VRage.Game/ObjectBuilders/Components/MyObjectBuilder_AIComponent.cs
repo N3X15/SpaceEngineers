@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders
+using System.Xml.Serialization;
+
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -15,11 +17,12 @@ namespace Sandbox.Common.ObjectBuilders
             public int PlayerHandle;
 
             [ProtoMember]
+            [XmlElement(Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_Bot>))]
             public MyObjectBuilder_Bot BotBrain;
         }
 
         [ProtoMember]
-        public List<BotData> BotBrains;
+        public List<BotData> BotBrains = new List<BotData>();
         public bool ShouldSerializeBotBrains() { return BotBrains != null && BotBrains.Count > 0; }
     }
 }

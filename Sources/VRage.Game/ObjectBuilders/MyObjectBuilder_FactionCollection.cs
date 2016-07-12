@@ -1,26 +1,20 @@
 ﻿using ProtoBuf;
-using Sandbox.Common.ObjectBuilders.Definitions;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using VRage.ObjectBuilders;
 using VRage.Serialization;
 
-namespace Sandbox.Common
-{    public enum MyRelationsBetweenFactions
-    {
-        Neutral,
-        Enemies
-    }
-}
-
-
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
+    public enum MyRelationsBetweenFactions
+    {
+        Neutral = 0,
+        Enemies,
+        Allies // TODO: add code to actually support it
+    }
+
     public enum MyOwnershipShareModeEnum
     {
-        None,
+        None = 0,
         Faction,
         All
     }

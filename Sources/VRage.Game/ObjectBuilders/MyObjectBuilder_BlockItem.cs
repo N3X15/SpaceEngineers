@@ -1,10 +1,9 @@
 ﻿using ProtoBuf;
-using Sandbox.Common.ObjectBuilders.Definitions;
 using VRage.Utils;
 using VRage.ObjectBuilders;
-using Sandbox.Definitions;
+using VRage.Game;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -24,11 +23,10 @@ namespace Sandbox.Common.ObjectBuilders
         public override bool CanStack(MyObjectBuilderType typeId, MyStringHash subtypeId, MyItemFlags flags)
         {
             MyDefinitionId defId = new MyDefinitionId(typeId, subtypeId);
-            MyDefinitionId myId = new MyDefinitionId(BlockDefId.TypeId, BlockDefId.SubtypeId);
-            return myId == BlockDefId && flags == this.Flags;
+            return defId == BlockDefId && flags == this.Flags;
         }
 
-        public override Sandbox.Definitions.MyDefinitionId GetObjectId()
+        public override MyDefinitionId GetObjectId()
         {
             return BlockDefId;
         }

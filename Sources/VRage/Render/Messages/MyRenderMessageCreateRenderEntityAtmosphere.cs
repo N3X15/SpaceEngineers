@@ -7,7 +7,7 @@ using VRageMath;
 
 namespace VRageRender
 {
-    public class MyRenderMessageCreateRenderEntityAtmosphere : IMyRenderMessage
+    public class MyRenderMessageCreateRenderEntityAtmosphere : MyRenderMessageBase
     {
         public uint ID;
         public string DebugName;
@@ -21,8 +21,8 @@ namespace VRageRender
         public float PlanetRadius;
         public Vector3 AtmosphereWavelengths;
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.CreateRenderEntityAtmosphere; } }
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.CreateRenderEntityAtmosphere; } }
 
         // Debug output
         public override string ToString()

@@ -11,7 +11,8 @@ namespace VRage.Groups
         where TGroupData : IGroupData<TNode>, new()
         where TNode : class
     {
-        // Internal members starting with 'm_' are for internal use only, there's no friends in c#
+#if !XB1
+		// Internal members starting with 'm_' are for internal use only, there's no friends in c#
         public class Node
         {
             Group m_currentGroup;
@@ -23,8 +24,10 @@ namespace VRage.Groups
                 set
                 {
                     Debug.Assert(m_currentGroup != value, "Setting group which is already set");
-                    if (m_currentGroup != null)
-                        m_currentGroup.GroupData.OnNodeRemoved(m_node);
+                    var oldgroup = m_currentGroup;
+                    m_currentGroup = null;
+                    if (oldgroup != null)
+                        oldgroup.GroupData.OnNodeRemoved(m_node);
                     m_currentGroup = value;
                     if (m_currentGroup != null)
                         m_currentGroup.GroupData.OnNodeAdded(m_node);
@@ -41,6 +44,16 @@ namespace VRage.Groups
             public DictionaryValuesReader<long, Node> Children
             {
                 get { return new DictionaryValuesReader<long, Node>(m_children); }
+            }
+
+            public DictionaryReader<long, Node> ChildLinks
+            {
+                get { return new DictionaryReader<long, Node>(m_children); }
+            }
+
+            public DictionaryReader<long, Node> ParentLinks
+            {
+                get { return new DictionaryReader<long, Node>(m_parents); }
             }
 
             public override string ToString()
@@ -61,5 +74,6 @@ namespace VRage.Groups
                 get { return new HashSetReader<Node>(m_members); }
             }
         }
-    }
+#endif
+	}
 }

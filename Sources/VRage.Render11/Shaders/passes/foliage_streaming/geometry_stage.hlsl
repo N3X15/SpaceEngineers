@@ -1,45 +1,21 @@
-struct VertexStageOutput
-{
-    float3 position : POSITION;
-    float3 normal 	: NORMAL;
-    float3 weights  : TEXCOORD0;
-};
 
-struct SO_Vertex
-{
-	//uint2 packed0 : TEXCOORD0;
-    float3 position : TEXCOORD0;
-    uint packed1 : TEXCOORD1;
-};
+#include <Foliage/Foliage.h>
+#include <random.h>
 
 struct FoliageSet
 {
-    float density;
-    uint weight_index;
-    uint material_id;
+    float Density;
+    uint MaterialIndex;
+    uint MaterialId;
+    float __padding;
 };
 
-#define FOLIAGE_SLOT 4
-cbuffer FoliageConstants : register( b4 ) 
+cbuffer FoliageConstantBuffer : register( MERGE(b, FOLIAGE_SLOT) ) 
 {
-    FoliageSet foliage_;
+    FoliageSet FoliageConstants;
 };
 
-uint2 packed_float4(float4 p)
-{
-	return uint2(f32tof16(p.x) | (f32tof16(p.y) << 16), f32tof16(p.z) | (f32tof16(p.w) << 16 ));
-}
-
-uint2 pack_normal(float3 v)
-{
-	uint2 p = (v.xz * 0.5 + 0.5) * uint2(255, 127);
-	p.y |= (1 << 7) * (v.y > 0);
-	return p;
-}
-
-#include <random.h>
-
-SO_Vertex spawn_point(VertexStageOutput V[3], inout uint seed)
+FoliageStreamGeometryOutputVertex SpawnPoint(FoliageStreamVertex vertices[3], uint seed)
 {
     float r1 = random(seed);
     float r2 = random(seed);
@@ -48,69 +24,64 @@ SO_Vertex spawn_point(VertexStageOutput V[3], inout uint seed)
     float b = (1-r2)*sqrt(r1);
     float c = r2*sqrt(r1);
 
-    float3 position = V[0].position * a + V[1].position * b + V[2].position * c;
+    float3 position = a * vertices[0].position + b * vertices[1].position + c * vertices[2].position;
 
-    uint2 packed_n = pack_normal(normalize(V[0].normal + V[1].normal + V[2].normal));
+    uint2 packedNormal = PackNormal(normalize(vertices[0].normal + vertices[1].normal + vertices[2].normal));
     
-    SO_Vertex result;
-    result.position = position;
-    result.packed1 = packed_n.x | (packed_n.y << 8) | ((seed % 0x100) << 16) | (foliage_.material_id << 24);
-    return result;
+    FoliageStreamGeometryOutputVertex resultVertex;
+    resultVertex.position = position;
+    resultVertex.NormalSeedMaterialId = packedNormal.x | (packedNormal.y << 8) | ((seed % 0x100) << 16) | ((FoliageConstants.MaterialId % 0x100) << 24);
+    return resultVertex;
 }
 
 float triangle_area(float3 v0, float3 v1, float3 v2)
 {
-    return length(cross(v0, v1) + cross(v1, v2) + cross(v2, v0)) * 0.5;
+	return length(cross(v1 - v0, v2 - v0)) * 0.5f;
 }
-
-#define MAX_ELEMENTS_NUM 24
 
 uint combine_hashes(uint h0, uint h1) {
     return (17 * 31 + h0) * 31 + h1;
 }
 
-uint position_seed(float3 position) {
+uint position_seed(float3 position, uint id) {
     uint3 q = floor(position * 100) / 100;
     q = q % 53629;
+	q += id;
     return combine_hashes(q.x, combine_hashes(q.y, q.z));
 }
 
-[maxvertexcount(MAX_ELEMENTS_NUM)]
-void gs( triangle VertexStageOutput input[3], uint primitiveID : SV_PrimitiveID, 
-    inout PointStream<SO_Vertex> point_stream)
+[maxvertexcount(MAX_FOLIAGE_PER_TRIANGLE)]
+void __geometry_shader(triangle FoliageStreamVertex input[3], uint primitiveID : SV_PrimitiveID,
+    inout PointStream<FoliageStreamGeometryOutputVertex> point_stream)
 {
-    SO_Vertex output;
+	float3 normal = normalize(input[0].normal + input[1].normal + input[2].normal);
 
-    float3 normal = normalize(input[0].normal + input[1].normal + input[2].normal);
-    uint2 packed_n = pack_normal(normal);
+	uint seed = position_seed(input[0].position_world + input[1].position_world * 7 + input[2].position_world * 53, primitiveID);
 
-    //uint seed = primitiveID;
-    //float3 min_position = min(input[0].position, min(input[1].position, input[2].position));
-    uint seed = position_seed(input[0].position + input[1].position * 7 + input[2].position * 53);
+	float triangleArea = triangle_area(input[0].position, input[1].position, input[2].position);
 
-    float area = triangle_area(input[0].position, input[1].position, input[2].position);
+    uint weightIndex = FoliageConstants.MaterialIndex;
+	float weight0 = input[0].weights[weightIndex];
+    float weight1 = input[1].weights[weightIndex];
+    float weight2 = input[2].weights[weightIndex];
 
-    float w0 = input[0].weights[foliage_.weight_index];
-    float w1 = input[1].weights[foliage_.weight_index];
-    float w2 = input[2].weights[foliage_.weight_index];
+	float averageWeight = (weight0 + weight1 + weight2) / 3.0f;
 
-    float w = (w0 + w1 + w2) / 3;
+    float spawnNum = triangleArea * FoliageConstants.Density * averageWeight;
+	float spawnFraction = frac(spawnNum);
 
-    float g = area * foliage_.density * w;
-    float P = frac(g);
+	uint spawnCount = spawnNum;
+    spawnCount = min(spawnCount, MAX_FOLIAGE_PER_TRIANGLE);
+    for ( int pointIndex = 0; pointIndex < spawnCount; ++pointIndex )
+	{
+        point_stream.Append(SpawnPoint(input, (seed + pointIndex) % 0x100));
+	}
+	if ( random(seed) < spawnFraction )
+	{
+        point_stream.Append(SpawnPoint(input, seed));
+	}
 
-    int num = g;
-    num = min(num, MAX_ELEMENTS_NUM);
-    for(int i=0; i< num; i++)
-    {
-        point_stream.Append(spawn_point(input, seed));
-    }
-    if(random(seed) < P)
-    {
-        point_stream.Append(spawn_point(input, seed));
-    }
-
-    // needed?
-    point_stream.RestartStrip();
+	// needed?
+	point_stream.RestartStrip();
 }
 

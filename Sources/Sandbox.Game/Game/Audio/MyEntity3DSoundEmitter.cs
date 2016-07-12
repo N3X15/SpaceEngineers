@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using VRage;
 using VRage.Audio;
 using VRage.Utils;
 using VRage.Data;
@@ -16,13 +17,25 @@ using VRageMath;
 using VRageRender;
 using VRage.Library.Utils;
 using VRage.Data.Audio;
+using Sandbox.Game.GameSystems;
+using VRage.Game.Entity;
+using Sandbox.Game.Audio;
 
 namespace Sandbox.Game.Entities
 {
+    #region MySoundPair
+
     public class MySoundPair
     {
         public static MySoundPair Empty = new MySoundPair();
         static StringBuilder m_cache = new StringBuilder();
+
+		//jn:TODO create properties on cues or something
+		private MyCueId m_arcade;
+		public MyCueId Arcade { get { return m_arcade; } }
+
+		private MyCueId m_realistic;
+		public MyCueId Realistic { get { return m_realistic; } }
 
         public MySoundPair()
         {
@@ -56,9 +69,16 @@ namespace Sandbox.Game.Entities
                 m_cache.Append("Real").Append(cueName);
                 m_realistic = MyAudio.Static.GetCueId(m_cache.ToString());
 
-                //Debug.Assert(m_arcade != MySpaceTexts.NullOrEmpty || m_realistic != MySpaceTexts.NullOrEmpty, string.Format("Could not find any sound for '{0}'", cueName));
+                //Debug.Assert(m_arcade.Hash != MyStringHash.NullOrEmpty || m_realistic.Hash != MyStringHash.NullOrEmpty, string.Format("Could not find any sound for '{0}'", cueName));
                 if (m_arcade.Hash == MyStringHash.NullOrEmpty && m_realistic.Hash == MyStringHash.NullOrEmpty)
                     MySandboxGame.Log.WriteLine(string.Format("Could not find any sound for '{0}'", cueName));
+                else
+                {
+                    if (m_arcade.IsNull)
+                        string.Format("Could not find arcade sound for '{0}'", cueName);
+                    if (m_realistic.IsNull)
+                        string.Format("Could not find realistic sound for '{0}'", cueName);
+                }
             }
         }
 
@@ -84,10 +104,6 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        //jn:TODO create properties on cues or something
-        public MyCueId Arcade { get { return m_arcade; } }
-        public MyCueId Realistic { get { return m_realistic; } }
-
         public MyCueId SoundId
         {
             get
@@ -98,9 +114,6 @@ namespace Sandbox.Game.Entities
                     return m_arcade;
             }
         }
-
-        private MyCueId m_arcade;
-        private MyCueId m_realistic;
 
         public override bool Equals(object obj)
         {
@@ -143,8 +156,12 @@ namespace Sandbox.Game.Entities
         }
     }
 
+    #endregion
+
     public class MyEntity3DSoundEmitter : IMy3DSoundEmitter
     {
+        #region Fields
+
         public enum MethodsEnum
         {
             CanHear,
@@ -153,15 +170,34 @@ namespace Sandbox.Game.Entities
             ImplicitEffect,
         }
 
-        #region Fields
-
         private MyCueId m_cueEnum = new MyCueId(MyStringHash.NullOrEmpty);
+        private readonly MyCueId myEmptyCueId = new MyCueId(MyStringHash.NullOrEmpty);
+        private MySoundPair m_soundPair = MySoundPair.Empty;
         private IMySourceVoice m_sound;
+        private IMySourceVoice m_secondarySound = null;
+        private MyCueId m_secondaryCueEnum = new MyCueId(MyStringHash.NullOrEmpty);
+        private float m_secondaryVolumeRatio = 0f;
+        private bool m_secondaryEnabled = false;
+        private float m_secondaryBaseVolume = 1f;
+        private float m_baseVolume = 1f;
         private MyEntity m_entity;
         private Vector3? m_position;
         private Vector3? m_velocity;
         private List<MyCueId> m_soundsQueue = new List<MyCueId>();
         private bool m_playing2D;
+        private bool m_usesDistanceSounds = false;
+        private bool m_useRealisticByDefault = false;
+        private bool m_alwaysHearOnRealistic = false;
+        private MyCueId m_closeSoundCueId = new MyCueId(MyStringHash.NullOrEmpty);
+        private MySoundPair m_closeSoundSoundPair = MySoundPair.Empty;
+        private bool m_realistic = false;
+        bool IMy3DSoundEmitter.Realistic { get { return m_realistic; } }
+        private float m_volumeMultiplier = 1f;
+        private bool m_volumeChanging = false;
+        private MySoundData m_lastSoundData = null;
+        private MyStringHash m_activeEffect = MyStringHash.NullOrEmpty;
+        private static Dictionary<MyCueId, int> m_lastTimePlaying = new Dictionary<MyCueId,int>();
+        private static List<MyEntity3DSoundEmitter> m_entityEmitters = new List<MyEntity3DSoundEmitter>();
 
         #endregion
 
@@ -182,7 +218,27 @@ namespace Sandbox.Game.Entities
                 if (m_cueEnum != value)
                 {
                     m_cueEnum = value;
+                    if (m_cueEnum.Hash == MyStringHash.GetOrCompute("None")) Debugger.Break();
                 }
+            }
+        }
+
+        public float VolumeMultiplier
+        {
+            get { return m_volumeMultiplier; }
+            set
+            {
+                m_volumeMultiplier = value;
+                if (Sound != null)
+                    Sound.VolumeMultiplier = m_volumeMultiplier;
+            }
+        }
+
+        public MySoundPair SoundPair
+        {
+            get
+            {
+                return m_soundPair;
             }
         }
 
@@ -203,67 +259,188 @@ namespace Sandbox.Game.Entities
         }
         #endregion
 
-        public MyEntity3DSoundEmitter(MyEntity entity)
+        #region Initialization
+
+        public MyEntity3DSoundEmitter(MyEntity entity, bool useStaticList = false)
         {
             m_entity = entity;
             foreach (var value in Enum.GetValues(typeof(MethodsEnum)))
                 EmitterMethods.Add((MethodsEnum)value, new List<Delegate>());
-            EmitterMethods[MethodsEnum.ShouldPlay2D].Add((Func<bool>)IsInTerminal);
+            //EmitterMethods[MethodsEnum.ShouldPlay2D].Add((Func<bool>)IsInTerminal);
             EmitterMethods[MethodsEnum.ShouldPlay2D].Add((Func<bool>)IsControlledEntity);
-            EmitterMethods[MethodsEnum.ShouldPlay2D].Add((Func<bool>)IsBeingWelded);
+            //EmitterMethods[MethodsEnum.ShouldPlay2D].Add((Func<bool>)IsBeingWelded);
 
             if (MySession.Static != null && MySession.Static.Settings.RealisticSound && MyFakes.ENABLE_NEW_SOUNDS)
             {
-                EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsInTerminal);
+                EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsInAtmosphere);
+                //EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsInTerminal);
                 EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsCurrentWeapon);
                 EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsOnSameGrid);
                 EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsControlledEntity);
-                EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsBeingWelded);
-                EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsInOxygen);
+                //EmitterMethods[MethodsEnum.CanHear].Add((Func<bool>)IsBeingWelded);
 
                 EmitterMethods[MethodsEnum.ShouldPlay2D].Add((Func<bool>)IsCurrentWeapon);
 
                 EmitterMethods[MethodsEnum.CueType].Add((Func<MySoundPair, MyCueId>)SelectCue);
                 EmitterMethods[MethodsEnum.ImplicitEffect].Add((Func<MyStringHash>)SelectEffect);
             }
+
+            m_useRealisticByDefault = (MySession.Static != null && MySession.Static.Settings.RealisticSound && MyFakes.ENABLE_NEW_SOUNDS);
+            if (MySession.Static != null && MySession.Static.Settings.RealisticSound && MyFakes.ENABLE_NEW_SOUNDS && useStaticList && entity != null && MyFakes.ENABLE_NEW_SOUNDS_QUICK_UPDATE)
+                m_entityEmitters.Add(this);
         }
+
+        ~MyEntity3DSoundEmitter()
+        {
+            foreach (List<Delegate> list in EmitterMethods.Values)
+            {
+                list.Clear();
+            }
+            EmitterMethods.Clear();
+            m_soundsQueue.Clear();
+        }
+
+        #endregion
+
+        #region Update
 
         public void Update()
         {
+            bool validSoundIsPlaying = m_sound != null && m_sound.IsPlaying;
             if (!CanHearSound())
             {
-                if (m_sound != null && m_sound.IsPlaying)
+                if (validSoundIsPlaying)
                 {
                     StopSound(true, false);
                     m_sound = null;
                 }
                 return;
             }
-            else if ((m_sound == null || !m_sound.IsPlaying) && Loop)
-                PlaySoundInternal(true);
-            else if (m_sound != null && m_sound.IsPlaying && Loop && m_playing2D != ShouldPlay2D())
+            else if (!validSoundIsPlaying && Loop)
+            {
+                PlaySound(m_closeSoundSoundPair,true,true);
+            }
+            else if (validSoundIsPlaying && Loop && m_playing2D != ShouldPlay2D() && ((Force2D == true && m_playing2D == false) || (Force3D == true && m_playing2D == true)))
             {
                 StopSound(true, false);
-                PlaySoundInternal(true);
+                PlaySound(m_closeSoundSoundPair, true, true);
             }
+            else if (validSoundIsPlaying && Loop && m_playing2D == false && m_usesDistanceSounds)
+            {
+                MyCueId oldSecondary = (m_secondaryEnabled ? m_secondaryCueEnum : myEmptyCueId);
+                MyCueId newSound = CheckDistanceSounds(m_closeSoundCueId);
+                if (newSound != m_cueEnum || oldSecondary != m_secondaryCueEnum)
+                {
+                    PlaySoundWithDistance(newSound, true, true, useDistanceCheck: false);
+                }
+                else if (m_secondaryEnabled)
+                {
+                    if(Sound != null)
+                        Sound.SetVolume(m_baseVolume * (1f - m_secondaryVolumeRatio));
+                    if(m_secondarySound != null)
+                        m_secondarySound.SetVolume(m_secondaryBaseVolume * m_secondaryVolumeRatio);
+                }
+            }
+            if (validSoundIsPlaying && Loop)
+            {
+                //arcade/real sound change
+                MyCueId newCueId = SelectCue(m_soundPair);
+                if (newCueId.Equals(m_cueEnum) == false)
+                    PlaySoundWithDistance(newCueId, true, true);
+
+                //active filter changed
+                MyStringHash newEffect = SelectEffect();
+                if(m_activeEffect != newEffect)
+                    PlaySoundWithDistance(newCueId, true, true);
+            }
+        }
+
+        public bool FastUpdate(bool silenced)
+        {
+            if (silenced)
+            {
+                VolumeMultiplier = Math.Max(0f, m_volumeMultiplier - 0.01f);
+                if (m_volumeMultiplier == 0f)
+                    return false;
+            }
+            else
+            {
+                VolumeMultiplier = Math.Min(1f, m_volumeMultiplier + 0.01f);
+                if (m_volumeMultiplier == 1f)
+                    return false;
+            }
+            return true;
+        }
+
+        #endregion
+
+        #region CheckFunctions
+
+        private bool ShouldPlay2D()
+        {
+            var retVal = EmitterMethods[MethodsEnum.ShouldPlay2D].Count == 0;
+            foreach (var func in EmitterMethods[MethodsEnum.ShouldPlay2D])
+            {
+                if (func != null)
+                    retVal |= ((Func<bool>)func)();
+            }
+            return retVal;
         }
 
         private bool CanHearSound()
         {
             var canHear = EmitterMethods[MethodsEnum.CanHear].Count == 0;
+            if (MySession.Static.Settings.RealisticSound && MyFakes.ENABLE_NEW_SOUNDS && m_alwaysHearOnRealistic)
+                canHear = true;
             foreach (var func in EmitterMethods[MethodsEnum.CanHear])
-                canHear |= ((Func<bool>)func)();
+            {
+                var checkCanHear = (Func<bool>)func;
+                if(checkCanHear == null)
+                {
+                    Debug.Fail("CanHear in EmitterMethods contains a null delegate!");
+                    continue;
+                }
+                canHear |= checkCanHear();
+                if (canHear)
+                    break;
+            }
             return IsCloseEnough() && canHear;
         }
 
         private bool IsOnSameGrid()
         {
-            if (Entity is MyCubeBlock)
+            if (Entity is MyCubeBlock || Entity is MyCubeGrid)
             {
-                if (MySession.ControlledEntity != null && MySession.ControlledEntity.Entity is MyCockpit)
-                    return (MySession.ControlledEntity.Entity as MyCockpit).CubeGrid == (Entity as MyCubeBlock).CubeGrid;
-                else
+                MyCubeGrid firstCubeGrid = null;
+                if(MySession.Static.ControlledEntity != null && MySession.Static.ControlledEntity.Entity is MyCockpit)
+                    firstCubeGrid = (MySession.Static.ControlledEntity.Entity as MyCockpit).CubeGrid;
+                else if (MySession.Static.LocalCharacter != null && MySession.Static.LocalCharacter.SoundComp != null)
+                    firstCubeGrid = MySession.Static.LocalCharacter.SoundComp.StandingOnGrid;
+                if (firstCubeGrid == null)//character is not touching grid but he may be in pressurized room
+                {
+                    if (MySession.Static.LocalCharacter == null || MySession.Static.LocalCharacter.AtmosphereDetectorComp == null)
+                        return false;
+                    if (MySession.Static.LocalCharacter.AtmosphereDetectorComp.InShipOrStation)
+                        firstCubeGrid = MySession.Static.LocalCharacter.OxygenComponent.OxygenSourceGrid;
+                    if (firstCubeGrid == null)
+                        return false;
+                }
+                MyCubeGrid secondCubeGrid = Entity is MyCubeBlock ? (Entity as MyCubeBlock).CubeGrid : (Entity as MyCubeGrid);
+                if (firstCubeGrid == secondCubeGrid)
+                    return true;
+                if (MyCubeGridGroups.Static.Physical.HasSameGroup(firstCubeGrid, secondCubeGrid))
+                    return true;
+            }
+            else if (Entity is MyVoxelBase)
+            {
+                if (MySession.Static.ControlledEntity != null && MySession.Static.ControlledEntity.Entity is MyCockpit)
                     return false;
+                else
+                {
+                    if (MySession.Static.LocalCharacter != null && MySession.Static.LocalCharacter.SoundComp != null &&
+                        MySession.Static.LocalCharacter.SoundComp.StandingOnVoxel as MyVoxelBase == Entity as MyVoxelBase)
+                        return true;
+                }
             }
             return false;
         }
@@ -272,8 +449,8 @@ namespace Sandbox.Game.Entities
         {
             if (Entity is IMyHandheldGunObject<MyDeviceBase>)
             {
-                if (MySession.ControlledEntity != null && MySession.ControlledEntity.Entity is MyCharacter)
-                    return (MySession.ControlledEntity.Entity as MyCharacter).CurrentWeapon == Entity;
+                if (MySession.Static.ControlledEntity != null && MySession.Static.ControlledEntity.Entity is MyCharacter)
+                    return (MySession.Static.ControlledEntity.Entity as MyCharacter).CurrentWeapon == Entity;
                 else
                     return false;
             }
@@ -282,7 +459,7 @@ namespace Sandbox.Game.Entities
 
         private bool IsCloseEnough()
         {
-            return MyAudio.Static.SourceIsCloseEnoughToPlaySound(this, SoundId);
+            return m_playing2D || MyAudio.Static.SourceIsCloseEnoughToPlaySound(this.SourcePosition, SoundId, this.CustomMaxDistance);
         }
 
         private bool IsInTerminal()
@@ -292,18 +469,22 @@ namespace Sandbox.Game.Entities
 
         private bool IsControlledEntity()
         {
-            return MySession.ControlledEntity != null && m_entity == MySession.ControlledEntity.Entity;
+            return MySession.Static.ControlledEntity != null && m_entity == MySession.Static.ControlledEntity.Entity;
         }
 
         private bool IsBeingWelded()
         {
-            var controlledEntity = MySession.ControlledEntity;
+            if (MySession.Static == null)
+            {
+                return false;
+            }
+            var controlledEntity = MySession.Static.ControlledEntity;
             if (controlledEntity == null)
             {
                 return false;
             }
 
-            var character = MySession.ControlledEntity.Entity as MyCharacter;
+            var character = MySession.Static.ControlledEntity.Entity as MyCharacter;
             if (character == null)
             {
                 return false;
@@ -317,7 +498,7 @@ namespace Sandbox.Game.Entities
 
             var grid = tool.GetTargetGrid();
             var cubeBlock = (Entity as MyCubeBlock);
-            if (grid == null || cubeBlock == null || grid != cubeBlock.CubeGrid)
+            if (grid == null || cubeBlock == null || grid != cubeBlock.CubeGrid || tool.HasHitBlock == false)
             {
                 return false;
             }
@@ -329,40 +510,92 @@ namespace Sandbox.Game.Entities
             }
 
 
-            return targetCube.FatBlock == cubeBlock;
+            return (targetCube.FatBlock == cubeBlock && tool.IsShooting);
         }
 
-        private bool IsInOxygen()
+        private bool IsThereAir()
         {
-            return (MySession.LocalCharacter != null && MySession.LocalCharacter.EnvironmentOxygenLevel > 0.1f);
+            // player is in pressurized ship or in planet with atmosphere
+            if (MySession.Static.LocalCharacter == null || MySession.Static.LocalCharacter.AtmosphereDetectorComp == null)
+                return false;
+            return MySession.Static.LocalCharacter.AtmosphereDetectorComp.InAtmosphere || MySession.Static.LocalCharacter.AtmosphereDetectorComp.InShipOrStation;
+        }
+
+        private bool IsInAtmosphere()
+        {
+            // player is in planet with atmosphere
+            if (MySession.Static.LocalCharacter == null || MySession.Static.LocalCharacter.AtmosphereDetectorComp == null)
+                return false;
+            return MySession.Static.LocalCharacter.AtmosphereDetectorComp.InAtmosphere;
         }
 
         private MyCueId SelectCue(MySoundPair sound)
         {
-            if (MySession.Static != null && MySession.Static.Settings.RealisticSound && MyFakes.ENABLE_NEW_SOUNDS)
+            if (m_useRealisticByDefault)
             {
-                if (IsInOxygen())
+                if (IsThereAir())
                 {
+                    m_realistic = false;
                     return sound.Arcade;
                 }
                 else
                 {
+                    m_realistic = true;
                     return sound.Realistic;
                 }
             }
             else
+            {
+                m_realistic = false;
                 return sound.Arcade;
+            }
         }
 
-        static MyStringHash m_helmetEffect = MyStringHash.GetOrCompute("LowPassHelmet");
+        static MyStringHash m_effectHasHelmetInOxygen = MyStringHash.GetOrCompute("LowPassHelmet");
+        static MyStringHash m_effectNoHelmetNoOxygen = MyStringHash.GetOrCompute("LowPassNoHelmetNoOxy");
         private MyStringHash SelectEffect()
         {
-            if (MyFakes.ENABLE_NEW_SOUNDS && MySession.LocalCharacter != null && !MySession.LocalCharacter.Definition.NeedsOxygen && IsInOxygen())
-            {
-                return m_helmetEffect;
-            }
-            return MyStringHash.NullOrEmpty;
+            if (m_lastSoundData != null && m_lastSoundData.ModifiableByHelmetFilters == false)
+                return MyStringHash.NullOrEmpty;
+            if (MySession.Static.LocalCharacter == null || MySession.Static.LocalCharacter.OxygenComponent == null || MyFakes.ENABLE_NEW_SOUNDS == false || MySession.Static.Settings.RealisticSound == false)
+                return MyStringHash.NullOrEmpty;
+            bool air = IsThereAir();
+            if (MySession.Static.LocalCharacter.OxygenComponent.HelmetEnabled && air)
+                return m_effectHasHelmetInOxygen;//helmet in oxygen
+            else if (MySession.Static.LocalCharacter.OxygenComponent.HelmetEnabled && air == false && m_lastSoundData != null)
+                return m_lastSoundData.RealisticFilter;//helmet in space
+            else if (MySession.Static.LocalCharacter.OxygenComponent.HelmetEnabled == false && air == false && MySession.Static.LocalCharacter.Parent is MyCockpit == false)
+                return m_effectNoHelmetNoOxygen;//no helmet in space
+            else
+                return MyStringHash.NullOrEmpty;//no helmet in oxygen
         }
+
+        private bool CheckForSynchronizedSounds()
+        {
+            if (m_lastSoundData != null && m_lastSoundData.PreventSynchronization >= 0)
+            {
+                int lastTime;
+                int now = MyFpsManager.GetSessionTotalFrames();
+                if (m_lastTimePlaying.TryGetValue(SoundId, out lastTime))
+                {
+                    if (Math.Abs(now - lastTime) <= m_lastSoundData.PreventSynchronization)
+                    {
+                        return false;
+                    }
+                    else
+                        m_lastTimePlaying[SoundId] = now;
+                }
+                else
+                {
+                    m_lastTimePlaying.Add(SoundId, now);
+                }
+            }
+            return true;
+        }
+
+        #endregion
+
+        #region PlaySoundBase
 
         public void PlaySound(byte[] buffer, int size, int sampleRate, float volume = 1, float maxDistance = 0, MySoundDimensions dimension = MySoundDimensions.D3)
         {
@@ -383,37 +616,52 @@ namespace Sandbox.Game.Entities
             if (m_cueEnum == soundId)
                 return;
             else
-                PlaySound(soundId, stopPrevious, skipIntro);
+                PlaySoundWithDistance(soundId, stopPrevious, skipIntro);
         }
 
         public void PlaySingleSound(MySoundPair soundId, /*bool loop = false,*/ bool stopPrevious = false, bool skipIntro = false)
         {
-            var cueId = soundId.Arcade;
+            m_closeSoundSoundPair = soundId;
+            m_soundPair = soundId;
+            var cueId = m_useRealisticByDefault ? soundId.Realistic : soundId.Arcade;
             if (EmitterMethods[MethodsEnum.CueType].Count > 0)
             {
                 var select = (Func<MySoundPair, MyCueId>)EmitterMethods[MethodsEnum.CueType][0];
                 cueId = select(soundId);
             }
-            if (m_cueEnum == cueId)
+            if (m_cueEnum.Equals(cueId))
                 return;
             else
-                PlaySound(cueId, stopPrevious, skipIntro);
+                PlaySoundWithDistance(cueId, stopPrevious, skipIntro);
         }
 
-        public void PlaySound(MySoundPair soundId, bool stopPrevious = false, bool skipIntro = false)
+        public void PlaySound(MySoundPair soundId, bool stopPrevious = false, bool skipIntro = false, bool force2D = false, bool alwaysHearOnRealistic = false)
         {
-            var cueId = soundId.Arcade;
+            m_closeSoundSoundPair = soundId;
+            m_soundPair = soundId;
+            var cueId = m_useRealisticByDefault ? soundId.Realistic : soundId.Arcade;
             if (EmitterMethods[MethodsEnum.CueType].Count > 0)
             {
                 var select = (Func<MySoundPair, MyCueId>)EmitterMethods[MethodsEnum.CueType][0];
                 cueId = select(soundId);
             }
-            PlaySound(cueId, stopPrevious, skipIntro);
+            PlaySoundWithDistance(cueId, stopPrevious, skipIntro, force2D : force2D, alwaysHearOnRealistic: alwaysHearOnRealistic);
         }
 
-        public void PlaySound(MyCueId soundId, bool stopPrevious = false, bool skipIntro = false)
+        #endregion
+
+        #region PlaySoundWithDistance
+
+        public void PlaySoundWithDistance(MyCueId soundId, bool stopPrevious = false, bool skipIntro = false, bool force2D = false, bool useDistanceCheck = true, bool alwaysHearOnRealistic = false)
         {
+            m_lastSoundData = MyAudio.Static.GetCue(soundId);
+            if (useDistanceCheck)
+                m_closeSoundCueId = soundId;
+            if (useDistanceCheck && ShouldPlay2D() == false && force2D == false)
+                soundId = CheckDistanceSounds(soundId);
+            bool usesDistanceSoundsCache = m_usesDistanceSounds;
             if (m_sound != null)
+            {
                 if (stopPrevious)
                     StopSound(true);
                 else if (m_sound.IsLoopable)
@@ -422,12 +670,141 @@ namespace Sandbox.Game.Entities
                     StopSound(true);
                     m_soundsQueue.Add(sound.CueEnum);
                 }
+            }
+            if (m_secondarySound != null)
+            {
+                m_secondarySound.Stop(true);
+            }
             SoundId = soundId;
-            PlaySoundInternal(skipIntro);
+            PlaySoundInternal(skipIntro, force2D: force2D, alwaysHearOnRealistic: alwaysHearOnRealistic);
+            m_usesDistanceSounds = usesDistanceSoundsCache;
         }
+
+        private MyCueId CheckDistanceSounds(MyCueId soundId)
+        {
+            if (soundId.IsNull == false)
+            {
+                if (m_lastSoundData != null && m_lastSoundData.DistantSounds != null && m_lastSoundData.DistantSounds.Count > 0)
+                {
+                    float distanceToSoundSquered = Vector3.DistanceSquared(MySector.MainCamera.Position, this.SourcePosition);
+                    int bestSoundIndex = -1;
+                    m_usesDistanceSounds = true;
+                    m_secondaryEnabled = false;
+                    float dist, crossfadeDist;
+                    for (int i = 0; i < m_lastSoundData.DistantSounds.Count; i++)
+                    {
+                        dist = m_lastSoundData.DistantSounds[i].distance * m_lastSoundData.DistantSounds[i].distance;
+                        if (distanceToSoundSquered > dist)
+                            bestSoundIndex = i;
+                        else
+                        {
+                            crossfadeDist = m_lastSoundData.DistantSounds[i].distanceCrossfade >= 0f ? m_lastSoundData.DistantSounds[i].distanceCrossfade * m_lastSoundData.DistantSounds[i].distanceCrossfade : float.MaxValue;
+                            if (distanceToSoundSquered > crossfadeDist)
+                            {
+                                m_secondaryVolumeRatio = (distanceToSoundSquered - crossfadeDist) / (dist - crossfadeDist);
+                                m_secondaryEnabled = true;
+                                MySoundPair secondarySoundPair = new MySoundPair(m_lastSoundData.DistantSounds[i].sound);
+                                if (secondarySoundPair != MySoundPair.Empty)
+                                {
+                                    m_secondaryCueEnum = SelectCue(secondarySoundPair);
+                                }
+                                else
+                                    m_secondaryCueEnum = new MyCueId(MyStringHash.GetOrCompute(m_lastSoundData.DistantSounds[bestSoundIndex].sound));
+                            }
+                            else
+                                break;
+                        }
+                    }
+                    if (bestSoundIndex >= 0)
+                    {
+                        MySoundPair soundPair = new MySoundPair(m_lastSoundData.DistantSounds[bestSoundIndex].sound);
+                        if (soundPair != MySoundPair.Empty)
+                        {
+                            m_soundPair = soundPair;
+                            soundId = SelectCue(m_soundPair);
+                        } else
+                            soundId = new MyCueId(MyStringHash.GetOrCompute(m_lastSoundData.DistantSounds[bestSoundIndex].sound));
+                    }
+                    else
+                    {
+                        m_soundPair = m_closeSoundSoundPair;
+                    }
+                }
+                else
+                {
+                    m_usesDistanceSounds = false;
+                }
+            }
+            if (m_secondaryEnabled == false)
+                m_secondaryCueEnum = myEmptyCueId;
+            return soundId;
+        }
+
+        #endregion
+
+        #region PlaySoundInternal
+
+        private void PlaySoundInternal(bool skipIntro = false, bool skipToEnd = false, bool force2D = false, bool alwaysHearOnRealistic = false)
+        {
+            Force2D = force2D;
+            m_alwaysHearOnRealistic = alwaysHearOnRealistic;
+            m_playing2D = (ShouldPlay2D() && !Force3D) || force2D || Force2D;
+            Loop = MyAudio.Static.IsLoopable(SoundId) && !skipToEnd;
+            if (!SoundId.IsNull)
+            {
+                if (Loop && MySession.Static.ElapsedPlayTime.TotalSeconds < 6)
+                    skipIntro = true;
+                if (m_playing2D && CheckForSynchronizedSounds())
+                    Sound = MyAudio.Static.PlaySound(SoundId, this, MySoundDimensions.D2, skipIntro, skipToEnd);
+                else if (CanHearSound() && CheckForSynchronizedSounds()) //Start 3D sound only if can be heard
+                    Sound = MyAudio.Static.PlaySound(SoundId, this, MySoundDimensions.D3, skipIntro, skipToEnd);
+            }
+            if (Sound != null && Sound.IsPlaying)
+            {
+                if (MyMusicController.Static != null && m_lastSoundData != null && m_lastSoundData.DynamicMusicCategory != MyStringId.NullOrEmpty && m_lastSoundData.DynamicMusicAmount > 0)
+                    MyMusicController.Static.IncreaseCategory(m_lastSoundData.DynamicMusicCategory, m_lastSoundData.DynamicMusicAmount);
+                m_baseVolume = Sound.Volume;
+                if (m_secondaryEnabled && m_secondaryCueEnum != null)
+                {
+                    m_secondarySound = MyAudio.Static.PlaySound(m_secondaryCueEnum, this, MySoundDimensions.D3, skipIntro, skipToEnd);
+                    if (Sound == null)
+                        return;
+                    if (m_secondarySound != null)
+                    {
+                        m_secondaryBaseVolume = m_secondarySound.Volume;
+                        Sound.SetVolume(m_baseVolume * (1f - m_secondaryVolumeRatio));
+                        m_secondarySound.SetVolume(m_secondaryBaseVolume * m_secondaryVolumeRatio);
+                        m_secondarySound.VolumeMultiplier = m_volumeMultiplier;
+                    }
+                }
+                Sound.VolumeMultiplier = m_volumeMultiplier;
+                Sound.StoppedPlaying = OnStopPlaying;
+                if (EmitterMethods[MethodsEnum.ImplicitEffect].Count > 0)
+                {
+                    m_activeEffect = MyStringHash.NullOrEmpty;
+                    var effectId = ((Func<MyStringHash>)EmitterMethods[MethodsEnum.ImplicitEffect][0])();
+                    if (effectId != MyStringHash.NullOrEmpty)
+                    {
+                        var effect = MyAudio.Static.ApplyEffect(Sound, effectId);
+                        if (effect != null)
+                        {
+                            Sound = effect.OutputSound;
+                            m_activeEffect = effectId;
+                        }
+                    }
+                }
+            }
+            else
+                OnStopPlaying();
+        }
+
+        #endregion
+
+        #region OtherFunctions
 
         public void StopSound(bool forced, bool cleanUp = true)
         {
+            m_usesDistanceSounds = false;
             if (m_sound != null)
             {
                 m_sound.Stop(forced);
@@ -439,7 +816,7 @@ namespace Sandbox.Game.Entities
                     if (cleanUp)
                     {
                         Loop = false;
-                        SoundId = new MyCueId(MyStringHash.NullOrEmpty);
+                        SoundId = myEmptyCueId;
                     }
                 }
                 else
@@ -457,43 +834,13 @@ namespace Sandbox.Game.Entities
                 if (cleanUp)
                 {
                     Loop = false;
-                    SoundId = new MyCueId(MyStringHash.NullOrEmpty);
+                    SoundId = myEmptyCueId;
                 }
             }
-        }
-
-        private void PlaySoundInternal(bool skipIntro = false, bool skipToEnd = false)
-        {
-            m_playing2D = ShouldPlay2D() && !Force3D;
-            Loop = MyAudio.Static.IsLoopable(SoundId) && !skipToEnd;
-            if (m_playing2D)
-                Sound = MyAudio.Static.PlaySound(SoundId, this, MySoundDimensions.D2, skipIntro, skipToEnd);
-            else if (CanHearSound()) //Start 3D sound only if can be heard
-                Sound = MyAudio.Static.PlaySound(SoundId, this, MySoundDimensions.D3, skipIntro, skipToEnd);
-            if (Sound != null)
+            if (m_secondarySound != null)
             {
-                Sound.StoppedPlaying = OnStopPlaying;
-                if (EmitterMethods[MethodsEnum.ImplicitEffect].Count > 0)
-                {
-                    var effectId = ((Func<MyStringHash>)EmitterMethods[MethodsEnum.ImplicitEffect][0])();
-                    if (effectId != MyStringHash.NullOrEmpty)
-                    {
-                        var effect = MyAudio.Static.ApplyEffect(Sound, effectId);
-                        if (effect != null)
-                            Sound = effect.OutputSound;
-                    }
-                }
+                m_secondarySound.Stop(true);
             }
-            else
-                OnStopPlaying();
-        }
-
-        private bool ShouldPlay2D()
-        {
-            var retVal = EmitterMethods[MethodsEnum.ShouldPlay2D].Count == 0;
-            foreach (var func in EmitterMethods[MethodsEnum.ShouldPlay2D])
-                retVal |= ((Func<bool>)func)();
-            return retVal;
         }
 
         public void Cleanup()
@@ -503,6 +850,11 @@ namespace Sandbox.Game.Entities
                 Sound.Cleanup();
                 Sound = null;
             }
+            if (m_secondarySound != null)
+            {
+                m_secondarySound.Cleanup();
+                m_secondarySound = null;
+            }
         }
 
         private void OnStopPlaying()
@@ -510,6 +862,10 @@ namespace Sandbox.Game.Entities
             if (StoppedPlaying != null)
                 StoppedPlaying(this);
         }
+
+        #endregion
+
+        #region Static
 
         public static void PreloadSound(MySoundPair soundId)
         {
@@ -520,6 +876,37 @@ namespace Sandbox.Game.Entities
                 sound.Stop(true);
             }
         }
+
+        private static int m_lastUpdate = int.MinValue;
+        public static void UpdateEntityEmitters(bool removeUnused, bool updatePlaying, bool updateNotPlaying)
+        {
+            int now = MyFpsManager.GetSessionTotalFrames();
+            if (Math.Abs(m_lastUpdate - now) < 5)
+                return;
+            m_lastUpdate = now;
+            for (int i = 0; i < m_entityEmitters.Count; i++)
+            {
+                if (m_entityEmitters[i].Entity != null && m_entityEmitters[i].Entity.Closed == false)
+                {
+                    if ((m_entityEmitters[i].IsPlaying && updatePlaying) || (!m_entityEmitters[i].IsPlaying && updateNotPlaying))
+                    {
+                        m_entityEmitters[i].Update();
+                    }
+                }
+                else if (removeUnused)
+                {
+                    m_entityEmitters.RemoveAt(i);
+                    i--;
+                }
+            }
+        }
+
+        public static void ClearEntityEmitters()
+        {
+            m_entityEmitters.Clear();
+        }
+
+        #endregion
 
         #region IMy3DSoundEmitter
         public Vector3 SourcePosition
@@ -540,10 +927,7 @@ namespace Sandbox.Game.Entities
             {
                 if (m_velocity.HasValue)
                     return m_velocity.Value;
-                else if ((m_entity != null) && (m_entity.Physics != null))
-                    return m_entity.Physics.LinearVelocity;
-                else
-                    return Vector3.Zero;
+                return (m_entity != null && m_entity.Physics != null) ? m_entity.Physics.LinearVelocity : Vector3.Zero;
             }
         }
         public MyEntity Entity
@@ -583,6 +967,12 @@ namespace Sandbox.Game.Entities
             set;
         }
 
+        public bool Force2D
+        {
+            get;
+            set;
+        }
+
         public bool Plays2D
         {
             get { return m_playing2D; }
@@ -593,6 +983,13 @@ namespace Sandbox.Game.Entities
             get;
             set;
         }
+
+		private int m_lastPlayedWaveNumber = -1;
+		int IMy3DSoundEmitter.LastPlayedWaveNumber
+		{
+			get { return m_lastPlayedWaveNumber; }
+			set { m_lastPlayedWaveNumber = value; }
+		}
 
         #endregion
     }

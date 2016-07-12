@@ -6,14 +6,13 @@ using System.Text;
 using VRage.Generics;
 using VRage.Library.Utils;
 using VRage.Utils;
-using VRage.Utils;
 using VRageMath;
 
 namespace VRageRender
 {             
     internal static class X
     {
-        internal static MyStringId TEXT(string str)
+        internal static MyStringId TEXT_(string str)
         {
             return MyStringId.GetOrCompute(str);
         }
@@ -28,6 +27,15 @@ namespace VRageRender
                 (float) Math.Round(v.X),
                 (float) Math.Round(v.Y),
                 (float) Math.Round(v.Z)
+                );
+        }
+
+        public static Vector3D Round(this Vector3D v)
+        {
+            return new Vector3D(
+                Math.Round(v.X),
+                Math.Round(v.Y),
+                Math.Round(v.Z)
                 );
         }
 
@@ -130,18 +138,16 @@ namespace VRageRender
         }
     }
 
-    public static class MyObjectsPoolExtensions
-    {
-        public static T Allocate1<T>(this MyObjectsPool<T> pool) where T : class, new()
-        {
-            T result;
-            pool.AllocateOrCreate(out result);
-            return result;
-        }
-    }
-
     public static class MyArrayHelpers
     {
+        public static void ResizeNoCopy<T>(ref T[] array, int newSize)
+        {
+            if(array == null || array.Length != newSize)
+            {
+                array = new T[newSize];
+            }
+        }
+
         public static void Reserve<T>(ref T[] array, int size, int threshold = 1024, float allocScale = 1.5f)
         {
             if(array.Length < size)
@@ -149,6 +155,31 @@ namespace VRageRender
                 var newSize = size == 0 ? 1 : size;
                 Array.Resize(ref array, newSize < threshold ? newSize * 2 : (int)(newSize * allocScale));
             }
+        }
+
+        public static void ReserveNoCopy<T>(ref T[] array, int size, int threshold = 1024, float allocScale = 1.5f)
+        {
+            if (array.Length < size)
+            {
+                var newSize = size == 0 ? 1 : size;
+                array = new T[newSize < threshold ? newSize * 2 : (int)(newSize * allocScale)];
+            }
+        }
+
+        public static void InitOrReserve<T>(ref T[] array, int size, int threshold = 1024, float allocScale = 1.5f)
+        {
+            if (array == null)
+                array = new T[size];
+            else
+                Reserve(ref array, size, threshold, allocScale);
+        }
+
+        public static void InitOrReserveNoCopy<T>(ref T[] array, int size, int threshold = 1024, float allocScale = 1.5f)
+        {
+            if (array == null)
+                array = new T[size];
+            else
+                ReserveNoCopy(ref array, size, threshold, allocScale);
         }
     }
 
@@ -163,7 +194,7 @@ namespace VRageRender
             }
             return def;
         }
-
+#if !XB1
         public static TValue Get<TKey, TValue>(this ConcurrentDictionary<TKey, TValue> dictionary, TKey key, TValue def = default(TValue))
         {
             TValue value;
@@ -173,6 +204,7 @@ namespace VRageRender
             }
             return def;
         }
+#endif
 
         public static TValue SetDefault<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue def = default(TValue))
         {
@@ -216,7 +248,7 @@ namespace VRageRender
         /// <typeparam name="T"> Type of the object. </typeparam>
         /// <param name="item"> The instance that will be wrapped. </param>
         /// <returns> An IEnumerable&lt;T&gt; consisting of a single item. </returns>
-        public static IEnumerable<T> Yield<T>(this T item)
+        public static IEnumerable<T> Yield_<T>(this T item)
         {
             yield return item;
         }

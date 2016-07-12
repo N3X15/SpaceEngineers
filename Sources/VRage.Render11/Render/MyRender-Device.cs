@@ -18,147 +18,276 @@ using Device = SharpDX.Direct3D11.Device;
 using Vector2 = VRageMath.Vector2;
 using VRageMath;
 using VRage.Win32;
-
+using SharpDX.WIC;
 
 namespace VRageRender
 {
     partial class MyRender11
     {
         internal static Device Device { get; private set; }
-        internal static DeviceContext ImmediateContext { get; private set; }
-        internal static DeviceContext Context { get { return ImmediateContext; } }
+        private static DeviceContext m_deviceContext;
+        internal static DeviceContext DeviceContext
+        {
+            get
+            {
+                return m_deviceContext;
+            }
+            private set
+            {
+                MyRender11.Log.WriteLine("Device Context change");
+                m_deviceContext = value;
+                MyRenderContext.OnDeviceReset();
+            }
+        }
+        internal static ImagingFactory WIC { get; private set; }
 
-        static MyRenderDeviceSettings m_settings = new MyRenderDeviceSettings { AdapterOrdinal = -1 };
-        static IntPtr m_windowHandle;
+        private static MyRenderDeviceSettings m_settings = new MyRenderDeviceSettings { AdapterOrdinal = -1 };
+        private static IntPtr m_windowHandle;
+        internal static MyRenderDeviceSettings DeviceSettings { get { return m_settings; } }
 
         internal static Vector2 ResolutionF { get { return new Vector2(m_resolution.X, m_resolution.Y); } }
         internal static Vector2I ResolutionI { get { return m_resolution; } }
 
-        static DeviceDebug DebugDevice { get; set; }
-        static InfoQueue DebugInfoQueue { get; set; }
+        //static private DeviceDebug DebugDevice { get; set; }
+        static private InfoQueue DebugInfoQueue { get; set; }
 
         #region Debug
-        [Conditional("DEBUG_DEVICE")]
-        static void PopErrorFilter()
+        internal static void AddDebugQueueMessage(string message)
         {
             if (DebugInfoQueue != null)
+                DebugInfoQueue.AddApplicationMessage(MessageSeverity.Information, message);
+        }
+        [Conditional("DEBUG")]
+        static private void InitDebugOutput()
+        {
+            if (VRage.MyCompilationSymbols.DX11Debug && VRage.MyCompilationSymbols.DX11DebugOutput)
             {
-                DebugInfoQueue.PopStorageFilter();
+                DebugInfoQueue = Device.QueryInterface<InfoQueue>();
+                DebugInfoQueue.SetBreakOnSeverity(MessageSeverity.Corruption, true);
+                DebugInfoQueue.SetBreakOnSeverity(MessageSeverity.Error, true);
+                DebugInfoQueue.MessageCountLimit = 4096;
+                DebugInfoQueue.ClearStorageFilter();
+                if (! VRage.MyCompilationSymbols.DX11DebugOutputEnableInfo)
+                {
+                    InfoQueueFilter filter = new InfoQueueFilter();
+                    filter.DenyList = new InfoQueueFilterDescription();
+                    filter.DenyList.Severities = new MessageSeverity[1];
+                    filter.DenyList.Severities[0] = MessageSeverity.Information;
+                    DebugInfoQueue.AddStorageFilterEntries(filter);
+                }
             }
         }
-
-        static void ProcessDebugOutput()
+        private static long m_lastSkippedCount;
+        [Conditional("DEBUG")]
+        internal static void ProcessDebugOutput()
         {
-            using (var DebugInfoQueue = Device.QueryInterface<InfoQueue>())
+            if (DebugInfoQueue != null && VRage.MyCompilationSymbols.DX11DebugOutput && MyRenderProxy.RenderThread.SystemThread == System.Threading.Thread.CurrentThread)
             {
-                System.Threading.Thread t = System.Threading.Thread.CurrentThread;
-                bool running = true;
-
-                Device.Disposing += (x, e) => { running = false; t.Join(); };
-
-                DebugInfoQueue.MessageCountLimit = 4096;
-                while (running)
+                for (int i = 0; i < DebugInfoQueue.NumStoredMessages; i++)
                 {
-                    for (int i = 0; i < DebugInfoQueue.NumStoredMessages; i++)
-                    {
-                        var msg = DebugInfoQueue.GetMessage(i);
-                        //string text = String.Format("D3D11 {0}: {1} [ {2} ERROR #{3}: {4} ]", FormatEnum(msg.Severity), msg.Description.Replace("\0", ""), FormatEnum(msg.Category), (int)msg.Id, FormatEnum(msg.Id));
-                        string text = String.Format("D3D11 {0}: {1} [ {2} ERROR #{3}: {4} ]", msg.Severity.ToString(), msg.Description.Replace("\0", ""), msg.Category.ToString(), (int)msg.Id, msg.Id.ToString());
-                        System.Diagnostics.Debug.Print(text);
-                        System.Diagnostics.Debug.WriteLine(String.Empty);
-                    }
-                    DebugInfoQueue.ClearStoredMessages();
-                    System.Threading.Thread.Sleep(16);
+                    var msg = DebugInfoQueue.GetMessage(i);
+                    string text = String.Format("D3D11 {0}: {1} [ {2} #{3}: {4} ] {5}/{6}", msg.Severity.ToString(), msg.Description.Replace("\0", ""), msg.Category.ToString(), (int)msg.Id, msg.Id.ToString(), i, DebugInfoQueue.NumStoredMessages);
+                    System.Diagnostics.Debug.Print(text);
+                    System.Diagnostics.Debug.WriteLine(String.Empty);
                 }
+                if ((DebugInfoQueue.NumMessagesDiscardedByMessageCountLimit - m_lastSkippedCount) > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("Skipped messages: " + (DebugInfoQueue.NumMessagesDiscardedByMessageCountLimit - m_lastSkippedCount));
+                    m_lastSkippedCount = DebugInfoQueue.NumMessagesDiscardedByMessageCountLimit;
+                }
+                DebugInfoQueue.ClearStoredMessages();
             }
         }
         #endregion
 
         internal static void HandleDeviceReset()
         {
+            ResetAdaptersList();
             CreateDevice(m_windowHandle, m_settings);
-
-            MyRenderContextPool.OnDeviceReset();
 
             OnDeviceReset();
         }
 
         static bool m_initialized = false;
+        static bool m_initializedOnce = false;
+
+        private static int GetPriorityAdapter()
+        {
+            var adapters = GetAdaptersList();
+            var bestPriority = -1000;
+            int bestIndex = -1;
+            for (int i = 0; i < adapters.Length; i++)
+            {
+                if (adapters[i].IsDx11Supported && bestPriority < adapters[i].Priority)
+                {
+                    bestPriority = adapters[i].Priority;
+                    bestIndex = i;
+                }
+            }
+            return bestIndex;
+        }
 
         internal static int ValidateAdapterIndex(int adapterIndex)
         {
             var adapters = GetAdaptersList();
 
             bool adapterIndexNotValid =
-                adapterIndex == -1
+                adapterIndex < 0
                 || adapters.Length <= adapterIndex
                 || !adapters[adapterIndex].IsDx11Supported;
             if (adapterIndexNotValid)
-            {
-                var bestPriority = -1000;
-
-                for (int i = 0; i < adapters.Length; i++)
-                {
-                    if (adapters[i].IsDx11Supported)
-                    {
-                        bestPriority = (int)Math.Max(bestPriority, adapters[i].Priority);
-                    }
-                }
-
-                // taking adapter with top priority
-                for (int i = 0; i < adapters.Length; i++)
-                {
-                    if (adapters[i].IsDx11Supported && adapters[i].Priority == bestPriority)
-                    {
-                        adapterIndex = i;
-                        break;
-                    }
-                }
-            }
-
+                return GetPriorityAdapter();
             return adapterIndex;
         }
 
         internal static MyRenderDeviceSettings CreateDevice(IntPtr windowHandle, MyRenderDeviceSettings? settingsToTry)
+        {
+            bool deviceCreated = CreateDeviceInternalSafe(windowHandle, settingsToTry);
+
+            if (!settingsToTry.HasValue || !settingsToTry.Value.SettingsMandatory)
+            {
+                if (!deviceCreated)
+                {
+                    if (settingsToTry.HasValue && settingsToTry.Value.UseStereoRendering)
+                    {
+                        var newSettings = settingsToTry.Value;
+                        newSettings.UseStereoRendering = false;
+                        deviceCreated = CreateDeviceInternalSafe(windowHandle, newSettings);
+                    }
+                }
+                if (!deviceCreated)
+                {
+                    Log.WriteLine("Primary desktop size fallback.");
+                    var adapters = GetAdaptersList();
+                    int i = 0;
+                    int j = 0;
+                    for (; i < adapters.Length; ++i)
+                    {
+                        for (j = 0; j < adapters[i].SupportedDisplayModes.Length; ++j)
+                        {
+                            if (adapters[i].IsDx11Supported)
+                            {
+                                var bounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+                                if (adapters[i].SupportedDisplayModes[j].Width == bounds.Width &&
+                                    adapters[i].SupportedDisplayModes[j].Height == bounds.Height)
+                                {
+                                    var displayMode = adapters[i].SupportedDisplayModes[j];
+                                    var newSettings = new MyRenderDeviceSettings()
+                                    {
+                                        AdapterOrdinal = i,
+                                        BackBufferHeight = displayMode.Height,
+                                        BackBufferWidth = displayMode.Width,
+                                        WindowMode = MyWindowModeEnum.Fullscreen,
+                                        RefreshRate = displayMode.RefreshRate,
+                                        VSync = true
+                                    };
+
+                                    deviceCreated = CreateDeviceInternalSafe(windowHandle, newSettings);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!deviceCreated)
+                {
+                    Log.WriteLine("Lowest res fallback.");
+                    var simpleSettings = new MyRenderDeviceSettings()
+                    {
+                        AdapterOrdinal = 0,
+                        BackBufferHeight = 480,
+                        BackBufferWidth = 640,
+                        WindowMode = MyWindowModeEnum.Window,
+                        VSync = true,
+                    };
+                    deviceCreated = CreateDeviceInternalSafe(windowHandle, simpleSettings);
+                }
+            }
+
+            if (!deviceCreated)
+            {
+                VRage.Utils.MyMessageBox.Show("Unsupported graphics card", "Graphics card is not supported, please see minimum requirements");
+                throw new MyRenderException("No supported device detected!", MyRenderExceptionEnum.GpuNotSupported);
+            }
+            return m_settings;
+        }
+
+        private static bool CreateDeviceInternalSafe(IntPtr windowHandle, MyRenderDeviceSettings? settingsToTry)
+        {
+            try
+            {
+                CreateDeviceInternal(windowHandle, settingsToTry);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.WriteLine("CreateDevice failed: " + ex.Message);
+                DisposeDevice();
+            }
+            return false;
+        }
+
+        private static MyRenderDeviceSettings CreateDeviceInternal(IntPtr windowHandle, MyRenderDeviceSettings? settingsToTry)
         {
             if (Device != null)
             { 
                 Device.Dispose();
                 Device = null;
             }
+            WIC = null;
+
+            if (settingsToTry != null)
+            {
+                Log.WriteLine("CreateDevice - original settings");
+                Log.IncreaseIndent();
+                var originalSettings = settingsToTry.Value;
+                LogSettings(ref originalSettings);
+            }
 
             FeatureLevel[] featureLevels = { FeatureLevel.Level_11_0 };
             DeviceCreationFlags flags = DeviceCreationFlags.None;
       
-    #if DEBUG_DEVICE    
-            flags |= DeviceCreationFlags.Debug;
-    #endif
+#if DEBUG
+            if (VRage.MyCompilationSymbols.DX11Debug)
+                flags |= DeviceCreationFlags.Debug;
+#endif
 
             WinApi.DEVMODE mode = new WinApi.DEVMODE();
             WinApi.EnumDisplaySettings(null, WinApi.ENUM_REGISTRY_SETTINGS, ref mode);
 
-            var adapters = GetAdaptersList();
-
-            int adapterIndex = settingsToTry.HasValue ? settingsToTry.Value.AdapterOrdinal : - 1;
-            adapterIndex = ValidateAdapterIndex(adapterIndex);
-            
-            if(adapterIndex == -1)
-            {
-                throw new MyRenderException("No supporting device detected!", MyRenderExceptionEnum.GpuNotSupported);
-            }
-
             var settings = settingsToTry ?? new MyRenderDeviceSettings()
             {
-                AdapterOrdinal = adapterIndex,
+                AdapterOrdinal = -1,
                 BackBufferHeight = mode.dmPelsHeight,
                 BackBufferWidth = mode.dmPelsWidth,
                 WindowMode = MyWindowModeEnum.Fullscreen,
                 RefreshRate = 60000,
                 VSync = false,
             };
+            settings.AdapterOrdinal = ValidateAdapterIndex(settings.AdapterOrdinal);
+
+            if (settings.AdapterOrdinal == -1)
+            {
+                throw new MyRenderException("No supported device detected!", MyRenderExceptionEnum.GpuNotSupported);
+            }
+
             m_settings = settings;
 
-            Device = new Device(GetFactory().Adapters[adapters[m_settings.AdapterOrdinal].AdapterDeviceId], flags, FeatureLevel.Level_11_0);
+            Log.WriteLine("CreateDevice settings");
+            Log.IncreaseIndent();
+            LogSettings(ref m_settings);
+
+            // If this line crashes cmd this: Dism /online /add-capability /capabilityname:Tools.Graphics.DirectX~~~~0.0.1.0
+            var adapters = GetAdaptersList();
+            if (m_settings.AdapterOrdinal >= adapters.Length)
+                throw new MyRenderException("No supported device detected!", MyRenderExceptionEnum.GpuNotSupported);
+            var adapterId = adapters[m_settings.AdapterOrdinal].AdapterDeviceId;
+            if (adapterId >= GetFactory().Adapters.Length)
+                throw new MyRenderException("Invalid adapter id binding!", MyRenderExceptionEnum.GpuNotSupported);
+            var adapter = GetFactory().Adapters[adapterId];
+            TweakSettingsAdapterAdHoc(adapter);
+            Device = new Device(adapter, flags, FeatureLevel.Level_11_0);
+            WIC = new ImagingFactory();
 
             // HACK: This is required for Steam overlay to work. Apparently they hook only CreateDevice methods with DriverType argument.
             try
@@ -167,38 +296,32 @@ namespace VRageRender
             }
             catch { }
 
-            if (flags.HasFlag(DeviceCreationFlags.Debug))
+            InitDebugOutput();
+
+            if(DeviceContext != null)
             {
-                if (DebugDevice != null)
-                {
-                    DebugDevice.Dispose();
-                    DebugDevice = null;
-                }
-
-                DebugDevice = new DeviceDebug(Device);
-                DebugInfoQueue = DebugDevice.QueryInterface<InfoQueue>();
-
-                new System.Threading.Thread(ProcessDebugOutput).Start();
+                DeviceContext.Dispose();
+                DeviceContext = null;
             }
 
-            if(ImmediateContext != null)
-            {
-                ImmediateContext.Dispose();
-                ImmediateContext = null;
-            }
-
-            ImmediateContext = Device.ImmediateContext;
+            DeviceContext = Device.ImmediateContext;
 
             m_windowHandle = windowHandle;
 
             m_resolution = new Vector2I(m_settings.BackBufferWidth, m_settings.BackBufferHeight);
 
+            if (!m_initializedOnce)
+            {
+                InitSubsystemsOnce();
+                m_initializedOnce = true;
+            }
+
             if (!m_initialized)
             {
+                OnDeviceReset();
                 InitSubsystems();
                 m_initialized = true;
             }
-            
 
             if (m_swapchain != null)
             {
@@ -216,7 +339,7 @@ namespace VRageRender
                 scDesc.BufferCount = MyRender11Constants.BUFFER_COUNT;
                 scDesc.Flags = SwapChainFlags.AllowModeSwitch;
                 scDesc.IsWindowed = true;
-                scDesc.ModeDescription.Format = MyRender11Constants.BACKBUFFER_FORMAT;
+                scDesc.ModeDescription.Format = MyRender11Constants.DX11_BACKBUFFER_FORMAT;
                 scDesc.ModeDescription.Height = m_settings.BackBufferHeight;
                 scDesc.ModeDescription.Width = m_settings.BackBufferWidth;
                 scDesc.ModeDescription.RefreshRate.Numerator = m_settings.RefreshRate;
@@ -241,11 +364,23 @@ namespace VRageRender
             return m_settings;
         }
 
+        private static void TweakSettingsAdapterAdHoc(Adapter adapter)
+        {
+            // Workaround for some AMD/ATI cards that manifest a dirty texture
+            // when blurring for the highlight, showing for example blue grass on ME
+            if (adapter.Description.VendorId == 0x1002)
+                Settings.BlurCopyOnDepthStencilFail = true;
+            else
+                Settings.BlurCopyOnDepthStencilFail = false;
+        }
+
         internal static void DisposeDevice()
         {
             ForceWindowed();
 
             OnDeviceEnd();
+            
+            m_initialized = false;
 
             if (MyGBuffer.Main != null)
             {
@@ -265,22 +400,26 @@ namespace VRageRender
                 m_swapchain = null;
             }
 
-            if (ImmediateContext != null)
+            if (DeviceContext != null)
             {
-                ImmediateContext.Dispose();
-                ImmediateContext = null;
+                DeviceContext.Dispose();
+                DeviceContext = null;
             }
 
             if (Device != null)
             {
-    #if DEBUG_DEVICE
-                var deviceDebug = new DeviceDebug(Device);
-                deviceDebug.ReportLiveDeviceObjects(ReportingLevel.Detail);
-                deviceDebug.Dispose();
-    #endif
+#if DEBUG
+                if (VRage.MyCompilationSymbols.DX11Debug)
+                {
+                    var deviceDebug = new DeviceDebug(Device);
+                    deviceDebug.ReportLiveDeviceObjects(ReportingLevel.Detail | ReportingLevel.Summary);
+                    deviceDebug.Dispose();
+                }
+#endif
 
                 Device.Dispose();
                 Device = null;
+                WIC = null;
             }
 
             if(m_factory != null)

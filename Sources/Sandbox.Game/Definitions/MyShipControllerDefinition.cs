@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Sandbox.Engine.Utils;
+using VRage.Game;
+using VRage.Game.Definitions;
 
 namespace Sandbox.Definitions
 {
@@ -13,9 +15,12 @@ namespace Sandbox.Definitions
     {
         public bool EnableFirstPerson;
         public bool EnableShipControl;
+        public bool EnableBuilderCockpit;
         public string GlassModel;
         public string InteriorModel;
         public string CharacterAnimation;
+        public string GetInSound;
+        public string GetOutSound;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -23,6 +28,9 @@ namespace Sandbox.Definitions
             var cbuilder = builder as MyObjectBuilder_ShipControllerDefinition;
             EnableFirstPerson = cbuilder.EnableFirstPerson;
             EnableShipControl = cbuilder.EnableShipControl;
+            EnableBuilderCockpit = cbuilder.EnableBuilderCockpit;
+            GetInSound = cbuilder.GetInSound;
+            GetOutSound = cbuilder.GetOutSound;
         }
     }
 }

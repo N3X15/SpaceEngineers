@@ -11,6 +11,7 @@ namespace Sandbox.Graphics.GUI
     {
         public static readonly Vector2 GUI_OPTIMAL_SIZE = new Vector2(1600f, 1200f);
         public const float DOUBLE_CLICK_DELAY = 500;
+        public const float CLICK_RELEASE_DELAY = 500;
         public const float DEFAULT_TEXT_SCALE = 1f;
         public const float HUD_TEXT_SCALE = 0.8f;
         public const float HUD_LINE_SPACING = 0.025f;
@@ -149,6 +150,12 @@ namespace Sandbox.Graphics.GUI
 
         public static readonly MyGuiCompositeTexture TEXTURE_INVENTORY_TRASH_NORMAL = new MyGuiCompositeTexture() { LeftTop = new MyGuiSizedTexture() { SizePx = new Vector2(71f, 164f), Texture = @"Textures\GUI\Controls\screen_inventory_trash.dds" } };
         public static readonly MyGuiCompositeTexture TEXTURE_INVENTORY_TRASH_HIGHLIGHT = new MyGuiCompositeTexture() { LeftTop = new MyGuiSizedTexture() { SizePx = new Vector2(71f, 164f), Texture = @"Textures\GUI\Controls\screen_inventory_trash_highlight.dds" } };
+
+        public static readonly MyGuiCompositeTexture TEXTURE_INVENTORY_SWITCH_NORMAL = new MyGuiCompositeTexture() { LeftTop = new MyGuiSizedTexture() { SizePx = new Vector2(71f, 164f), Texture = @"Textures\GUI\Controls\screen_inventory_bag.dds" } };
+        public static readonly MyGuiCompositeTexture TEXTURE_INVENTORY_SWITCH_HIGHLIGHT = new MyGuiCompositeTexture() { LeftTop = new MyGuiSizedTexture() { SizePx = new Vector2(71f, 164f), Texture = @"Textures\GUI\Controls\screen_inventory_bag_highlight.dds" } };
+
+        public static readonly MyGuiCompositeTexture TEXTURE_CRAFTING_SWITCH_NORMAL = new MyGuiCompositeTexture() { LeftTop = new MyGuiSizedTexture() { SizePx = new Vector2(71f, 164f), Texture = @"Textures\GUI\Controls\screen_inventory_hammer.dds" } };
+        public static readonly MyGuiCompositeTexture TEXTURE_CRAFTING_SWITCH_HIGHLIGHT = new MyGuiCompositeTexture() { LeftTop = new MyGuiSizedTexture() { SizePx = new Vector2(71f, 164f), Texture = @"Textures\GUI\Controls\screen_inventory_hammer_highlight.dds" } };
 
         public static readonly MyGuiCompositeTexture TEXTURE_TEXTBOX = new MyGuiCompositeTexture()
         {
@@ -365,6 +372,13 @@ namespace Sandbox.Graphics.GUI
             Texture = @"Textures\GUI\Screens\screen_tools_background_weapons.dds",
             SizePx = new Vector2(868f, 110f),
             PaddingSizePx = new Vector2(12f, 9f),
+        };
+
+        public static readonly MyGuiPaddedTexture TEXTURE_SCREEN_STATS_BACKGROUND = new MyGuiPaddedTexture()
+        {
+            Texture = @"Textures\GUI\Screens\screen_stats_background.dss",
+            SizePx = new Vector2(256f, 128f),
+            PaddingSizePx = new Vector2(12f, 12f)
         };
 
         public static readonly MyGuiHighlightTexture TEXTURE_ICON_MODS_LOCAL = new MyGuiHighlightTexture()
@@ -634,20 +648,64 @@ namespace Sandbox.Graphics.GUI
 
         public const string BLANK_TEXTURE = "Textures\\GUI\\Blank.dds";
 
+		public static MyGuiPaddedTexture TEXTURE_HUD_GRAVITY_GLOBE = new MyGuiPaddedTexture()
+		{
+			Texture = @"Textures\GUI\GravityHudGlobe.dds",
+			SizePx = new Vector2(138, 138),
+			PaddingSizePx = new Vector2(0f, 0f),
+		};
+
+		public static MyGuiPaddedTexture TEXTURE_HUD_GRAVITY_LINE = new MyGuiPaddedTexture()
+		{
+			Texture = @"Textures\GUI\GravityHudLine.dds",
+			SizePx = new Vector2(228, 2),
+			PaddingSizePx = new Vector2(0f, 0f),
+		};
+
+		public static MyGuiPaddedTexture TEXTURE_HUD_GRAVITY_HORIZON = new MyGuiPaddedTexture()
+		{
+			Texture = @"Textures\GUI\GravityHudHorizon.dds",
+			SizePx = new Vector2(512, 512),
+			PaddingSizePx = new Vector2(0f, 0f),
+		};
+
         public static readonly MyGuiCompositeTexture TEXTURE_GUI_BLANK = new MyGuiCompositeTexture()
         {
             Center = new MyGuiSizedTexture() { Texture = @"Textures\GUI\Blank.dds" }
         };
 
+		public static MyGuiPaddedTexture TEXTURE_HUD_STATS_BG = new MyGuiPaddedTexture()
+		{
+			Texture = @"Textures\GUI\Screens\screen_stats_background.dds",
+			SizePx = new Vector2(256, 128),
+			PaddingSizePx = new Vector2(6f, 6f),
+		};
+
+		public static MyGuiPaddedTexture TEXTURE_HUD_STAT_EFFECT_ARROW_UP = new MyGuiPaddedTexture()
+		{
+			Texture = @"Textures\GUI\Icons\ArrowUpBrown.dds",
+		};
+
+		public static MyGuiPaddedTexture TEXTURE_HUD_STAT_EFFECT_ARROW_DOWN = new MyGuiPaddedTexture()
+		{
+			Texture = @"Textures\GUI\Icons\ArrowDownRed.dds",
+		};
+
+
+		public static MyGuiPaddedTexture TEXTURE_HUD_STAT_BAR_BG = new MyGuiPaddedTexture()
+		{
+			Texture = @"Textures\GUI\Screens\screen_stats_bar_background.dds",
+			SizePx = new Vector2(72, 13),
+			PaddingSizePx = new Vector2(1f, 1f),
+		};
+
         public const string CURSOR_ARROW = "Textures\\GUI\\MouseCursor.dds";
-
         public const string CURSOR_HAND = "Textures\\GUI\\MouseCursorHand.dds";
-
-        public const string FOG_SMALL = "Textures\\GUI\\FogSmall.dds";
 
         public const string PROGRESS_BAR = "Textures\\GUI\\ProgressBar.dds";
 
         public const string LOADING_TEXTURE = "Textures\\GUI\\screens\\screen_loading_wheel.dds";
+        public const string LOADING_TEXTURE_LOADING_SCREEN = "Textures\\GUI\\screens\\screen_loading_wheel_loading_screen.dds";
 
         // General gui constants
         public const float MOUSE_CURSOR_SPEED_MULTIPLIER = 1.3f;
@@ -808,6 +866,16 @@ namespace Sandbox.Graphics.GUI
         {
             LeftTop = new MyGuiSizedTexture() { SizePx = new Vector2(45f, 45f), Texture = @"Textures\GUI\Icons\buttons\SquareButton.dds", }
         };
+
+        #region CubeBuilder
+
+        public const string CB_FREE_MODE_ICON = @"Textures\GUI\CubeBuilder\FreeModIcon.png";
+        public const string CB_LCS_GRID_ICON = @"Textures\GUI\CubeBuilder\OnGridIcon.png";
+        public const string CB_LARGE_GRID_MODE = @"Textures\GUI\CubeBuilder\GridModeLargeHighl.png";
+        public const string CB_SMALL_GRID_MODE = @"Textures\GUI\CubeBuilder\GridModeSmallHighl.png";
+
+        #endregion
+
     }
 
 }

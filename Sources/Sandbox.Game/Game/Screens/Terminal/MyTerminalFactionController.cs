@@ -14,6 +14,8 @@ using Sandbox.Game.Localization;
 using VRage;
 using VRage.Utils;
 using VRage.Library.Utils;
+using VRage.Game.ModAPI;
+using VRage.Game;
 
 namespace Sandbox.Game.Gui
 {
@@ -74,6 +76,8 @@ namespace Sandbox.Game.Gui
         MyGuiControlButton m_buttonPromote;
         MyGuiControlButton m_buttonDemote;
         MyGuiControlButton m_buttonAcceptJoin;
+        MyGuiControlButton m_buttonAddNpc;
+
 
         public void Init(IMyGuiControlsParent controlsParent)
         {
@@ -161,18 +165,22 @@ namespace Sandbox.Game.Gui
             m_buttonKick       = (MyGuiControlButton)controlsParent.Controls.GetControlByName("buttonKick");
             m_buttonAcceptJoin = (MyGuiControlButton)controlsParent.Controls.GetControlByName("buttonAcceptJoin");
             m_buttonDemote     = (MyGuiControlButton)controlsParent.Controls.GetControlByName("buttonDemote");
+            m_buttonAddNpc = (MyGuiControlButton)controlsParent.Controls.GetControlByName("buttonAddNpc");
 
-            m_buttonEdit.TextEnum       = MySpaceTexts.Edit;
-            m_buttonPromote.TextEnum    = MySpaceTexts.Promote;
-            m_buttonKick.TextEnum       = MySpaceTexts.Kick;
-            m_buttonAcceptJoin.TextEnum = MySpaceTexts.Accept;
-            m_buttonDemote.TextEnum     = MySpaceTexts.Demote;
+            m_buttonEdit.TextEnum       = MyCommonTexts.Edit;
+            m_buttonPromote.TextEnum    = MyCommonTexts.Promote;
+            m_buttonKick.TextEnum       = MyCommonTexts.Kick;
+            m_buttonAcceptJoin.TextEnum = MyCommonTexts.Accept;
+            m_buttonDemote.TextEnum     = MyCommonTexts.Demote;
+            m_buttonAddNpc.TextEnum = MySpaceTexts.AddNpcToFaction;
+            m_buttonAddNpc.SetToolTip(MySpaceTexts.AddNpcToFactionHelp);
 
             m_buttonEdit.ButtonClicked       += OnCreateClicked;
             m_buttonPromote.ButtonClicked    += OnPromotePlayerClicked;
             m_buttonKick.ButtonClicked       += OnKickPlayerClicked;
             m_buttonAcceptJoin.ButtonClicked += OnAcceptJoinClicked;
             m_buttonDemote.ButtonClicked     += OnDemoteClicked;
+            m_buttonAddNpc.ButtonClicked += OnNewNpcClicked;
 
             MySession.Static.Factions.FactionCreated           += OnFactionCreated;
             MySession.Static.Factions.FactionEdited            += OnFactionEdited;
@@ -246,6 +254,7 @@ namespace Sandbox.Game.Gui
             m_buttonKick.ButtonClicked       -= OnKickPlayerClicked;
             m_buttonAcceptJoin.ButtonClicked -= OnAcceptJoinClicked;
             m_buttonDemote.ButtonClicked     -= OnDemoteClicked;
+            m_buttonAddNpc.ButtonClicked += OnNewNpcClicked;
         }
 
         private void OnFactionsTableItemSelected(MyGuiControlTable sender, Sandbox.Graphics.GUI.MyGuiControlTable.EventArgs args)
@@ -276,24 +285,28 @@ namespace Sandbox.Game.Gui
 
         private void OnCreateClicked(MyGuiControlButton sender)
         {
-            MyGuiSandbox.AddScreen(new MyGuiScreenCreateOrEditFaction(ref m_userFaction));
+            //MyGuiSandbox.AddScreen(new MyGuiScreenCreateOrEditFaction(ref m_userFaction));
+            var screen = (MyGuiScreenCreateOrEditFaction) MyGuiSandbox.CreateScreen(MyPerGameSettings.GUI.CreateFactionScreen);
+            screen.Init(ref m_userFaction);
+            MyGuiSandbox.AddScreen(screen);
+
         }
 
         private void OnJoinClicked(MyGuiControlButton sender)
         {
-            MySession.Static.Factions.SendJoinRequest(m_selectedFaction.FactionId, MySession.LocalPlayerId);
+            MyFactionCollection.SendJoinRequest(m_selectedFaction.FactionId, MySession.Static.LocalPlayerId);
         }
 
         private void OnCancelJoinClicked(MyGuiControlButton sender)
         {
-            MySession.Static.Factions.CancelJoinRequest(m_selectedFaction.FactionId, MySession.LocalPlayerId);
+            MyFactionCollection.CancelJoinRequest(m_selectedFaction.FactionId, MySession.Static.LocalPlayerId);
         }
 
         private void OnLeaveClicked(MyGuiControlButton sender)
         {
             if (m_selectedFaction.FactionId == m_userFaction.FactionId)
                 ShowConfirmBox(
-                    new StringBuilder().AppendFormat(MySpaceTexts.MessageBoxConfirmFactionsLeave, m_userFaction.Name),
+                    new StringBuilder().AppendFormat(MyCommonTexts.MessageBoxConfirmFactionsLeave, m_userFaction.Name),
                     LeaveFaction
                 );
         }
@@ -303,29 +316,29 @@ namespace Sandbox.Game.Gui
             if (m_userFaction == null) // player can be kicked while confirming leave
                 return;
 
-            MySession.Static.Factions.MemberLeaves(m_userFaction.FactionId, MySession.LocalPlayerId);
+            MyFactionCollection.MemberLeaves(m_userFaction.FactionId, MySession.Static.LocalPlayerId);
             m_userFaction = null;
             Refresh();
         }
 
         private void OnFriendClicked(MyGuiControlButton sender)
         {
-            MySession.Static.Factions.SendPeaceRequest(m_userFaction.FactionId, m_selectedFaction.FactionId);
+            MyFactionCollection.SendPeaceRequest(m_userFaction.FactionId, m_selectedFaction.FactionId);
         }
 
         private void OnAcceptFriendClicked(MyGuiControlButton sender)
         {
-            MySession.Static.Factions.AcceptPeace(m_userFaction.FactionId, m_selectedFaction.FactionId);
+            MyFactionCollection.AcceptPeace(m_userFaction.FactionId, m_selectedFaction.FactionId);
         }
 
         private void OnCancelPeaceRequestClicked(MyGuiControlButton sender)
         {
-            MySession.Static.Factions.CancelPeaceRequest(m_userFaction.FactionId, m_selectedFaction.FactionId);
+            MyFactionCollection.CancelPeaceRequest(m_userFaction.FactionId, m_selectedFaction.FactionId);
         }
 
         private void OnEnemyClicked(MyGuiControlButton sender)
         {
-            MySession.Static.Factions.DeclareWar(m_userFaction.FactionId, m_selectedFaction.FactionId);
+            MyFactionCollection.DeclareWar(m_userFaction.FactionId, m_selectedFaction.FactionId);
         }
 
         #endregion
@@ -335,7 +348,7 @@ namespace Sandbox.Game.Gui
         private void OnAutoAcceptChanged(MyGuiControlCheckbox sender)
         {
             if (m_userFaction != null)
-                MySession.Static.Factions.ChangeAutoAccept(m_userFaction.FactionId, MySession.LocalPlayerId, m_checkAutoAcceptMember.IsChecked, m_checkAutoAcceptPeace.IsChecked);
+                MySession.Static.Factions.ChangeAutoAccept(m_userFaction.FactionId, MySession.Static.LocalPlayerId, m_checkAutoAcceptMember.IsChecked, m_checkAutoAcceptPeace.IsChecked);
         }
 
         private void OnAutoAcceptChanged(long factionId, bool autoAcceptMember, bool autoAcceptPeace)
@@ -346,45 +359,54 @@ namespace Sandbox.Game.Gui
         private void OnPromotePlayerClicked(MyGuiControlButton sender)
         {
             if (m_tableMembers.SelectedRow != null)
-                ShowConfirmBox(new StringBuilder().AppendFormat(MySpaceTexts.MessageBoxConfirmFactionsPromote, m_selectedUserName), PromotePlayer);
+                ShowConfirmBox(new StringBuilder().AppendFormat(MyCommonTexts.MessageBoxConfirmFactionsPromote, m_selectedUserName), PromotePlayer);
         }
 
         private void PromotePlayer()
         {
-            MySession.Static.Factions.PromoteMember(m_userFaction.FactionId, m_selectedUserId);
+            MyFactionCollection.PromoteMember(m_userFaction.FactionId, m_selectedUserId);
         }
 
         private void OnKickPlayerClicked(MyGuiControlButton sender)
         {
             if (m_tableMembers.SelectedRow != null)
-                ShowConfirmBox(new StringBuilder().AppendFormat(MySpaceTexts.MessageBoxConfirmFactionsKickPlayer, m_selectedUserName), KickPlayer);
+                ShowConfirmBox(new StringBuilder().AppendFormat(MyCommonTexts.MessageBoxConfirmFactionsKickPlayer, m_selectedUserName), KickPlayer);
         }
 
         private void KickPlayer()
         {
-            MySession.Static.Factions.KickMember(m_userFaction.FactionId, m_selectedUserId);
+            MyFactionCollection.KickMember(m_userFaction.FactionId, m_selectedUserId);
         }
 
         private void OnAcceptJoinClicked(MyGuiControlButton sender)
         {
             if (m_tableMembers.SelectedRow != null)
-                ShowConfirmBox(new StringBuilder().AppendFormat(MySpaceTexts.MessageBoxConfirmFactionsAcceptJoin, m_selectedUserName), AcceptJoin);
+                ShowConfirmBox(new StringBuilder().AppendFormat(MyCommonTexts.MessageBoxConfirmFactionsAcceptJoin, m_selectedUserName), AcceptJoin);
         }
 
         private void AcceptJoin()
         {
-            MySession.Static.Factions.AcceptJoin(m_userFaction.FactionId, m_selectedUserId);
+            MyFactionCollection.AcceptJoin(m_userFaction.FactionId, m_selectedUserId);
         }
 
         private void OnDemoteClicked(MyGuiControlButton sender)
         {
             if (m_tableMembers.SelectedRow != null)
-                ShowConfirmBox(new StringBuilder().AppendFormat(MySpaceTexts.MessageBoxConfirmFactionsDemote, m_selectedUserName), Demote);
+                ShowConfirmBox(new StringBuilder().AppendFormat(MyCommonTexts.MessageBoxConfirmFactionsDemote, m_selectedUserName), Demote);
         }
 
         private void Demote()
         {
-            MySession.Static.Factions.DemoteMember(m_userFaction.FactionId, m_selectedUserId);
+            MyFactionCollection.DemoteMember(m_userFaction.FactionId, m_selectedUserId);
+        }
+
+        private void OnNewNpcClicked(MyGuiControlButton sender)
+        {
+            string npcName = m_userFaction.Tag + " NPC" + MyRandom.Instance.Next(1000, 9999);
+            var identity = Sync.Players.CreateNewIdentity(npcName);
+            Sync.Players.MarkIdentityAsNPC(identity.IdentityId);
+
+            MyFactionCollection.SendJoinRequest(m_userFaction.FactionId, identity.IdentityId);
         }
 
         #endregion
@@ -405,17 +427,22 @@ namespace Sandbox.Game.Gui
         {
             m_userIsFounder = false;
             m_userIsLeader  = false;
-            m_userFaction = MySession.Static.Factions.TryGetPlayerFaction(MySession.LocalPlayerId);
+            m_userFaction = MySession.Static.Factions.TryGetPlayerFaction(MySession.Static.LocalPlayerId);
 
             if (m_userFaction != null)
             {
-                m_userIsFounder = m_userFaction.IsFounder(MySession.LocalPlayerId);
-                m_userIsLeader = m_userFaction.IsLeader(MySession.LocalPlayerId);
+                m_userIsFounder = m_userFaction.IsFounder(MySession.Static.LocalPlayerId);
+                m_userIsLeader = m_userFaction.IsLeader(MySession.Static.LocalPlayerId);
             }
         }
 
         private void RefreshCreateButton()
         {
+            if(m_buttonCreate == null)
+            {
+                return;
+            }
+
             if (m_userFaction != null)
             {
                 m_buttonCreate.Enabled = false;
@@ -447,7 +474,7 @@ namespace Sandbox.Game.Gui
             {
                 if (m_tableFactions.SelectedRow != null)
                 {
-                    if (m_selectedFaction.JoinRequests.ContainsKey(MySession.LocalPlayerId))
+                    if (m_selectedFaction.JoinRequests.ContainsKey(MySession.Static.LocalPlayerId))
                     {
                         m_buttonCancelJoin.Visible = true;
                         m_buttonCancelJoin.Enabled = true;
@@ -455,8 +482,17 @@ namespace Sandbox.Game.Gui
                     }
                     else
                     {
-                        m_buttonJoin.Visible = true;
-                        m_buttonJoin.Enabled = true;
+
+                        if (m_selectedFaction.AcceptHumans)
+                        {
+                            m_buttonJoin.Visible = true;
+                            m_buttonJoin.Enabled = true;
+                        }
+                        else
+                        {
+                            m_buttonJoin.Visible = true;
+                            m_buttonJoin.Enabled = false;
+                        }
                     }
                 }
                 else
@@ -518,7 +554,7 @@ namespace Sandbox.Game.Gui
                 var identity       = Sync.Players.TryGetIdentity(data.PlayerId);
                 m_selectedUserName = identity.DisplayName;
 
-                if (m_selectedUserId != MySession.LocalPlayerId)
+                if (m_selectedUserId != MySession.Static.LocalPlayerId)
                 {
                     if (m_userIsFounder && m_userFaction.IsLeader(m_selectedUserId))
                     {
@@ -564,6 +600,7 @@ namespace Sandbox.Game.Gui
             m_buttonPromote.Visible    = false;
             m_buttonDemote.Visible     = false;
             m_buttonAcceptJoin.Visible = false;
+            m_buttonAddNpc.Visible = false;
 
             if (m_tableFactions.SelectedRow != null)
             {
@@ -598,6 +635,8 @@ namespace Sandbox.Game.Gui
                         m_buttonEdit.Visible       = true;
                         m_buttonPromote.Visible    = true;
                         m_buttonDemote.Visible     = true;
+                        if (MySession.Static.Settings.ScenarioEditMode)
+                            m_buttonAddNpc.Visible = true;
                     }
                 }
             }
@@ -624,7 +663,7 @@ namespace Sandbox.Game.Gui
                 {
                     color = COLOR_CUSTOM_RED;
 
-                    if (faction.JoinRequests.ContainsKey(MySession.LocalPlayerId))
+                    if (faction.JoinRequests.ContainsKey(MySession.Static.LocalPlayerId))
                     {
                         icon = MyGuiConstants.TEXTURE_ICON_SENT_JOIN_REQUEST;
                         iconToolTip = MyTexts.GetString(MySpaceTexts.TerminalTab_Factions_SentJoinToolTip);
@@ -662,30 +701,30 @@ namespace Sandbox.Game.Gui
                 var member      = entry.Value;
 
                 var identity = Sync.Players.TryGetIdentity(member.PlayerId);
-                System.Diagnostics.Debug.Assert(identity != null, "Faction member is not known identity!");
+                //System.Diagnostics.Debug.Assert(identity != null, "Faction member is not known identity!");
                 if (identity == null)
                     continue;
 
                 var row         = new MyGuiControlTable.Row(member);
                 var compare     = MyMemberComparerEnum.Member;
-                var statusEnum  = MySpaceTexts.Member;
+                var statusEnum  = MyCommonTexts.Member;
                 Color? txtColor = null;
 
                 if (m_selectedFaction.IsFounder(member.PlayerId))
                 {
                     compare    = MyMemberComparerEnum.Founder;
-                    statusEnum = MySpaceTexts.Founder;
+                    statusEnum = MyCommonTexts.Founder;
                 }
                 else if (m_selectedFaction.IsLeader(member.PlayerId))
                 {
                     compare    = MyMemberComparerEnum.Leader;
-                    statusEnum = MySpaceTexts.Leader;
+                    statusEnum = MyCommonTexts.Leader;
                 }
                 else if (m_selectedFaction.JoinRequests.ContainsKey(member.PlayerId))
                 {
                     txtColor   = COLOR_CUSTOM_GREY;
                     compare    = MyMemberComparerEnum.Applicant;
-                    statusEnum = MySpaceTexts.Applicant;
+                    statusEnum = MyCommonTexts.Applicant;
                 }
 
                 row.AddCell(new MyGuiControlTable.Cell(text:    new StringBuilder(identity.DisplayName),
@@ -708,7 +747,7 @@ namespace Sandbox.Game.Gui
                                                            toolTip: identity.DisplayName,
                                                            userData: entry, textColor: COLOR_CUSTOM_GREY));
 
-                    row.AddCell(new MyGuiControlTable.Cell(text: MyTexts.Get(MySpaceTexts.Applicant),
+                    row.AddCell(new MyGuiControlTable.Cell(text: MyTexts.Get(MyCommonTexts.Applicant),
                                                            userData: MyMemberComparerEnum.Applicant,
                                                            textColor: COLOR_CUSTOM_GREY));
                     m_tableMembers.Add(row);
@@ -721,7 +760,7 @@ namespace Sandbox.Game.Gui
         private void OnFactionCreated(long insertedId)
         {
             var faction = MySession.Static.Factions.TryGetFactionById(insertedId);
-            AddFaction(faction, (faction.IsMember(MySession.LocalPlayerId)) ? COLOR_CUSTOM_GREEN : COLOR_CUSTOM_RED);
+            AddFaction(faction, (faction.IsMember(MySession.Static.LocalPlayerId)) ? COLOR_CUSTOM_GREEN : COLOR_CUSTOM_RED);
             Refresh();            
             RefreshTableFactions();
             m_tableFactions.Sort(false);
@@ -797,7 +836,6 @@ namespace Sandbox.Game.Gui
                 case MyFactionCollection.MyFactionStateChange.CancelPeaceRequest:
                 case MyFactionCollection.MyFactionStateChange.DeclareWar:
                     {
-                        System.Diagnostics.Debug.Assert(m_userFaction != null);
                         if (m_userFaction == null)
                             return;
 
@@ -867,7 +905,7 @@ namespace Sandbox.Game.Gui
             switch (action)
             {
                 case MyFactionCollection.MyFactionStateChange.FactionMemberPromote:
-                    AddMember(playerId, identity.DisplayName, true,  MyMemberComparerEnum.Leader, MySpaceTexts.Leader);
+                    AddMember(playerId, identity.DisplayName, true,  MyMemberComparerEnum.Leader, MyCommonTexts.Leader);
                     break;
 
                 case MyFactionCollection.MyFactionStateChange.FactionMemberCancelJoin:
@@ -876,11 +914,11 @@ namespace Sandbox.Game.Gui
 
                 case MyFactionCollection.MyFactionStateChange.FactionMemberAcceptJoin:
                 case MyFactionCollection.MyFactionStateChange.FactionMemberDemote:
-                    AddMember(playerId, identity.DisplayName, false, MyMemberComparerEnum.Member, MySpaceTexts.Member);
+                    AddMember(playerId, identity.DisplayName, false, MyMemberComparerEnum.Member, MyCommonTexts.Member);
                     break;
 
                 case MyFactionCollection.MyFactionStateChange.FactionMemberSendJoin:
-                    AddMember(playerId, identity.DisplayName, false, MyMemberComparerEnum.Applicant, MySpaceTexts.Applicant, COLOR_CUSTOM_GREY);
+                    AddMember(playerId, identity.DisplayName, false, MyMemberComparerEnum.Applicant, MyCommonTexts.Applicant, COLOR_CUSTOM_GREY);
                     break;
             }
             RefreshUserInfo();
@@ -908,7 +946,7 @@ namespace Sandbox.Game.Gui
         {
             var messageBox = MyGuiSandbox.CreateMessageBox(
                 buttonType: MyMessageBoxButtonsType.OK,
-                messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
+                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
                 messageText: text);
             messageBox.SkipTransition      = true;
             messageBox.CloseBeforeCallback = true;
@@ -920,7 +958,7 @@ namespace Sandbox.Game.Gui
         {
             var messageBox = MyGuiSandbox.CreateMessageBox(
                 buttonType: MyMessageBoxButtonsType.YES_NO,
-                messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionPleaseConfirm),
+                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionPleaseConfirm),
                 messageText: text,
                 focusedResult: MyGuiScreenMessageBox.ResultEnum.NO,
                 callback: delegate(MyGuiScreenMessageBox.ResultEnum retval)

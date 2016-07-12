@@ -4,6 +4,7 @@ using Sandbox.Common.ObjectBuilders;
 using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
 using Sandbox.Engine.Physics;
+using Sandbox.Engine.Utils;
 using Sandbox.Game.Gui;
 using Sandbox.ModAPI;
 using System;
@@ -12,8 +13,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using VRage;
-using VRage.Components;
+using VRage.Game;
+using VRage.Game.Components;
+using VRage.Game.Entity;
 using VRage.Game.Entity.UseObject;
+using VRage.Game.Gui;
+using VRage.Import;
 using VRage.Input;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
@@ -122,9 +127,10 @@ namespace Sandbox.Game.Entities
             m_localActivationMatrix = MatrixD.CreateScale(this.PositionComp.LocalAABB.HalfExtents * 2.0f) * MatrixD.CreateTranslation(this.PositionComp.LocalAABB.Center);
 
             var shape = new HkBoxShape(m_localActivationMatrix.Scale);
-            Physics = new MyPhysicsBody(this, RigidBodyFlag.RBF_DISABLE_COLLISION_RESPONSE);
-            Physics.CreateFromCollisionObject(shape, Vector3.Zero, WorldMatrix, null, MyPhysics.ObjectDetectionCollisionLayer);
-            Physics.Enabled = true;
+            var physicsBody = new MyPhysicsBody(this, RigidBodyFlag.RBF_DISABLE_COLLISION_RESPONSE);
+            Physics = physicsBody;
+            physicsBody.CreateFromCollisionObject(shape, Vector3.Zero, WorldMatrix, null, MyPhysics.CollisionLayers.ObjectDetectionCollisionLayer);
+            physicsBody.Enabled = true;
 
             Components.Add<MyPlaceArea>(new MySpherePlaceArea(10.0f, m_definition.Id.SubtypeId)); // TODO: Add radius to the definition
 
@@ -137,7 +143,7 @@ namespace Sandbox.Game.Entities
 			{
 				FlagsEnum = MyHudIndicatorFlagsEnum.SHOW_TEXT,
 				Text = m_definition.DisplayNameEnum.HasValue ? MyTexts.Get(m_definition.DisplayNameEnum.Value) : new StringBuilder(),
-				TargetMode = MyRelationsBetweenPlayerAndBlock.Neutral,
+				TargetMode = VRage.Game.MyRelationsBetweenPlayerAndBlock.Neutral,
 				MaxDistance = 200.0f,
 				MustBeDirectlyVisible = true
 			});
@@ -148,6 +154,16 @@ namespace Sandbox.Game.Entities
             MyHud.LocationMarkers.UnregisterMarker(this);
 
             base.Closing();
+        }
+
+        IMyEntity IMyUseObject.Owner
+        {
+            get { return this; }
+        }
+
+        MyModelDummy IMyUseObject.Dummy
+        {
+            get { return null; }
         }
 
         public float InteractiveDistance
@@ -165,6 +181,19 @@ namespace Sandbox.Game.Entities
             get { return (int)Render.RenderObjectIDs[0]; }
         }
 
+        public void SetRenderID(uint id)
+        {
+        }
+
+        public int InstanceID
+        {
+            get { return -1; }
+        }
+
+        public void SetInstanceID(int id)
+        {
+        }
+
         public bool ShowOverlay
         {
             get { return true; }
@@ -172,7 +201,7 @@ namespace Sandbox.Game.Entities
 
         public UseActionEnum SupportedActions
         {
-            get { return UseActionEnum.Manipulate; }
+            get { return MyFakes.ENABLE_SEPARATE_USE_AND_PICK_UP_KEY ? UseActionEnum.PickUp : UseActionEnum.Manipulate; }
         }
 
         public bool ContinuousUsage
@@ -190,7 +219,7 @@ namespace Sandbox.Game.Entities
             return new MyActionDescription()
             {
                 Text = MyStringId.GetOrCompute("NotificationRemoveAreaMarker"),
-                FormatParams = new object[] { MyInput.Static.GetGameControl(MyControlsSpace.USE) }
+                FormatParams = new object[] { MyInput.Static.GetGameControl(MyFakes.ENABLE_SEPARATE_USE_AND_PICK_UP_KEY ? MyControlsSpace.PICK_UP : MyControlsSpace.USE) }
             };
         }
 

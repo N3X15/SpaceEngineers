@@ -5,7 +5,7 @@ using VRageMath;
 
 namespace VRage.Input
 {
-    static class MyInputExtensions
+    public static class MyInputExtensions
     {
         // Rotation constants
         public const float MOUSE_ROTATION_INDICATOR_MULTIPLIER = 0.075f;
@@ -56,7 +56,7 @@ namespace VRage.Input
             rotationIndicator.Y += MyControllerHelper.IsControlAnalog(cx, MyControlsSpace.ROTATION_RIGHT);
 
             // Fix rotation to be independent from physics step.
-            rotationIndicator *= MyEngineConstants.UPDATE_STEPS_PER_SECOND * ROTATION_INDICATOR_MULTIPLIER;
+            rotationIndicator *= VRage.Game.MyEngineConstants.UPDATE_STEPS_PER_SECOND * ROTATION_INDICATOR_MULTIPLIER;
 
             return rotationIndicator;
         }
@@ -67,5 +67,12 @@ namespace VRage.Input
 
             return (new Vector2(self.GetMouseX(), self.GetMouseY())) * renormalizationFactor;
         }
+
+        #region ModAPI Implementation
+        public static float GetRoll(this ModAPI.IMyInput self) { return ((IMyInput)self).GetRoll(); }
+        public static Vector3 GetPositionDelta(this ModAPI.IMyInput self) { return ((IMyInput)self).GetPositionDelta(); }
+        public static Vector2 GetRotation(this ModAPI.IMyInput self) { return ((IMyInput)self).GetRotation(); }
+        public static Vector2 GetCursorPositionDelta(this ModAPI.IMyInput self) { return ((IMyInput)self).GetCursorPositionDelta(); }
+        #endregion
     }
 }

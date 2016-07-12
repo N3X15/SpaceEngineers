@@ -8,6 +8,9 @@ using VRage.Library.Utils;
 using VRage.Noise;
 using VRage.Noise.Combiners;
 using VRageMath;
+using Sandbox.Common.ObjectBuilders;
+using VRage.Game;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.World.Generator
 {
@@ -29,7 +32,7 @@ namespace Sandbox.Game.World.Generator
         protected List<IMyAsteroidFieldDensityFunction> m_densityFunctionsRemoved = new List<IMyAsteroidFieldDensityFunction>();
 
         public readonly double CELL_SIZE;
-        public readonly int RADIUS_MULTIPLIER;
+        public readonly int SCALE;
 
         protected const int BIG_PRIME1 = 16785407;
         protected const int BIG_PRIME2 = 39916801;
@@ -45,8 +48,8 @@ namespace Sandbox.Game.World.Generator
             Debug.Assert(parent == null || cellSize < parent.CELL_SIZE);
             CELL_SIZE = cellSize;
             Debug.Assert(radiusMultiplier > 0);
-            Debug.Assert(parent == null || radiusMultiplier < parent.RADIUS_MULTIPLIER);
-            RADIUS_MULTIPLIER = radiusMultiplier;
+            Debug.Assert(parent == null || radiusMultiplier < parent.SCALE);
+            SCALE = radiusMultiplier;
             m_seed = seed;
             m_objectDensity = density;
             m_parent = parent;
@@ -112,11 +115,14 @@ namespace Sandbox.Game.World.Generator
             m_densityFunctionsRemoved.Remove(func);
         }
 
-        public void GetObjectSeeds(BoundingSphereD sphere, List<MyObjectSeed> list)
+        public void GetObjectSeeds(BoundingSphereD sphere, List<MyObjectSeed> list, bool scale = true)
         {
             ProfilerShort.Begin("GetObjectSeedsInSphere");
             var scaledSphere = sphere;
-            scaledSphere.Radius *= RADIUS_MULTIPLIER;
+            if (scale)
+            {
+                scaledSphere.Radius *= SCALE;
+            }
             GenerateObjectSeeds(ref scaledSphere);
 
             OverlapAllBoundingSphere(ref scaledSphere, list);
@@ -137,12 +143,12 @@ namespace Sandbox.Game.World.Generator
         {
             int hash = objectSeed.CellId.GetHashCode();
             hash = (hash * 397) ^ m_seed;
-            hash = (hash * 397) ^ objectSeed.Index;
-            hash = (hash * 397) ^ objectSeed.Seed;
+            hash = (hash * 397) ^ objectSeed.Params.Index;
+            hash = (hash * 397) ^ objectSeed.Params.Seed;
             return hash;
         }
 
-        public abstract void GenerateObjects(List<MyObjectSeed> list);
+        public abstract void GenerateObjects(List<MyObjectSeed> list, HashSet<MyObjectSeedParams> existingObjectsSeeds);
 
         protected void GenerateObjectSeeds(ref BoundingSphereD sphere)
         {
@@ -237,18 +243,21 @@ namespace Sandbox.Game.World.Generator
             return ret;
         }
 
-        public void MarkCellsDirty(BoundingSphereD toMark, BoundingSphereD? toExclude = null)
+        public void MarkCellsDirty(BoundingSphereD toMark, BoundingSphereD? toExclude = null, bool scale = true)
         {
-            BoundingSphereD toMarkScaled = new BoundingSphereD(toMark.Center, toMark.Radius * RADIUS_MULTIPLIER);
+            BoundingSphereD toMarkScaled = new BoundingSphereD(toMark.Center, toMark.Radius * (scale ? SCALE : 1));
             BoundingSphereD toExcludeScaled = new BoundingSphereD();
             if (toExclude.HasValue)
             {
                 toExcludeScaled = toExclude.Value;
-                toExcludeScaled.Radius *= RADIUS_MULTIPLIER;
+                if (scale)
+                {
+                    toExcludeScaled.Radius *= SCALE;
+                }
             }
             ProfilerShort.Begin("Mark dirty cells");
-            Vector3I cellId = Vector3I.Floor((toMark.Center - toMark.Radius) / CELL_SIZE);
-            for (var iter = GetCellsIterator(toMark); iter.IsValid(); iter.GetNext(out cellId))
+            Vector3I cellId = Vector3I.Floor((toMarkScaled.Center - toMarkScaled.Radius) / CELL_SIZE);
+            for (var iter = GetCellsIterator(toMarkScaled); iter.IsValid(); iter.GetNext(out cellId))
             {
                 MyProceduralCell cell;
                 if (m_cells.TryGetValue(cellId, out cell))
@@ -275,7 +284,9 @@ namespace Sandbox.Game.World.Generator
             {
                 foreach (var tracker in trackedEntities.Values)
                 {
-                    if (tracker.BoundingVolume.Contains(cell.BoundingVolume) != ContainmentType.Disjoint)
+                    var scaledBoundingVolume = tracker.BoundingVolume;
+                    scaledBoundingVolume.Radius *= SCALE;
+                    if (scaledBoundingVolume.Contains(cell.BoundingVolume) != ContainmentType.Disjoint)
                     {
                         m_dirtyCells.Remove(cell);
                         break;
@@ -291,7 +302,10 @@ namespace Sandbox.Game.World.Generator
 
                 foreach (var objectSeed in m_tempObjectSeedList)
                 {
-                    CloseObjectSeed(objectSeed);
+                    if (objectSeed.Params.Generated)
+                    {
+                        CloseObjectSeed(objectSeed);
+                    }
                 }
                 m_tempObjectSeedList.Clear();
             }
@@ -308,17 +322,17 @@ namespace Sandbox.Game.World.Generator
 
         protected abstract void CloseObjectSeed(MyObjectSeed objectSeed);
 
-        protected Vector3I.RangeIterator GetCellsIterator(BoundingSphereD sphere)
+        protected Vector3I_RangeIterator GetCellsIterator(BoundingSphereD sphere)
         {
             return GetCellsIterator(BoundingBoxD.CreateFromSphere(sphere));
         }
 
-        protected Vector3I.RangeIterator GetCellsIterator(BoundingBoxD bbox)
+        protected Vector3I_RangeIterator GetCellsIterator(BoundingBoxD bbox)
         {
             Vector3I min = Vector3I.Floor(bbox.Min / CELL_SIZE);
             Vector3I max = Vector3I.Floor(bbox.Max / CELL_SIZE);
 
-            return new Vector3I.RangeIterator(ref min, ref max);
+            return new Vector3I_RangeIterator(ref min, ref max);
         }
 
         protected void OverlapAllBoundingSphere(ref BoundingSphereD sphere, List<MyObjectSeed> list)
@@ -340,7 +354,7 @@ namespace Sandbox.Game.World.Generator
             }
             m_tempProceduralCellsList.Clear();
         }
-     
+
         internal void GetAllCells(List<MyProceduralCell> list)
         {
             m_cellsTree.GetAll(list, false);

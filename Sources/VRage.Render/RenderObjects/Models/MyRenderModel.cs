@@ -774,9 +774,18 @@ namespace VRageRender
         {
             //  Create vertex buffer - vertex format type depends on draw technique
 
+            if(m_vertices == null && m_verticesCount > 0)
+            {
+                Debug.Fail("Invalid vertex count!");
+                return;
+            }
+
+            Debug.Assert(MyRender.GraphicsDevice != null);
+
             switch (m_drawTechnique)
             {
                 case MyMeshDrawTechnique.ATMOSPHERE:
+				case MyMeshDrawTechnique.CLOUD_LAYER:
                 case MyMeshDrawTechnique.MESH:
                 case MyMeshDrawTechnique.DECAL:
                 case MyMeshDrawTechnique.HOLO:

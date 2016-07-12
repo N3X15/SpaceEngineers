@@ -69,6 +69,15 @@ namespace VRage.Utils
             return center + radial * (Math.Cos(angle) * tangent + Math.Sin(angle) * bitangent);
         }
 
+        public static Vector3D GetRandomDiscPosition(ref Vector3D center, double minRadius, double maxRadius, ref Vector3D tangent, ref Vector3D bitangent)
+        {
+            Debug.Assert(Vector3D.IsUnit(ref tangent));
+            Debug.Assert(Vector3D.IsUnit(ref bitangent));
+            double radial = Math.Sqrt(GetRandomDouble(minRadius * minRadius, maxRadius * maxRadius));
+            double angle = GetRandomDouble(0, 2 * MathHelper.Pi);
+            return center + radial * (Math.Cos(angle) * tangent + Math.Sin(angle) * bitangent);
+        }
+
         public static Vector3 GetRandomBorderPosition(ref BoundingSphere sphere)
         {
             return sphere.Center + GetRandomVector3Normalized() * sphere.Radius;
@@ -79,17 +88,11 @@ namespace VRage.Utils
             return sphere.Center + GetRandomVector3Normalized() * (float)sphere.Radius;
         }
 
-        /// <summary>
-        /// Warning: Fast, but non-uniform distribution!
-        /// </summary>
         public static Vector3 GetRandomPosition(ref BoundingBox box)
         {
             return box.Center + GetRandomVector3() * box.HalfExtents;
         }
 
-        /// <summary>
-        /// Warning: Fast, but non-uniform distribution!
-        /// </summary>
         public static Vector3D GetRandomPosition(ref BoundingBoxD box)
         {
             return box.Center + GetRandomVector3() * box.HalfExtents;
@@ -172,6 +175,20 @@ namespace VRage.Utils
             }
         }
 
+
+        //  Returns random vector, whose direction is 'normal', but deviated by random angle (whose interval is 0..maxAngle in radians).
+        public static Vector3 GetRandomVector3MaxAngle(float maxAngle)
+        {
+            float resultTheta = MyUtils.GetRandomFloat(-maxAngle, maxAngle);
+            float resultPhi = MyUtils.GetRandomFloat(0, MathHelper.TwoPi);
+			//  Convert to cartezian coordinates (XYZ)
+            return -new Vector3(
+                MyMath.FastSin(resultTheta) * MyMath.FastCos(resultPhi),
+                MyMath.FastSin(resultTheta) * MyMath.FastSin(resultPhi),
+                MyMath.FastCos(resultTheta)
+                );
+        }
+
         //  Random vector distributed over the circle about normal. 
         //  Returns random vector that always lies on circle
         public static Vector3 GetRandomVector3CircleNormalized()
@@ -192,10 +209,15 @@ namespace VRage.Utils
             return Math.Sign((float)m_random.NextDouble() - 0.5f);
         }
 
+        public static float GetRandomFloat()
+        {
+            return (float)m_random.NextDouble();
+        }
+
         //  Return random float in range <minValue...maxValue>
         public static float GetRandomFloat(float minValue, float maxValue)
         {
-            return (float)m_random.NextDouble() * (maxValue - minValue) + minValue;
+            return VRage.Library.Utils.MyRandom.Instance.NextFloat() * (maxValue - minValue) + minValue;
         }
 
         //  Return random double in range <minValue...maxValue>

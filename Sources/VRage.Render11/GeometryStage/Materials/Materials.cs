@@ -16,24 +16,6 @@ using VRage.FileSystem;
 
 namespace VRageRender
 {
-    struct MyMeshMaterialId
-    {
-        internal int Index;
-
-        public static bool operator ==(MyMeshMaterialId x, MyMeshMaterialId y)
-        {
-            return x.Index == y.Index;
-        }
-
-        public static bool operator !=(MyMeshMaterialId x, MyMeshMaterialId y)
-        {
-            return x.Index != y.Index;
-        }
-
-        internal static readonly MyMeshMaterialId NULL = new MyMeshMaterialId { Index = -1 };
-
-        internal MyMeshMaterialInfo Info { get { return MyMeshMaterials1.Table[Index]; } }
-    }
 
     struct MyMaterialProxyId
     {
@@ -54,73 +36,92 @@ namespace VRageRender
 
     struct MyVoxelMaterialConstants
     {
-        internal Vector3 Scales;
+        internal Vector4 DistancesAndScale;
+        internal Vector4 DistancesAndScaleFar;
+        internal Vector2 DistancesAndScaleFar3;
+        internal float ExtensionDetailScale;
+        float _padding;
+        internal Vector4 Far3Color;        
     }
 
     struct MyVoxelMultiMaterialConstants
     {
-        internal Vector3 Scales0;
-        float padding_0;
-        internal Vector3 Scales1;
-        float padding_1;
-        internal Vector3 Scales2;
-        float padding_2;
+        internal Vector4 DistancesAndScale0;
+        internal Vector4 DistancesAndScale1;
+        internal Vector4 DistancesAndScale2;
+        internal Vector4 DistancesAndScaleFar0;
+        internal Vector4 DistancesAndScaleFar1;
+        internal Vector4 DistancesAndScaleFar2;
+        internal Vector4 DistancesAndScaleFar31;
+        internal Vector4 DistancesAndScaleFar32;
+        internal Vector4 DistancesAndScaleFar33;
+        internal Vector4 Far3Color1;
+        internal Vector4 Far3Color2;
+        internal Vector4 Far3Color3;
+
+        internal float ExtensionDetailScale0;
+        internal float ExtensionDetailScale1;
+        internal float ExtensionDetailScale2;
+
+        float _padding;
     }
 
     class MyVoxelMaterials1
     {
-        internal static Dictionary<MyVoxelMaterialTriple, MyMaterialProxyId> MaterialProxyTripleIndex = new Dictionary<MyVoxelMaterialTriple, MyMaterialProxyId>();
+        internal static Dictionary<MyVoxelMaterialTriple, MyMaterialProxyId> MaterialProxyTripleIndex = new Dictionary<MyVoxelMaterialTriple, MyMaterialProxyId>(MyVoxelMaterialTriple.Comparer);
         internal static MyVoxelMaterial1[] Table = new MyVoxelMaterial1[0];
         // not hash set but list
         internal static List<int> MaterialQueryResourcesTable = new List<int>();
 
-        internal static void InvalidateMaterials()
+        internal static void Set(MyRenderVoxelMaterialData[] list, bool update = false)
         {
-            for(int i=0; i<Table.Length; i++)
-            {
-                MaterialQueryResourcesTable.Add(i);
-            }
-        }
-
-        internal static void Set(MyRenderVoxelMaterialData[] list)
-        {
-
-            Array.Resize(ref Table, list.Length);
+            if (!update)
+                Array.Resize(ref Table, list.Length);
 
             for (int i = 0; i < list.Length; i++)
             {
-                // copy data :O
+                // copy data 
+                int index = update ? list[i].Index : i;
 
-                Table[i].Near.ColorMetalXZnY_Texture  = X.TEXT(list[i].ColorMetalXZnY);
-                Table[i].Near.ColorMetalpY_Texture    = X.TEXT(list[i].ColorMetalY);
-                Table[i].Near.NormalGlossXZnY_Texture = X.TEXT(list[i].NormalGlossXZnY);
-                Table[i].Near.NormalGlosspY_Texture   = X.TEXT(list[i].NormalGlossY);
-                Table[i].Near.ExtXZnY_Texture         = X.TEXT(list[i].ExtXZnY);
-                Table[i].Near.ExtpY_Texture           = X.TEXT(list[i].ExtY);
-                Table[i].Near.TextureScale = list[i].Scale;
+                Table[index].Near.ColorMetalXZnY_Texture = X.TEXT_(list[i].ColorMetalXZnY);
+                Table[index].Near.ColorMetalpY_Texture = X.TEXT_(list[i].ColorMetalY);
+                Table[index].Near.NormalGlossXZnY_Texture = X.TEXT_(list[i].NormalGlossXZnY);
+                Table[index].Near.NormalGlossY_Texture = X.TEXT_(list[i].NormalGlossY);
+                Table[index].Near.ExtXZnY_Texture = X.TEXT_(list[i].ExtXZnY);
+                Table[index].Near.ExtY_Texture = X.TEXT_(list[i].ExtY);
 
-                Table[i].Far1.ColorMetalXZnY_Texture = X.TEXT(list[i].ColorMetalXZnYFar1);
-                Table[i].Far1.ColorMetalpY_Texture = X.TEXT(list[i].ColorMetalYFar1);
-                Table[i].Far1.NormalGlossXZnY_Texture = X.TEXT(list[i].NormalGlossXZnYFar1);
-                Table[i].Far1.NormalGlosspY_Texture = X.TEXT(list[i].NormalGlossYFar1);
-                Table[i].Far1.ExtXZnY_Texture = X.TEXT(list[i].ExtXZnYFar1);
-                Table[i].Far1.ExtpY_Texture = X.TEXT(list[i].ExtYFar1);
-                Table[i].Far1.TextureScale            = list[i].ScaleFar1;
+                Table[index].Far1.ColorMetalXZnY_Texture = X.TEXT_(list[i].ColorMetalXZnYFar1);
+                Table[index].Far1.ColorMetalpY_Texture = X.TEXT_(list[i].ColorMetalYFar1);
+                Table[index].Far1.NormalGlossXZnY_Texture = X.TEXT_(list[i].NormalGlossXZnYFar1);
+                Table[index].Far1.NormalGlossY_Texture = X.TEXT_(list[i].NormalGlossYFar1);
+                Table[index].Far1.ExtXZnY_Texture = X.TEXT_(list[i].ExtXZnYFar1);
+                Table[index].Far1.ExtY_Texture = X.TEXT_(list[i].ExtYFar1);
 
-                Table[i].Far2.ColorMetalXZnY_Texture = X.TEXT(list[i].ColorMetalXZnYFar2);
-                Table[i].Far2.ColorMetalpY_Texture = X.TEXT(list[i].ColorMetalYFar2);
-                Table[i].Far2.NormalGlossXZnY_Texture = X.TEXT(list[i].NormalGlossXZnYFar2);
-                Table[i].Far2.NormalGlosspY_Texture = X.TEXT(list[i].NormalGlossYFar2);
-                Table[i].Far2.ExtXZnY_Texture = X.TEXT(list[i].ExtXZnYFar2);
-                Table[i].Far2.ExtpY_Texture = X.TEXT(list[i].ExtYFar2);
-                Table[i].Far2.TextureScale = list[i].ScaleFar2;
+                Table[index].Far2.ColorMetalXZnY_Texture = X.TEXT_(list[i].ColorMetalXZnYFar2);
+                Table[index].Far2.ColorMetalpY_Texture = X.TEXT_(list[i].ColorMetalYFar2);
+                Table[index].Far2.NormalGlossXZnY_Texture = X.TEXT_(list[i].NormalGlossXZnYFar2);
+                Table[index].Far2.NormalGlossY_Texture = X.TEXT_(list[i].NormalGlossYFar2);
+                Table[index].Far2.ExtXZnY_Texture = X.TEXT_(list[i].ExtXZnYFar2);
+                Table[index].Far2.ExtY_Texture = X.TEXT_(list[i].ExtYFar2);
 
-                Table[i].FoliageArray_Texture = list[i].ExtensionTextureArray1;
-                Table[i].FoliageDensity = list[i].ExtensionDensity;
-                Table[i].FoliageScale = list[i].ExtensionScale;
-                Table[i].FoliageScaleVariation = list[i].ExtensionRandomRescaleMult;
+                Table[index].FoliageArray_Texture = list[i].ExtensionTextureArray1;
+                Table[index].FoliageArray_NormalTexture = list[i].ExtensionTextureArray2;
 
-                MaterialQueryResourcesTable.Add(i);
+                Table[index].FoliageColorTextureArray = MyTextureArray.FromStringArray(list[i].FoliageColorTextureArray, MyTextureEnum.COLOR_METAL, "CM Foliage");
+                Table[index].FoliageNormalTextureArray = MyTextureArray.FromStringArray(list[i].FoliageNormalTextureArray, MyTextureEnum.NORMALMAP_GLOSS, "NG Foliage");
+
+                Table[index].FoliageDensity = list[i].ExtensionDensity;
+                Table[index].FoliageScale = list[i].ExtensionScale;
+                Table[index].FoliageScaleVariation = list[i].ExtensionRandomRescaleMult;
+                Table[index].FoliageType = list[i].ExtensionType;
+
+                Table[index].DistanceAndScale = list[i].DistanceAndScale;
+                Table[index].DistanceAndScaleFar = list[i].DistanceAndScaleFar;
+                Table[index].DistanceAndScaleFar3 = list[i].DistanceAndScaleFar3;
+                Table[index].Far3Color = list[i].Far3Color;
+                Table[index].ExtensionDetailScale = list[i].ExtensionDetailScale;
+
+                MaterialQueryResourcesTable.Add(index);
             }
         }
 
@@ -136,46 +137,75 @@ namespace VRageRender
             return true;
         }
 
-        internal static void RebuildMaterialFoliageTable()
+        internal unsafe static void RebuildMaterialFoliageTable()
         {
-            var array = new MaterialFoliageConstantsElem[256];
+            var array = stackalloc MaterialFoliageConstantsElem[256];
             int N = Table.Length;
             for (int i = 0; i < N; i++)
             {
-                var arrayTexId = MyTextures.GetTexture(Table[i].FoliageArray_Texture, MyTextureEnum.COLOR_METAL, true);
+                uint arraySize = 0;
+
+                if (Table[i].FoliageColorTextureArray != null)
+                {
+                    arraySize = (uint)Table[i].FoliageColorTextureArray.ArrayLen;
+                }
+                else
+                { 
+                    var arrayTexId = MyTextures.GetTexture(Table[i].FoliageArray_Texture, MyTextureEnum.COLOR_METAL, true);
+                    arraySize = (uint)((Texture2D)MyTextures.Textures.Data[arrayTexId.Index].Resource).Description.ArraySize;
+                }
 
                 array[i] = new MaterialFoliageConstantsElem {
-                    Scale = Table[i].FoliageScale, 
+                    Scale = Table[i].FoliageScale,
                     ScaleVar = Table[i].FoliageScaleVariation,
-                    TexturesNum = (uint)((Texture2D)MyTextures.Textures.Data[arrayTexId.Index].Resource).Description.ArraySize
+                    TexturesNum = arraySize
                 };
             }
             var mapping = MyMapping.MapDiscard(MyCommon.MaterialFoliageTableConstants);
-            mapping.stream.WriteRange(array, 0, N);
+            for (int arrayIndex = 0; arrayIndex < N; ++arrayIndex)
+                mapping.WriteAndPosition(ref array[arrayIndex]);
             mapping.Unmap();
         }
 
         internal static MyMaterialProxyId GetMaterialProxyId(MyVoxelMaterialTriple materialSet)
         {
-            if (!MaterialProxyTripleIndex.ContainsKey(materialSet))
+            MyMaterialProxyId pid;
+            if (!MaterialProxyTripleIndex.TryGetValue(materialSet, out pid))
             {
-                var matId = MaterialProxyTripleIndex[materialSet] = MyMaterials1.AllocateProxy();
-                MyMaterials1.ProxyPool.Data[matId.Index] = CreateProxy(materialSet);
+                pid = MaterialProxyTripleIndex[materialSet] = MyMaterials1.AllocateProxy();
+                MyMaterials1.ProxyPool.Data[pid.Index] = CreateProxy(materialSet);
             }
-            return MaterialProxyTripleIndex[materialSet];
+            return pid;
         }
 
         static unsafe MyMaterialProxy_2 CreateProxy(MyVoxelMaterialTriple triple)
         {
             byte[] buffer;
             int size;
+
+            System.Diagnostics.Debug.Assert(triple.I0 < Table.Length, "Index to table incorrect");
+            System.Diagnostics.Debug.Assert(triple.I1 < Table.Length, "Index to table incorrect");
+            System.Diagnostics.Debug.Assert(triple.I2 < Table.Length, "Index to table incorrect");
+
+            //TODO: This shouldnt happen if Table is created correctly
+            if (triple.I0 >= Table.Length) triple.I0 = 0;
+            if (triple.I1 >= Table.Length) triple.I1 = -1;
+            if (triple.I2 >= Table.Length) triple.I2 = -1;            
+            //////end of hack
+
+
             bool singleMaterial = triple.I1 == -1 && triple.I2 == -1;
 
             if(singleMaterial)
             {
                 size = sizeof(MyVoxelMaterialConstants);
                 MyVoxelMaterialConstants constantsData = new MyVoxelMaterialConstants();
-                constantsData.Scales = Table[triple.I0].ScaleFactors;
+                constantsData.DistancesAndScale = Table[triple.I0].DistanceAndScale;
+                constantsData.DistancesAndScaleFar = Table[triple.I0].DistanceAndScaleFar;
+                constantsData.DistancesAndScaleFar3 = Table[triple.I0].DistanceAndScaleFar3;
+                constantsData.Far3Color = Table[triple.I0].Far3Color;
+                constantsData.ExtensionDetailScale = Table[triple.I0].ExtensionDetailScale;
+
                 buffer = new byte[size];
                 fixed(byte* dstPtr = buffer)
                 {
@@ -187,9 +217,22 @@ namespace VRageRender
                 size = sizeof(MyVoxelMultiMaterialConstants);
                 MyVoxelMultiMaterialConstants constantsData = new MyVoxelMultiMaterialConstants();
 
-                constantsData.Scales0 = Table[triple.I0].ScaleFactors;
-                constantsData.Scales1 = Table[triple.I1].ScaleFactors;
-                constantsData.Scales2 = triple.I2 >= 0 ? Table[triple.I2].ScaleFactors : Vector3.One;
+                constantsData.DistancesAndScale0 = Table[triple.I0].DistanceAndScale;
+                constantsData.DistancesAndScale1 = Table[triple.I1].DistanceAndScale;
+                constantsData.DistancesAndScale2 = triple.I2 >= 0 ? Table[triple.I2].DistanceAndScale : Vector4.Zero;
+                constantsData.DistancesAndScaleFar0 = Table[triple.I0].DistanceAndScaleFar;
+                constantsData.DistancesAndScaleFar1 = Table[triple.I1].DistanceAndScaleFar;
+                constantsData.DistancesAndScaleFar2 = triple.I2 >= 0 ? Table[triple.I2].DistanceAndScaleFar : Vector4.Zero;
+                constantsData.DistancesAndScaleFar31 = new Vector4(Table[triple.I0].DistanceAndScaleFar3.X, Table[triple.I0].DistanceAndScaleFar3.Y, 0, 0);
+                constantsData.DistancesAndScaleFar32 = new Vector4(Table[triple.I1].DistanceAndScaleFar3.X, Table[triple.I1].DistanceAndScaleFar3.Y, 0, 0);
+                constantsData.DistancesAndScaleFar33 = triple.I2 >= 0 ? new Vector4(Table[triple.I2].DistanceAndScaleFar3.X, Table[triple.I2].DistanceAndScaleFar3.Y, 0, 0) : Vector4.Zero;
+                constantsData.Far3Color1 = Table[triple.I0].Far3Color.ToVector4();
+                constantsData.Far3Color2 = Table[triple.I1].Far3Color.ToVector4();
+                constantsData.Far3Color3 = triple.I2 >= 0 ? Table[triple.I2].Far3Color.ToVector4() : Vector4.Zero;
+                constantsData.ExtensionDetailScale0 = Table[triple.I0].ExtensionDetailScale;
+                constantsData.ExtensionDetailScale1 = Table[triple.I1].ExtensionDetailScale;
+                constantsData.ExtensionDetailScale2 = triple.I2 >= 0 ? Table[triple.I2].ExtensionDetailScale : 0;
+
                 buffer = new byte[size];
                 fixed (byte* dstPtr = buffer)
                 {
@@ -201,71 +244,68 @@ namespace VRageRender
             MyHashHelper.Combine(ref version, triple.I1.GetHashCode());
             MyHashHelper.Combine(ref version, triple.I2.GetHashCode());
 
+			MyConstantsPack materialConstants = new MyConstantsPack
+				{
+					BindFlag = MyBindFlag.BIND_PS,
+					CB = MyCommon.GetMaterialCB(size),
+					Version = version,
+					Data = buffer
+				};
+
+			MySrvTable srvTable = new MySrvTable
+				{
+					// NOTE(AF) Adding BIND_VS here will interfere with shadows, causing flickering in the first cascade
+					BindFlag = MyBindFlag.BIND_PS, 
+					StartSlot = 0,
+					Version = version,
+					SRVs = singleMaterial
+						? 
+                            new IShaderResourceBindable[] 
+							{ 
+								Table[triple.I0].Near.ColorMetalArray, Table[triple.I0].Far1.ColorMetalArray, Table[triple.I0].Far2.ColorMetalArray,
+								Table[triple.I0].Near.NormalGlossArray, Table[triple.I0].Far1.NormalGlossArray, Table[triple.I0].Far2.NormalGlossArray,
+								Table[triple.I0].Near.ExtArray, Table[triple.I0].Far1.ExtArray, Table[triple.I0].Far2.ExtArray,
+							}
+						: 
+						(
+						triple.I2 == -1 
+							?
+                            new IShaderResourceBindable[] 
+							{ 
+								Table[triple.I0].Near.ColorMetalArray, Table[triple.I0].Far1.ColorMetalArray, Table[triple.I0].Far2.ColorMetalArray,
+								Table[triple.I1].Near.ColorMetalArray, Table[triple.I1].Far1.ColorMetalArray, Table[triple.I1].Far2.ColorMetalArray,
+								null, null, null,
+								Table[triple.I0].Near.NormalGlossArray, Table[triple.I0].Far1.NormalGlossArray, Table[triple.I0].Far2.NormalGlossArray,
+								Table[triple.I1].Near.NormalGlossArray, Table[triple.I1].Far1.NormalGlossArray, Table[triple.I1].Far2.NormalGlossArray,
+								null, null, null,
+
+								Table[triple.I0].Near.ExtArray, Table[triple.I0].Far1.ExtArray, Table[triple.I0].Far2.ExtArray,
+								Table[triple.I1].Near.ExtArray, Table[triple.I1].Far1.ExtArray, Table[triple.I1].Far2.ExtArray,
+								null, null, null
+							}
+							:
+                            new IShaderResourceBindable[] 
+							{ 
+								Table[triple.I0].Near.ColorMetalArray, Table[triple.I0].Far1.ColorMetalArray, Table[triple.I0].Far2.ColorMetalArray,
+								Table[triple.I1].Near.ColorMetalArray, Table[triple.I1].Far1.ColorMetalArray, Table[triple.I1].Far2.ColorMetalArray,
+								Table[triple.I2].Near.ColorMetalArray, Table[triple.I2].Far1.ColorMetalArray, Table[triple.I2].Far2.ColorMetalArray,
+
+								Table[triple.I0].Near.NormalGlossArray, Table[triple.I0].Far1.NormalGlossArray, Table[triple.I0].Far2.NormalGlossArray,
+								Table[triple.I1].Near.NormalGlossArray, Table[triple.I1].Far1.NormalGlossArray, Table[triple.I1].Far2.NormalGlossArray,
+								Table[triple.I2].Near.NormalGlossArray, Table[triple.I2].Far1.NormalGlossArray, Table[triple.I2].Far2.NormalGlossArray,
+
+								Table[triple.I0].Near.ExtArray, Table[triple.I0].Far1.ExtArray, Table[triple.I0].Far2.ExtArray,
+								Table[triple.I1].Near.ExtArray, Table[triple.I1].Far1.ExtArray, Table[triple.I1].Far2.ExtArray,
+								Table[triple.I2].Near.ExtArray, Table[triple.I2].Far1.ExtArray, Table[triple.I2].Far2.ExtArray,
+							}
+						)
+				};
+
             return new MyMaterialProxy_2
                 {
-                    MaterialConstants = 
-                    { 
-                        BindFlag = MyBindFlag.BIND_PS,
-                        CB = MyCommon.GetMaterialCB(size),
-                        Version = version,
-                        Data = buffer
-                    },
-                    MaterialSRVs = { 
-                        BindFlag = MyBindFlag.BIND_PS, 
-                        StartSlot = 0,
-                        Version = version,
-                        SRVs = singleMaterial
-                            ? 
-                                new ShaderResourceView[] 
-                                { 
-                                    Table[triple.I0].Near.ColorMetalArray.ShaderView, Table[triple.I0].Far1.ColorMetalArray.ShaderView, Table[triple.I0].Far2.ColorMetalArray.ShaderView,
-                                    Table[triple.I0].Near.NormalGlossArray.ShaderView, Table[triple.I0].Far1.NormalGlossArray.ShaderView, Table[triple.I0].Far2.NormalGlossArray.ShaderView,
-                                }
-                            : 
-                            (
-                            triple.I2 == -1 
-                                ?
-                                new ShaderResourceView[] 
-                                { 
-                                    Table[triple.I0].Near.ColorMetalArray.ShaderView, Table[triple.I0].Far1.ColorMetalArray.ShaderView, Table[triple.I0].Far2.ColorMetalArray.ShaderView,
-                                    Table[triple.I1].Near.ColorMetalArray.ShaderView, Table[triple.I1].Far1.ColorMetalArray.ShaderView, Table[triple.I1].Far2.ColorMetalArray.ShaderView,
-                                    null, null, null,
-                                    Table[triple.I0].Near.NormalGlossArray.ShaderView, Table[triple.I0].Far1.NormalGlossArray.ShaderView, Table[triple.I0].Far2.NormalGlossArray.ShaderView,
-                                    Table[triple.I1].Near.NormalGlossArray.ShaderView, Table[triple.I1].Far1.NormalGlossArray.ShaderView, Table[triple.I1].Far2.NormalGlossArray.ShaderView,
-                                    null, null, null,
-
-                                    null, null, null,
-                                    null, null, null,
-                                    null, null, null
-                                }
-                                :
-                                new ShaderResourceView[] 
-                                { 
-                                    Table[triple.I0].Near.ColorMetalArray.ShaderView, Table[triple.I0].Far1.ColorMetalArray.ShaderView, Table[triple.I0].Far2.ColorMetalArray.ShaderView,
-                                    Table[triple.I1].Near.ColorMetalArray.ShaderView, Table[triple.I1].Far1.ColorMetalArray.ShaderView, Table[triple.I1].Far2.ColorMetalArray.ShaderView,
-                                    Table[triple.I2].Near.ColorMetalArray.ShaderView, Table[triple.I2].Far1.ColorMetalArray.ShaderView, Table[triple.I2].Far2.ColorMetalArray.ShaderView,
-
-                                    Table[triple.I0].Near.NormalGlossArray.ShaderView, Table[triple.I0].Far1.NormalGlossArray.ShaderView, Table[triple.I0].Far2.NormalGlossArray.ShaderView,
-                                    Table[triple.I1].Near.NormalGlossArray.ShaderView, Table[triple.I1].Far1.NormalGlossArray.ShaderView, Table[triple.I1].Far2.NormalGlossArray.ShaderView,
-                                    Table[triple.I2].Near.NormalGlossArray.ShaderView, Table[triple.I2].Far1.NormalGlossArray.ShaderView, Table[triple.I2].Far2.NormalGlossArray.ShaderView,
-
-                                    null, null, null,
-                                    null, null, null,
-                                    null, null, null
-                                }
-                                )
-                           
-                    }
+                    MaterialConstants = materialConstants,
+                    MaterialSRVs = srvTable
                 };
-        }
-
-        internal static void Init()
-        {
-            //MyCallbacks.RegisterResourceRequestListener(new OnResourceRequestDelegate(OnResourcesRequesting));
-            //MyCallbacks.RegisterResourceGatherListener(new OnResourceGatherDelegate(OnResourcesGather));
-            //MyCallbacks.RegisterSessionEndListener(new OnSessionEndDelegate(OnSessionEnd));
-            //MyCallbacks.RegisterDeviceEndListener(new OnDeviceEndDelegate(OnDeviceEnd));
-            //MyCallbacks.RegisterTexturesReloadListener(new OnTexturesReloadDelegate(OnTexturesReload));
         }
 
         internal static void ReleaseResources()
@@ -275,6 +315,10 @@ namespace VRageRender
                 MyVoxelMaterialDetailSet.ReleaseResources(ref Table[i].Near);
                 MyVoxelMaterialDetailSet.ReleaseResources(ref Table[i].Far1);
                 MyVoxelMaterialDetailSet.ReleaseResources(ref Table[i].Far2);
+                if (Table[i].FoliageColorTextureArray != null)
+                    Table[i].FoliageColorTextureArray.Dispose();
+                if (Table[i].FoliageNormalTextureArray != null)
+                    Table[i].FoliageNormalTextureArray.Dispose();
             }
         }
 
@@ -320,6 +364,28 @@ namespace VRageRender
             MaterialQueryResourcesTable.Clear();
         }
 
+        internal static void Init()
+        {
+            //MyCallbacks.RegisterResourceRequestListener(new OnResourceRequestDelegate(OnResourcesRequesting));
+            //MyCallbacks.RegisterResourceGatherListener(new OnResourceGatherDelegate(OnResourcesGather));
+            //MyCallbacks.RegisterSessionEndListener(new OnSessionEndDelegate(OnSessionEnd));
+            //MyCallbacks.RegisterDeviceEndListener(new OnDeviceEndDelegate(OnDeviceEnd));
+            //MyCallbacks.RegisterTexturesReloadListener(new OnTexturesReloadDelegate(OnTexturesReload));
+        }
+
+        internal static void OnDeviceReset()
+        {
+            InvalidateMaterials();
+        }
+		
+        internal static void InvalidateMaterials()
+        {
+            for (int i = 0; i < Table.Length; i++)
+            {
+                MaterialQueryResourcesTable.Add(i);
+            }
+        }
+
         internal static void OnSessionEnd()
         {
             MaterialQueryResourcesTable.Clear();
@@ -336,230 +402,6 @@ namespace VRageRender
         }
     }
 
-    class MyMeshMaterials1
-    {
-        #region DATA
-        static MyFreelist<MyMeshMaterialInfo> MaterialsPool = new MyFreelist<MyMeshMaterialInfo>(256);
-
-        internal static MyMeshMaterialInfo[] Table { get { return MaterialsPool.Data; } }
-
-        static Dictionary<MyMeshMaterialId, MyMaterialProxyId> MaterialProxyIndex = new Dictionary<MyMeshMaterialId, MyMaterialProxyId>();
-        internal static Dictionary<int, MyMeshMaterialId> MaterialRkIndex = new Dictionary<int, MyMeshMaterialId>();
-
-        static Dictionary<MyStringId, MyMeshMaterialId> MaterialNameIndex = new Dictionary<MyStringId, MyMeshMaterialId>(MyStringId.Comparer); // only for uniquely named materials! used by destruction models
-
-        internal static HashSet<int> MergableRKs = new HashSet<int>();
-
-        static List<MyMeshMaterialId> MaterialQueryResourcesTable = new List<MyMeshMaterialId>();
-        #endregion
-
-        internal static MyMeshMaterialId DebugMaterialId;
-        internal static MyMeshMaterialId NullMaterialId;
-
-        static readonly HashSet<MyStringId> MERGABLE_MATERIAL_NAMES = new HashSet<MyStringId>(MyStringId.Comparer) 
-        { 
-            X.TEXT("BlockSheet"), 
-            X.TEXT("CubesSheet"), 
-            X.TEXT("CubesMetalSheet"), 
-            X.TEXT("RoofSheet"), 
-            X.TEXT("StoneSheet"), 
-            X.TEXT("House_Texture"), 
-            X.TEXT("RoofSheetRound") 
-        };        
-
-        internal static bool IsMergable(MyMeshMaterialId matId)
-        {
-            return MergableRKs.Contains(Table[matId.Index].RepresentationKey);
-        }
-
-        internal static MyMeshMaterialId GetMaterialId(string name)
-        {
-            return MaterialNameIndex.Get(X.TEXT(name));
-        }
-
-        internal static MyMaterialProxyId GetProxyId(MyMeshMaterialId id)
-        {
-            if (MaterialProxyIndex.ContainsKey(id))
-            {
-                return MaterialProxyIndex[id];
-            }
-
-            MyRender11.Log.WriteLine("MeshMaterialId missing");
-            
-            return MaterialProxyIndex[DebugMaterialId];
-        }
-
-        internal static int CalculateRK(ref MyMeshMaterialInfo desc)
-        {
-            var key = desc.ColorMetal_Texture.GetHashCode();
-            MyHashHelper.Combine(ref key, desc.NormalGloss_Texture.GetHashCode());
-            MyHashHelper.Combine(ref key, desc.Extensions_Texture.GetHashCode());
-            MyHashHelper.Combine(ref key, desc.Alphamask_Texture.GetHashCode());
-            MyHashHelper.Combine(ref key, desc.Technique.GetHashCode());
-
-            MyHashHelper.Combine(ref key, desc.Name.GetHashCode());
-            if (desc.ContentPath != null)
-            {
-                MyHashHelper.Combine(ref key, desc.ContentPath.GetHashCode());
-            }
-
-            return key;
-        }
-
-        internal static MyMeshMaterialId GetMaterialId(ref MyMeshMaterialInfo desc, string assetFile = null)
-        {
-            var rk = CalculateRK(ref desc);
-
-            if(!MaterialRkIndex.ContainsKey(rk))
-            {
-                var id = MaterialRkIndex[rk] = new MyMeshMaterialId { Index = MaterialsPool.Allocate() };
-
-                desc.Id = id;
-                desc.RepresentationKey = rk;
-
-                MaterialsPool.Data[id.Index] = desc;
-                MaterialProxyIndex[id] = MyMaterials1.AllocateProxy();
-
-                MaterialQueryResourcesTable.Add(id);
-
-                var nameIndex = desc.Name;
-
-                if(MERGABLE_MATERIAL_NAMES.Contains(nameIndex))
-                {
-                    MergableRKs.Add(desc.RepresentationKey);
-                }
-
-                if(!MaterialNameIndex.ContainsKey(nameIndex))
-                {
-                    MaterialNameIndex[nameIndex] = id;
-                }
-                else if(assetFile != null)
-                {
-                    VRageRender.MyRender11.Log.WriteLine(String.Format("Asset {0} tries to overrwrite material {1} with different textures", assetFile, desc.Name.ToString()));
-                }
-
-                return id;
-            }
-
-            return MaterialRkIndex[rk];
-        }
-
-        internal static MyMeshMaterialId GetMaterialId(string name, string contentPath, string colorMetalTexture, string normalGlossTexture, string extensionTexture, string technique)
-        {
-            MyMeshMaterialInfo desc;
-            desc = new MyMeshMaterialInfo
-            {
-                Name = X.TEXT(name),
-                ContentPath = contentPath,
-                ColorMetal_Texture = X.TEXT(colorMetalTexture),
-                NormalGloss_Texture = X.TEXT(normalGlossTexture),
-                Extensions_Texture = X.TEXT(extensionTexture),
-                Technique = technique
-            };
-
-            return GetMaterialId(ref desc);
-        }
-
-        internal static MyMeshMaterialId GetMaterialId(MyMaterialDescriptor importDesc, string contentPath, string assetFile = null)
-        {
-            MyMeshMaterialInfo desc;
-            if(importDesc != null)
-            {
-                desc = new MyMeshMaterialInfo
-                {
-                    Name = X.TEXT(importDesc.MaterialName),
-                    ContentPath = contentPath,
-                    ColorMetal_Texture = X.TEXT(importDesc.Textures.Get("ColorMetalTexture", "")),
-                    NormalGloss_Texture = X.TEXT(importDesc.Textures.Get("NormalGlossTexture", "")),
-                    Extensions_Texture = X.TEXT(importDesc.Textures.Get("AddMapsTexture", "")),
-                    Alphamask_Texture = X.TEXT(importDesc.Textures.Get("AlphamaskTexture", null)),
-                    Technique = importDesc.Technique
-                };
-            }
-            else
-            {
-                return NullMaterialId;
-            }
-
-            return GetMaterialId(ref desc, assetFile);
-        }
-
-        internal static void Init()
-        {
-            //MyCallbacks.RegisterResourceRequestListener(new OnResourceRequestDelegate(OnResourcesRequesting));
-            //MyCallbacks.RegisterResourceGatherListener(new OnResourceGatherDelegate(OnResourcesGathering));
-
-            CreateCommonMaterials();
-        }
-
-        internal static void InvalidateMaterials()
-        {
-            foreach (var id in MaterialRkIndex.Values)
-            {
-                MaterialQueryResourcesTable.Add(id);
-            }
-        }
-
-        internal static void OnResourcesRequesting()
-        {
-            foreach (var id in MaterialQueryResourcesTable)
-            {
-                // ask for resources
-                MyMeshMaterialInfo.RequestResources(ref MaterialsPool.Data[id.Index]);
-            }
-        }
-
-        internal static void OnResourcesGathering()
-        {
-            if (MaterialQueryResourcesTable.Count > 0)
-            {
-                // update proxies foreach material
-                foreach (var id in MaterialQueryResourcesTable)
-                {
-                    MyMaterials1.ProxyPool.Data[MaterialProxyIndex[id].Index] = MyMeshMaterialInfo.CreateProxy(ref MaterialsPool.Data[id.Index]);
-                }
-            }
-
-            MaterialQueryResourcesTable.Clear();
-        }
-
-        internal static void CreateCommonMaterials()
-        {
-            var nullMatDesc = new MyMeshMaterialInfo
-            {
-                Name = X.TEXT("__NULL_MATERIAL"),
-                ColorMetal_Texture = MyStringId.NullOrEmpty,
-                NormalGloss_Texture = MyStringId.NullOrEmpty,
-                Extensions_Texture = MyStringId.NullOrEmpty,
-                Alphamask_Texture = MyStringId.NullOrEmpty,
-                Technique = "MESH"
-            };
-            NullMaterialId = GetMaterialId(ref nullMatDesc);
-
-            var debugMatDesc = new MyMeshMaterialInfo
-            {
-                Name = X.TEXT("__DEBUG_MATERIAL"),
-                ColorMetal_Texture = MyRender11.DebugMode ? X.TEXT("Pink") : MyStringId.NullOrEmpty,
-                NormalGloss_Texture = MyStringId.NullOrEmpty,
-                Extensions_Texture = MyStringId.NullOrEmpty,
-                Alphamask_Texture = MyStringId.NullOrEmpty,
-                Technique = "MESH"
-            };
-            DebugMaterialId = GetMaterialId(ref debugMatDesc);
-        }
-
-        internal static void OnSessionEnd()
-        {
-            MergableRKs.Clear();
-            MaterialQueryResourcesTable.Clear();
-            MaterialRkIndex.Clear();
-            MaterialsPool.Clear();
-            MaterialProxyIndex.Clear();
-            MaterialNameIndex.Clear();
-
-            CreateCommonMaterials();
-        }
-    }
 
     class MyMaterials1
     {

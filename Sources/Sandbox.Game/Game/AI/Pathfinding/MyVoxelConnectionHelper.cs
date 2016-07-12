@@ -12,12 +12,12 @@ namespace Sandbox.Game.AI.Pathfinding
 {
     public class MyVoxelConnectionHelper
     {
-        private struct InnerEdgeIndex
+        private struct InnerEdgeIndex: IEquatable<InnerEdgeIndex>
         {
-            public short V0;
-            public short V1;
+            public ushort V0;
+            public ushort V1;
 
-            public InnerEdgeIndex(short vert0, short vert1)
+            public InnerEdgeIndex(ushort vert0, ushort vert1)
             {
                 V0 = vert0;
                 V1 = vert1;
@@ -30,18 +30,23 @@ namespace Sandbox.Game.AI.Pathfinding
 
             public override bool Equals(object obj)
             {
+                Debug.Assert(false, "Equals on struct does allocation!");
                 if (!(obj is InnerEdgeIndex)) return false;
-                var other = (InnerEdgeIndex)obj;
-                return other.V0 == V0 && other.V1 == V1;
+                return this.Equals((InnerEdgeIndex)obj);
             }
 
             public override string ToString()
             {
                 return "{" + V0 + ", " + V1 + "}";
             }
+
+            public bool Equals(InnerEdgeIndex other)
+            {
+                return other.V0 == V0 && other.V1 == V1;
+            }
         }
 
-        private struct OuterEdgePoint
+        public struct OuterEdgePoint
         {
             public int EdgeIndex;
             public bool FirstPoint; // Whether this point is the first one in the given edge
@@ -80,7 +85,7 @@ namespace Sandbox.Game.AI.Pathfinding
             m_edgeClassifier.Clear();
         }
 
-        public void PreprocessInnerEdge(short a, short b)
+        public void PreprocessInnerEdge(ushort a, ushort b)
         {
             InnerEdgeIndex thisEdge = new InnerEdgeIndex(a, b);
             InnerEdgeIndex otherEdge = new InnerEdgeIndex(b, a);
@@ -99,7 +104,7 @@ namespace Sandbox.Game.AI.Pathfinding
             m_edgeClassifier[otherEdge] = value;
         }
 
-        public bool IsInnerEdge(short v0, short v1)
+        public bool IsInnerEdge(ushort v0, ushort v1)
         {
             return IsInnerEdge(new InnerEdgeIndex(v0, v1));
         }
@@ -111,7 +116,7 @@ namespace Sandbox.Game.AI.Pathfinding
             return m_edgeClassifier[edgeIndex] == 0;
         }
 
-        public int TryGetAndRemoveEdgeIndex(short iv0, short iv1, ref Vector3 posv0, ref Vector3 posv1)
+        public int TryGetAndRemoveEdgeIndex(ushort iv0, ushort iv1, ref Vector3 posv0, ref Vector3 posv1)
         {
             ProfilerShort.Begin("TryGetAndRemoveEdgeIndex");
             int retval = -1;
@@ -132,7 +137,7 @@ namespace Sandbox.Game.AI.Pathfinding
             return retval;
         }
 
-        public void AddEdgeIndex(short iv0, short iv1, ref Vector3 posv0, ref Vector3 posv1, int edgeIndex)
+        public void AddEdgeIndex(ushort iv0, ushort iv1, ref Vector3 posv0, ref Vector3 posv1, int edgeIndex)
         {
             InnerEdgeIndex innerIndex = new InnerEdgeIndex(iv0, iv1);
             if (IsInnerEdge(innerIndex))
@@ -156,6 +161,22 @@ namespace Sandbox.Game.AI.Pathfinding
         {
             m_outerEdgePoints.AddPoint(ref posv0, new OuterEdgePoint(edgeIndex, firstPoint: true));
             m_outerEdgePoints.AddPoint(ref posv1, new OuterEdgePoint(edgeIndex, firstPoint: false));
+        }
+
+        public void FixOuterEdge(int edgeIndex, bool firstPoint, Vector3 currentPosition)
+        {
+            OuterEdgePoint data = new OuterEdgePoint(edgeIndex, firstPoint);
+            var query = m_outerEdgePoints.QueryPointsSphere(ref currentPosition, OUTER_EDGE_EPSILON * 3);
+            bool moved = false;
+            while (query.MoveNext())
+            {
+                if (query.Current.EdgeIndex == edgeIndex && query.Current.FirstPoint == firstPoint)
+                {
+                    //Debug.Assert(moved == false, "The point was already moved!");
+                    m_outerEdgePoints.MovePoint(query.StorageIndex, ref currentPosition);
+                    moved = true;
+                }
+            }
         }
 
         private InnerEdgeIndex RemoveInnerEdge(int formerEdgeIndex, InnerEdgeIndex innerIndex)
@@ -183,10 +204,10 @@ namespace Sandbox.Game.AI.Pathfinding
             // Careful: This is quadratic in the number of entries in a bin in m_outerEdgePoints, so don't make the bins too large!
             if (edgeIndex == -1)
             {
-                var en0 = m_outerEdgePoints.GetPointsCloserThan(ref posv0, OUTER_EDGE_EPSILON);
+                var en0 = m_outerEdgePoints.QueryPointsSphere(ref posv0, OUTER_EDGE_EPSILON);
                 while (en0.MoveNext())
                 {
-                    var en1 = m_outerEdgePoints.GetPointsCloserThan(ref posv1, OUTER_EDGE_EPSILON);
+                    var en1 = m_outerEdgePoints.QueryPointsSphere(ref posv1, OUTER_EDGE_EPSILON);
                     while (en1.MoveNext())
                     {
                         OuterEdgePoint p0 = en0.Current;
@@ -205,7 +226,7 @@ namespace Sandbox.Game.AI.Pathfinding
             else
             {
                 int found = 0;
-                var en0 = m_outerEdgePoints.GetPointsCloserThan(ref posv0, OUTER_EDGE_EPSILON);
+                var en0 = m_outerEdgePoints.QueryPointsSphere(ref posv0, OUTER_EDGE_EPSILON);
                 while (en0.MoveNext())
                 {
                     if (en0.Current.EdgeIndex == edgeIndex && en0.Current.FirstPoint)
@@ -215,7 +236,7 @@ namespace Sandbox.Game.AI.Pathfinding
                     }
                 }
 
-                var en1 = m_outerEdgePoints.GetPointsCloserThan(ref posv1, OUTER_EDGE_EPSILON);
+                var en1 = m_outerEdgePoints.QueryPointsSphere(ref posv1, OUTER_EDGE_EPSILON);
                 while (en1.MoveNext())
                 {
                     if (en1.Current.EdgeIndex == edgeIndex && !en1.Current.FirstPoint)
@@ -246,41 +267,51 @@ namespace Sandbox.Game.AI.Pathfinding
             while (binEnum.MoveNext())
             {
                 int binIndex = Sandbox.Game.Gui.MyCestmirDebugInputComponent.BinIndex;
-                if (binIndex == -1 || i == binIndex)
+                if (binIndex == m_outerEdgePoints.InvalidIndex || i == binIndex)
                 {
                     Vector3I position = binEnum.Current.Key;
                     int storageIndex = binEnum.Current.Value;
-
-                    if (storageIndex == -1) continue;
 
                     BoundingBoxD bb, bbTform;
                     m_outerEdgePoints.GetLocalBinBB(ref position, out bb);
                     bbTform.Min = Vector3D.Transform(bb.Min, drawMatrix);
                     bbTform.Max = Vector3D.Transform(bb.Max, drawMatrix);
 
-                    m_outerEdgePoints.CollectStorage(storageIndex, ref m_tmpOuterEdgePointList);
-                    foreach (var point in m_tmpOuterEdgePointList)
+                    while (storageIndex != m_outerEdgePoints.InvalidIndex)
                     {
-                        var edge = mesh.GetEdge(point.EdgeIndex);
-                        Vector3 v1 = mesh.GetVertex(edge.Vertex1);
-                        Vector3 v2 = mesh.GetVertex(edge.Vertex2);
+                        Vector3 p = m_outerEdgePoints.GetPoint(storageIndex);
+                        var edge = mesh.GetEdge(m_outerEdgePoints.GetData(storageIndex).EdgeIndex);
+                        Vector3 v1 = mesh.GetVertexPosition(edge.Vertex1);
+                        Vector3 v2 = mesh.GetVertexPosition(edge.Vertex2);
                         Vector3 vc = (v1 + v2) * 0.5f;
-                        Vector3 vertex;
-                        if (point.FirstPoint)
-                            vertex = v2 * 0.9f + vc * 0.1f;
-                        else
-                            vertex = v1 * 0.9f + vc * 0.1f;
 
-                        Vector3D vertexTformed = vertex;
-                        vertexTformed = Vector3D.Transform(vertexTformed, drawMatrix);
+                        Vector3D vcTformed = Vector3D.Transform((Vector3D)vc, drawMatrix);
+                        Vector3D pTformed = Vector3D.Transform((Vector3D)p, drawMatrix);
 
-                        VRageRender.MyRenderProxy.DebugDrawSphere(vertexTformed, 0.025f, Color.Yellow, 1.0f, false);
+                        VRageRender.MyRenderProxy.DebugDrawArrow3D(vcTformed, pTformed, Color.Yellow, Color.Yellow, false);
+
+                        storageIndex = m_outerEdgePoints.GetNextBinIndex(storageIndex);
                     }
 
                     VRageRender.MyRenderProxy.DebugDrawAABB(bbTform, Color.PowderBlue, 1.0f, 1.0f, false);
                 }
 
                 i++;
+            }
+        }
+
+        [Conditional("DEBUG")]
+        public void CollectOuterEdges(List<MyTuple<OuterEdgePoint, Vector3>> output)
+        {
+            var binEnum = m_outerEdgePoints.EnumerateBins();
+            while (binEnum.MoveNext())
+            {
+                int storageIndex = binEnum.Current.Value;
+                while (storageIndex != -1)
+                {
+                    output.Add(new MyTuple<OuterEdgePoint, Vector3>(m_outerEdgePoints.GetData(storageIndex), m_outerEdgePoints.GetPoint(storageIndex)));
+                    storageIndex = m_outerEdgePoints.GetNextBinIndex(storageIndex);
+                }
             }
         }
     }

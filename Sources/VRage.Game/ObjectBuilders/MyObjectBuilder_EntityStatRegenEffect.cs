@@ -1,8 +1,4 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using VRage.ObjectBuilders;
 
 namespace VRage.Game.ObjectBuilders
@@ -12,16 +8,16 @@ namespace VRage.Game.ObjectBuilders
 	public class MyObjectBuilder_EntityStatRegenEffect : MyObjectBuilder_Base
 	{
 		[ProtoMember]
-		public float TickAmount;
+		public float TickAmount = 0.0f;
 
 		[ProtoMember]
-		public float Interval;
+		public float Interval = 1.0f;
 
 		[ProtoMember]
-		public float MaxRegenRatio;
+		public float MaxRegenRatio = 1.0f;
 
 		[ProtoMember]
-		public float MinRegenRatio;
+		public float MinRegenRatio = 0.0f;
 
 		[ProtoMember]
 		public float AliveTime = 0;

@@ -13,17 +13,42 @@ namespace VRage.Voxels
     public enum MyStorageDataTypeEnum
     {
         Content,
-        Material
+        Material,
+        Occlusion,
+
+        NUM_STORAGE_DATA_TYPES
     }
 
     [Flags]
-    public enum MyStorageDataTypeFlags
+    public enum MyStorageDataTypeFlags : byte
     {
         None               = 0,
         Content            = 1 << MyStorageDataTypeEnum.Content,
         Material           = 1 << MyStorageDataTypeEnum.Material,
         ContentAndMaterial = Content | Material,
-        All                = ~0,
+        Occlusion          = 1 << MyStorageDataTypeEnum.Occlusion,
+        All                = 0xFF,
+    }
+
+    public static class MyVoxelEnumExtensions
+    {
+        // Weather this flags request a given type of data
+        public static bool Requests(this MyStorageDataTypeFlags self, MyStorageDataTypeEnum value)
+        {
+            return ((int)self & (1 << (int)value)) != 0;
+        }
+
+        // get the same flags except the provided type.
+        public static MyStorageDataTypeFlags Without(this MyStorageDataTypeFlags self, MyStorageDataTypeEnum value)
+        {
+            return self & ~(MyStorageDataTypeFlags) (1 << (int) value);
+        }
+
+        // Convert enum to flags
+        public static MyStorageDataTypeFlags ToFlags(this MyStorageDataTypeEnum self)
+        {
+            return (MyStorageDataTypeFlags) (1 << (int) self);
+        }
     }
 
     public enum MyClipmapScaleEnum

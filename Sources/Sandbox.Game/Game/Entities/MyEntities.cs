@@ -2,9 +2,8 @@
 
 using Havok;
 using Sandbox.Common;
-using Sandbox.Common.Components;
+
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Voxels;
 using Sandbox.Engine.Physics;
 using Sandbox.Engine.Utils;
 using Sandbox.Engine.Voxels;
@@ -24,14 +23,19 @@ using VRage.Collections;
 using VRage.Plugins;
 using VRageMath;
 using VRageRender;
-using VRage;
 using Sandbox.ModAPI;
 using Sandbox.Game.Weapons;
 using VRage.Win32;
 using VRage.Utils;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
-using VRage.Components;
+using VRage.Game.Components;
+using System.Text;
+using Sandbox.Game.Components;
+using ParallelTasks;
+using Sandbox.Definitions;
+using VRage.Game.Entity;
+using VRage.Game;
 
 #endregion
 
@@ -60,8 +64,7 @@ namespace Sandbox.Game.Entities
         static CachingList<MyEntity> m_entitiesForUpdate100 = new CachingList<MyEntity>();
 
         //Entities drawn each frame
-        static List<IMyEntity> m_entitiesForDraw = new List<IMyEntity>();
-        static List<IMyEntity> m_entitiesForDrawToAdd = new List<IMyEntity>();
+        static CachingList<IMyEntity> m_entitiesForDraw = new CachingList<IMyEntity>();
 
         // Scene data components
         static List<IMySceneComponent> m_sceneComponents = new List<IMySceneComponent>();
@@ -75,6 +78,10 @@ namespace Sandbox.Game.Entities
         // Event called when entity is removed from scene
         public static event Action<MyEntity> OnEntityRemove;
         public static event Action<MyEntity> OnEntityAdd;
+
+        public static event Action<MyEntity> OnEntityCreate;
+        public static event Action<MyEntity> OnEntityDelete;
+
         public static event Action OnCloseAll;
         public static event Action<MyEntity, string, string> OnEntityNameSet;
 
@@ -88,8 +95,27 @@ namespace Sandbox.Game.Entities
             MyEntityFactory.RegisterDescriptorsFromAssembly(MyPlugins.GameAssembly);
             MyEntityFactory.RegisterDescriptorsFromAssembly(MyPlugins.SandboxAssembly);
             MyEntityFactory.RegisterDescriptorsFromAssembly(MyPlugins.UserAssembly);
+
+            // ------------------ PLEASE READ -------------------------
+            // VRAGE TODO: Delegates in MyEntity help us to get rid of sandbox. There are too many dependencies and this was the easy way to cut MyEntity out of sandbox.
+            //             These delegates should not last here forever, after complete deletion of sandbox, there should be no reason for them to stay.
+            MyEntityExtensions.SetCallbacks();
+
+            MyEntitiesInterface.RegisterUpdate = RegisterForUpdate;
+            MyEntitiesInterface.UnregisterUpdate = UnregisterForUpdate;
+            MyEntitiesInterface.RegisterDraw = RegisterForDraw;
+            MyEntitiesInterface.UnregisterDraw = UnregisterForDraw;
+            MyEntitiesInterface.SetEntityName = SetEntityName;
+            MyEntitiesInterface.IsUpdateInProgress = IsUpdateInProgress;
+            MyEntitiesInterface.IsCloseAllowed = IsCloseAllowed;
+            MyEntitiesInterface.RemoveName = RemoveName;
+            MyEntitiesInterface.RemoveFromClosedEntities = RemoveFromClosedEntities;
+            MyEntitiesInterface.Remove = Remove;
+            MyEntitiesInterface.RaiseEntityRemove = RaiseEntityRemove;
+            MyEntitiesInterface.Close = Close;
         }
 
+        static MyEntityCreationThread m_creationThread;
         static Dictionary<uint, IMyEntity> m_renderObjectToEntityMap = new Dictionary<uint, IMyEntity>();
         static FastResourceLock m_renderObjectToEntityMapLock = new FastResourceLock();
         public static void AddRenderObjectToMap(uint id, IMyEntity entity)
@@ -117,8 +143,9 @@ namespace Sandbox.Game.Entities
         static List<MyEntity> m_overlapRBElementList;
         static List<List<MyEntity>> m_overlapRBElementListCollection = new List<List<MyEntity>>();
 
-        static List<HkRigidBody> m_rigidBodyList = new List<HkRigidBody>();
+        static List<HkBodyCollision> m_rigidBodyList = new List<HkBodyCollision>();
 
+        static List<MyLineSegmentOverlapResult<MyEntity>> LineOverlapEntityList = new List<MyLineSegmentOverlapResult<MyEntity>>();
         static List<MyEntity> OverlapRBElementList
         {
             get
@@ -136,7 +163,7 @@ namespace Sandbox.Game.Entities
         }
 
 
-        public static bool IsShapePenetrating(HkShape shape, ref Vector3D position, ref Quaternion rotation, int filter = MyPhysics.DefaultCollisionLayer)
+        public static bool IsShapePenetrating(HkShape shape, ref Vector3D position, ref Quaternion rotation, int filter = MyPhysics.CollisionLayers.DefaultCollisionLayer)
         {
             try
             {
@@ -157,6 +184,71 @@ namespace Sandbox.Game.Entities
             return isPenetrating;
         }
 
+        /// <param name="matrix">Reference frame from which search for a free place</param>
+        /// <param name="axis">Axis where to perform a rotation searching for a free place</param>
+        public static Vector3D? FindFreePlace(ref MatrixD matrix, Vector3D axis, float radius, int maxTestCount = 20, int testsPerDistance = 5, float stepSize = 1)
+        {
+            Vector3D forward = matrix.Forward;
+            forward.Normalize();
+            Vector3D currentPos = matrix.Translation;
+            Quaternion rot = Quaternion.Identity;
+            HkShape sphere = new HkSphereShape(radius);
+            try
+            {
+                if (MyEntities.IsInsideWorld(currentPos) && !IsShapePenetrating(sphere, ref currentPos, ref rot))
+                {
+                    bool safe = FindFreePlaceVoxelMap(currentPos, radius, ref sphere, ref currentPos);
+                    if (safe)
+                        return currentPos;
+                }
+
+                int count = (int)Math.Ceiling(maxTestCount / (float)testsPerDistance);
+                float angleStep = 2 * (float)Math.PI / testsPerDistance;
+                float distance = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    distance += radius * stepSize;
+                    Vector3D directionOffset = forward;
+                    float angleOffset = 0;
+                    for (int j = 0; j < testsPerDistance; j++)
+                    {
+                        if (j != 0)
+                        {
+                            angleOffset += angleStep;
+                            Quaternion rotation = Quaternion.CreateFromAxisAngle(axis, angleOffset);
+                            directionOffset = Vector3D.Transform(forward, rotation);
+                        }
+
+                        currentPos = matrix.Translation + directionOffset * distance;
+                        if (MyEntities.IsInsideWorld(currentPos) && !IsShapePenetrating(sphere, ref currentPos, ref rot))
+                        {
+                            // Test voxel maps
+                            bool safe = FindFreePlaceVoxelMap(currentPos, radius, ref sphere, ref currentPos);
+                            if (safe)
+                                return currentPos;
+                        }
+                    }
+                }
+                return null;
+            }
+            finally
+            {
+                sphere.RemoveReference();
+            }
+        }
+
+        // NOTE: Following method may have the following problems:
+        // 1) CorrectSpawnLocation() should be always followed by a second test for
+        //    IsShapePenetrating()
+        // 2) First overlapping test may result in returning a colliding test sphere with a
+        //    physics voxel map (case overlappedVoxelmap != null and not a planet)
+        // 3) In second overlapping test, CorrectSpawnLocation() is testing from basePos.
+        //    It should probably test from currentPos cause it's the one that is
+        //    modified by external cycle
+        // 4) In second overlapping test, CorrectSpawnLocation() may have found
+        //    a safe position but that won't be spotted and the result will
+        //    be corrupted by the external cycle
+
         /// <summary>
         /// Finds free place for objects defined by position and radius.
         /// StepSize is how fast to increase radius, 0.5f means by half radius
@@ -169,7 +261,20 @@ namespace Sandbox.Game.Entities
             try
             {
                 if (MyEntities.IsInsideWorld(currentPos) && !IsShapePenetrating(sphere, ref currentPos, ref rot))
+                {
+                    BoundingSphereD boundingSphere = new BoundingSphereD(currentPos, radius);
+                    MyVoxelBase overlappedVoxelmap = MySession.Static.VoxelMaps.GetOverlappingWithSphere(ref boundingSphere);
+
+                    if (overlappedVoxelmap == null)
+                        return currentPos;
+
+                    if (overlappedVoxelmap is MyPlanet)
+                    {
+                        MyPlanet planet = overlappedVoxelmap as MyPlanet;
+                        planet.CorrectSpawnLocation(ref basePos,radius);
+                    }     
                     return basePos;
+                }
 
                 int count = (int)Math.Ceiling(maxTestCount / (float)testsPerDistance);
                 float distance = 0;
@@ -184,9 +289,15 @@ namespace Sandbox.Game.Entities
                             //test voxels
                             BoundingSphereD boundingSphere = new BoundingSphereD(currentPos, radius);
                             MyVoxelBase overlappedVoxelmap = MySession.Static.VoxelMaps.GetOverlappingWithSphere(ref boundingSphere);
-
+                            
                             if (overlappedVoxelmap == null)
                                 return currentPos;
+
+                            if (overlappedVoxelmap is MyPlanet)
+                            {
+                                MyPlanet planet = overlappedVoxelmap as MyPlanet;
+                                planet.CorrectSpawnLocation(ref basePos, radius);
+                            }                 
                         }
                     }
                 }
@@ -198,21 +309,72 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        static List<MyEntity> GetElementsInBox(VRageMath.MyDynamicAABBTree pruningStructure, ref BoundingBox boundingBox)
+        public static Vector3D? TestPlaceInSpace(Vector3D basePos, float radius)
         {
-            MyDebug.AssertDebug(OverlapRBElementList.Count == 0, "The result of GetElementsInBox() wasn't cleared after last use!");
-            pruningStructure.OverlapAllBoundingBox(ref boundingBox, OverlapRBElementList, 0);
-            return OverlapRBElementList;
+            List<MyVoxelBase> voxels = new List<MyVoxelBase>();
+
+            Vector3D currentPos = basePos;
+            Quaternion rot = Quaternion.Identity;
+            HkShape sphere = new HkSphereShape(radius);
+            try
+            {
+                if (MyEntities.IsInsideWorld(currentPos) && !IsShapePenetrating(sphere, ref currentPos, ref rot))
+                {
+                    BoundingSphereD boundingSphere = new BoundingSphereD(currentPos, radius);
+                    MySession.Static.VoxelMaps.GetAllOverlappingWithSphere(ref boundingSphere, voxels);
+
+                    if (voxels.Count == 0)
+                        return currentPos;
+                }
+                return null;
+            }
+            finally
+            {
+                sphere.RemoveReference();
+            }
         }
 
-
-        static List<MyEntity> GetElementsInBox(VRageMath.MyDynamicAABBTreeD pruningStructure, ref BoundingBoxD boundingBox)
+        /// <returns>True if it a safe position is found</returns>
+        private static bool FindFreePlaceVoxelMap(Vector3D currentPos, float radius, ref HkShape shape, ref Vector3D ret)
         {
-            MyDebug.AssertDebug(OverlapRBElementList.Count == 0, "The result of GetElementsInBox() wasn't cleared after last use!");
-            pruningStructure.OverlapAllBoundingBox(ref boundingBox, OverlapRBElementList, 0);
-            return OverlapRBElementList;
-        }
+            BoundingSphereD boundingSphere = new BoundingSphereD(currentPos, radius);
+            MyVoxelBase overlappedVoxelmap = MySession.Static.VoxelMaps.GetOverlappingWithSphere(ref boundingSphere);
 
+            // If a collision with any physics is found, we are just interested in the root voxel map
+            overlappedVoxelmap = overlappedVoxelmap == null ? null : overlappedVoxelmap.RootVoxel;
+            if (overlappedVoxelmap == null)
+            {
+                ret = currentPos;
+                return true;
+            }
+
+            MyPlanet planet = overlappedVoxelmap as MyPlanet;
+            if (planet != null)
+            {
+                bool safe = planet.CorrectSpawnLocation2(ref currentPos, radius);
+                Quaternion rot = Quaternion.Identity;
+                if (safe)
+                {
+                    if (!IsShapePenetrating(shape, ref currentPos, ref rot))
+                    {
+                        ret = currentPos;
+                        return true;
+                    }
+
+                    // The first attempt to fix the spawn position succeded but
+                    // it is now colliding with other objects. Resume the up search
+                    // on the planet
+                    safe = planet.CorrectSpawnLocation2(ref currentPos, radius, true);
+                    if (safe && !IsShapePenetrating(shape, ref currentPos, ref rot))
+                    {
+                        ret = currentPos;
+                        return true;
+                    }                    
+                }
+            }
+
+            return false;
+        }
 
         static List<MyPhysics.HitInfo> m_hits = new List<MyPhysics.HitInfo>();
 
@@ -236,13 +398,13 @@ namespace Sandbox.Game.Entities
 
             lastOutsidePos = pos;
 
-            MyPhysics.CastRay(hintPosition, pos, m_hits);
+            MyPhysics.CastRay(hintPosition, pos, m_hits, MyPhysics.CollisionLayers.DefaultCollisionLayer);
 
             int voxelHits = 0;
 
             foreach (var hit in m_hits)
             {
-                var voxel = hit.HkHitInfo.Body.GetEntity() as MyVoxelMap;
+                var voxel = hit.HkHitInfo.GetHitEntity() as MyVoxelMap;
                 if (voxel != null)
                 {
                     voxelHits++;
@@ -303,16 +465,35 @@ namespace Sandbox.Game.Entities
         /// <returns>The list of results.</returns>
         public static List<MyEntity> GetEntitiesInAABB(ref BoundingBox boundingBox)
         {
+            MyDebug.AssertDebug(OverlapRBElementList.Count == 0, "Result buffer was not cleared after last use!");
             BoundingBoxD bbD = (BoundingBoxD)boundingBox;
-            return GetElementsInBox(m_pruningStructure, ref bbD);
+            MyGamePruningStructure.GetAllEntitiesInBox(ref bbD, OverlapRBElementList);
+            //return GetElementsInBox(m_pruningStructure, ref bbD);
+            return OverlapRBElementList;
         }
 
-        public static List<MyEntity> GetEntitiesInAABB(ref BoundingBoxD boundingBox)
+        public static List<MyEntity> GetEntitiesInAABB(ref BoundingBoxD boundingBox, bool exact=false)
         {
+            MyDebug.AssertDebug(OverlapRBElementList.Count == 0, "Result buffer was not cleared after last use!");
             ProfilerShort.Begin("GetEntitiesInAABB");
-            var result = GetElementsInBox(m_pruningStructure, ref boundingBox);
+            MyGamePruningStructure.GetAllEntitiesInBox(ref boundingBox, OverlapRBElementList);
+            if ( exact )
+            {
+                // game prunning structure returns unaccurate values - we have to filter out results
+                for ( int i = 0; i<OverlapRBElementList.Count; )
+                {
+                    MyEntity entity = OverlapRBElementList[i];
+                    // filtering out bad results - like people during last judgement
+                    if ( !boundingBox.Intersects(entity.PositionComp.WorldAABB) )
+                        // bad one
+                        OverlapRBElementList.RemoveAt(i);
+                    else
+                        // good one
+                        i++;
+                }
+            }
             ProfilerShort.End();
-            return result;
+            return OverlapRBElementList;
         }
         /// <summary>
         /// Get all rigid body elements touching a bounding sphere.
@@ -322,14 +503,28 @@ namespace Sandbox.Game.Entities
         public static List<MyEntity> GetEntitiesInSphere(ref BoundingSphereD boundingSphere)
         {
             MyDebug.AssertDebug(OverlapRBElementList.Count == 0, "Result buffer was not cleared after last use!");
-            m_pruningStructure.OverlapAllBoundingSphere(ref boundingSphere, OverlapRBElementList);
+            MyGamePruningStructure.GetAllEntitiesInSphere(ref boundingSphere, OverlapRBElementList);
+            //m_pruningStructure.OverlapAllBoundingSphere(ref boundingSphere, OverlapRBElementList);
+            return OverlapRBElementList;
+        }
+
+        public static List<MyEntity> GetTopMostEntitiesInSphere(ref BoundingSphereD boundingSphere)
+        {
+            MyDebug.AssertDebug(OverlapRBElementList.Count == 0, "Result buffer was not cleared after last use!");
+            MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphere, OverlapRBElementList);
             return OverlapRBElementList;
         }
 
         public static void GetElementsInBox(ref BoundingBoxD boundingBox, List<MyEntity> foundElements)
         {
-            m_pruningStructure.OverlapAllBoundingBox(ref boundingBox, foundElements, 0);
+            MyGamePruningStructure.GetAllEntitiesInBox(ref boundingBox, foundElements);
         }
+
+        public static void GetTopMostEntitiesInBox(ref BoundingBoxD boundingBox, List<MyEntity> foundElements, MyEntityQueryType qtype = MyEntityQueryType.Both)
+        {
+            MyGamePruningStructure.GetAllTopMostStaticEntitiesInBox(ref boundingBox, foundElements, qtype);
+        }
+
 
         // Helper list for storing results of various operations, mostly used in intersections
         [ThreadStatic]
@@ -390,8 +585,6 @@ namespace Sandbox.Game.Entities
        }
    }
           */
-        //  For quick space-traversal
-        static VRageMath.MyDynamicAABBTreeD m_pruningStructure;
 
         // Helper collection, entities are added with MarkForClose(entity), real remove is done with CloseRememberedEntities() which is last Update call
         static HashSet<MyEntity> m_entitiesToDelete = new HashSet<MyEntity>();
@@ -422,6 +615,7 @@ namespace Sandbox.Game.Entities
         private static void AddComponents()
         {
             m_sceneComponents.Add(new MyCubeGridGroups());
+            m_sceneComponents.Add(new MyWeldingGroups());
         }
 
         public static void LoadData()
@@ -431,7 +625,6 @@ namespace Sandbox.Game.Entities
             m_entities.Clear();
             m_entitiesToDelete.Clear();
             m_entitiesToDeleteNextFrame.Clear();
-            m_pruningStructure = MyGamePruningStructure.GetPrunningStructure();
 
             m_cameraSphere = new Havok.HkSphereShape(MyThirdPersonSpectator.CAMERA_RADIUS);
 
@@ -441,7 +634,7 @@ namespace Sandbox.Game.Entities
                 component.Load();
             }
 
-            MyDebug.AssertRelease(m_pruningStructure != null);
+            m_creationThread = new MyEntityCreationThread();
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
             m_isLoaded = true;
         }
@@ -455,12 +648,14 @@ namespace Sandbox.Game.Entities
 
             using (UnloadDataLock.AcquireExclusiveUsing())
             {
+                m_creationThread.Dispose();
+                m_creationThread = null;
+
                 CloseAll();
 
                 System.Diagnostics.Debug.Assert(m_entities.Count == 0);
                 System.Diagnostics.Debug.Assert(m_entitiesToDelete.Count == 0);
 
-                m_pruningStructure = null;
                 // m_lineOverlapRBElementList = null;
                 m_overlapRBElementList = null;
                 m_entityResultSet = null;
@@ -514,6 +709,7 @@ namespace Sandbox.Game.Entities
         public static void Add(MyEntity entity, bool insertIntoScene = true)
         {
             System.Diagnostics.Debug.Assert(entity.Parent == null, "There are only root entities in MyEntities");
+            MySandboxGame.AssertUpdateThread();
 
             if (insertIntoScene)
             {
@@ -528,9 +724,8 @@ namespace Sandbox.Game.Entities
                 }
 
                 m_entities.Add(entity);
+                RaiseEntityAdd(entity);
             }
-
-            RaiseEntityAdd(entity);
         }
 
         public static void SetEntityName(MyEntity myEntity, bool possibleRename = true)
@@ -581,7 +776,6 @@ namespace Sandbox.Game.Entities
         /// Removes the specified entity from scene
         /// </summary>
         /// <param name="entity">The entity.</param>
-        /// <param name="skipIfNotExist">if set to <c>true</c> [skip if not exist].</param>
         public static void Remove(MyEntity entity)
         {
             System.Diagnostics.Debug.Assert(entity != null);
@@ -595,8 +789,8 @@ namespace Sandbox.Game.Entities
             {
                 m_entities.Remove(entity);
                 entity.OnRemovedFromScene(entity);
+                RaiseEntityRemove(entity);
             }
-            RaiseEntityRemove(entity);
         }
 
 
@@ -605,15 +799,23 @@ namespace Sandbox.Game.Entities
         public static FastResourceLock UnloadDataLock = new FastResourceLock();
         //public static object EntityCloseLock = new object();
 
-        private static void DeleteRememberedEntities()
+        public static void DeleteRememberedEntities()
         {
             CloseAllowed = true;
 
             while (m_entitiesToDelete.Count > 0)
             {
-                EntityCloseLock.AcquireExclusive();
-                m_entitiesToDelete.FirstElement().Delete();
-                EntityCloseLock.ReleaseExclusive();
+                using (EntityCloseLock.AcquireExclusiveUsing())
+                {
+                    MyEntity entity = m_entitiesToDelete.FirstElement();
+
+                    var deleteCallback = OnEntityDelete;
+                    if (deleteCallback != null)
+                    {
+                        deleteCallback(entity);
+                    }
+                    entity.Delete();
+                }
             }
 
             CloseAllowed = false;
@@ -621,6 +823,12 @@ namespace Sandbox.Game.Entities
             HashSet<MyEntity> tempList = m_entitiesToDelete;
             m_entitiesToDelete = m_entitiesToDeleteNextFrame;
             m_entitiesToDeleteNextFrame = tempList;
+        }
+
+
+        public static bool HasEntitiesToDelete()
+        {
+            return m_entitiesToDelete.Count > 0;
         }
 
         public static void RemoveFromClosedEntities(MyEntity entity)
@@ -714,8 +922,8 @@ namespace Sandbox.Game.Entities
             m_entitiesForUpdate.DebugCheckEmpty();
             m_entitiesForUpdate10.DebugCheckEmpty();
             m_entitiesForUpdate100.DebugCheckEmpty();
+            m_entitiesForDraw.ApplyChanges();
             Debug.Assert(m_entitiesForDraw.Count == 0);
-            Debug.Assert(m_entitiesForDrawToAdd.Count == 0);
         }
 
         public static void RegisterForUpdate(MyEntity entity)
@@ -742,7 +950,7 @@ namespace Sandbox.Game.Entities
         {
             if (entity.Render.NeedsDraw)
             {
-                m_entitiesForDrawToAdd.Add(entity);
+                m_entitiesForDraw.Add(entity);
             }
         }
 
@@ -771,7 +979,6 @@ namespace Sandbox.Game.Entities
 
         public static void UnregisterForDraw(IMyEntity entity)
         {
-            m_entitiesForDrawToAdd.Remove(entity);
             m_entitiesForDraw.Remove(entity);
         }
 
@@ -785,6 +992,8 @@ namespace Sandbox.Game.Entities
         static float m_update100Count = 0;
 
 
+        public static bool IsUpdateInProgress() { return UpdateInProgress; }
+        public static bool IsCloseAllowed() { return CloseAllowed; }
 
         public static void UpdateBeforeSimulation()
         {
@@ -792,6 +1001,7 @@ namespace Sandbox.Game.Entities
             {
                 return;
             }
+
             ProfilerShort.Begin("MyEntities.UpdateBeforeSimulation");
             System.Diagnostics.Debug.Assert(UpdateInProgress == false);
             UpdateInProgress = true;
@@ -804,14 +1014,14 @@ namespace Sandbox.Game.Entities
                 m_entitiesForUpdate.ApplyChanges();
                 foreach (MyEntity entity in m_entitiesForUpdate)
                 {
-                    ProfilerShort.Begin(Partition.Select(entity.GetType().GetHashCode(), "Part1", "Part2", "Part3", "Part4", "Part5"));
+                    //ProfilerShort.Begin(Partition.Select(entity.GetType().GetHashCode(), "Part1", "Part2", "Part3"));
                     ProfilerShort.Begin(entity.GetType().Name);
                     if (entity.MarkedForClose == false)
                     {
                         entity.UpdateBeforeSimulation();
                     }
                     ProfilerShort.End();
-                    ProfilerShort.End();
+                    //ProfilerShort.End();
                 }
 
                 ProfilerShort.BeginNextBlock("10th update");
@@ -823,12 +1033,16 @@ namespace Sandbox.Game.Entities
                     for (int i = m_update10Index; i < m_entitiesForUpdate10.Count; i += 10)
                     {
                         var entity = m_entitiesForUpdate10[i];
-                        ProfilerShort.Begin(entity.GetType().Name);
+
+                        string typeName = entity.GetType().Name;
+                        //ProfilerShort.Begin(Partition.Select(typeName.GetHashCode(), "Part1", "Part2", "Part3"));
+                        ProfilerShort.Begin(typeName);
                         if (entity.MarkedForClose == false)
                         {
                             entity.UpdateBeforeSimulation10();
                         }
                         ProfilerShort.End();
+                        //ProfilerShort.End();
                     }
                 }
 
@@ -841,12 +1055,16 @@ namespace Sandbox.Game.Entities
                     for (int i = m_update100Index; i < m_entitiesForUpdate100.Count; i += 100)
                     {
                         var entity = m_entitiesForUpdate100[i];
-                        ProfilerShort.Begin(entity.GetType().Name);
+
+                        string typeName = entity.GetType().Name;
+                        //ProfilerShort.Begin(Partition.Select(typeName.GetHashCode(), "Part1", "Part2", "Part3"));
+                        ProfilerShort.Begin(typeName);
                         if (entity.MarkedForClose == false)
                         {
                             entity.UpdateBeforeSimulation100();
                         }
                         ProfilerShort.End();
+                        //ProfilerShort.End();
                     }
                 }
                 ProfilerShort.End();
@@ -873,7 +1091,7 @@ namespace Sandbox.Game.Entities
         //  Update all physics objects - AFTER physics simulation
         public static void UpdateAfterSimulation()
         {
-           if (MySandboxGame.IsGameReady == false)
+            if (MySandboxGame.IsGameReady == false)
             {
                 return;
             }
@@ -888,12 +1106,15 @@ namespace Sandbox.Game.Entities
                 {
                     MyEntity entity = m_entitiesForUpdate[i];
 
-                    ProfilerShort.Begin(entity.GetType().Name);
+                    string typeName = entity.GetType().Name;
+                    //ProfilerShort.Begin(Partition.Select(typeName.GetHashCode(), "Part1", "Part2", "Part3"));
+                    ProfilerShort.Begin(typeName);
                     if (entity.MarkedForClose == false)
                     {
                         entity.UpdateAfterSimulation();
                     }
                     ProfilerShort.End();
+                    //ProfilerShort.End();
                 }
 
                 ProfilerShort.End();
@@ -905,12 +1126,16 @@ namespace Sandbox.Game.Entities
                     for (int i = m_update10Index; i < m_entitiesForUpdate10.Count; i += 10)
                     {
                         MyEntity entity = m_entitiesForUpdate10[i];
-                        ProfilerShort.Begin(entity.GetType().Name);
+
+                        string typeName = entity.GetType().Name;
+                        //ProfilerShort.Begin(Partition.Select(typeName.GetHashCode(), "Part1", "Part2", "Part3"));
+                        ProfilerShort.Begin(typeName);
                         if (entity.MarkedForClose == false)
                         {
                             entity.UpdateAfterSimulation10();
                         }
                         ProfilerShort.End();
+                        //ProfilerShort.End();
                     }
                 }
                 ProfilerShort.End();
@@ -922,12 +1147,16 @@ namespace Sandbox.Game.Entities
                     for (int i = m_update100Index; i < m_entitiesForUpdate100.Count; i += 100)
                     {
                         MyEntity entity = m_entitiesForUpdate100[i];
-                        ProfilerShort.Begin(entity.GetType().Name);
+
+                        string typeName = entity.GetType().Name;
+                        //ProfilerShort.Begin(Partition.Select(typeName.GetHashCode(), "Part1", "Part2", "Part3"));
+                        ProfilerShort.Begin(typeName);
                         if (entity.MarkedForClose == false)
                         {
                             entity.UpdateAfterSimulation100();
                         }
                         ProfilerShort.End();
+                        //ProfilerShort.End();
                     }
                 }
                 ProfilerShort.End();
@@ -936,6 +1165,8 @@ namespace Sandbox.Game.Entities
 
                 DeleteRememberedEntities();
             }
+
+            while (m_creationThread.ConsumeResult()) ; // Add entities created asynchronously
 
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
         }
@@ -970,18 +1201,20 @@ namespace Sandbox.Game.Entities
         public static void Draw()
         {
             ProfilerShort.Begin("Each draw");
-            m_entitiesForDraw.AddList(m_entitiesForDrawToAdd);
-            m_entitiesForDrawToAdd.Clear();
+            m_entitiesForDraw.ApplyChanges();
 
             foreach (MyEntity entity in m_entitiesForDraw)
             {
                 entity.PrepareForDraw();
 
-                if (IsAnyRenderObjectVisible(entity))
+                if (entity.Render.NeedsDrawFromParent == false && IsAnyRenderObjectVisible(entity))
                 {
-                    ProfilerShort.Begin(entity.GetType().Name);
+                    string typeName = entity.GetType().Name;
+                    //ProfilerShort.Begin(Partition.Select(typeName.GetHashCode(), "Part1", "Part2", "Part3"));
+                    ProfilerShort.Begin(typeName);
                     entity.Render.Draw();
                     ProfilerShort.End();
+                    //ProfilerShort.End();
                 }
             }
 
@@ -1130,7 +1363,7 @@ namespace Sandbox.Game.Entities
 
         public static void OverlapAllLineSegment(ref LineD line, List<MyLineSegmentOverlapResult<MyEntity>> resultList)
         {
-            m_pruningStructure.OverlapAllLineSegment(ref line, resultList);
+            MyGamePruningStructure.GetAllEntitiesInRay(ref line, resultList);
         }
 
         //  Calculates intersection of line with any triangleVertexes in the world (every model instance). Closest intersection and intersected triangleVertexes will be returned.
@@ -1138,7 +1371,7 @@ namespace Sandbox.Game.Entities
         //      line - line we want to test for intersection
         //      ignoreModelInstance0 and 1 - we may specify two phys objects we don't want to test for intersections. Usually this is model instance of who is shoting, or missile, etc.
         //      outIntersection - intersection data calculated by this method
-        internal static MyIntersectionResultLineTriangleEx? GetIntersectionWithLine(ref LineD line, MyEntity ignoreEntity0, MyEntity ignoreEntity1, bool ignoreChildren = false, bool ignoreFloatingObjects = true, bool ignoreHandWeapons = true, IntersectionFlags flags = IntersectionFlags.ALL_TRIANGLES, float timeFrame = 0)
+        public static VRage.Game.Models.MyIntersectionResultLineTriangleEx? GetIntersectionWithLine(ref LineD line, MyEntity ignoreEntity0, MyEntity ignoreEntity1, bool ignoreChildren = false, bool ignoreFloatingObjects = true, bool ignoreHandWeapons = true, IntersectionFlags flags = IntersectionFlags.ALL_TRIANGLES, float timeFrame = 0, bool ignoreObjectsWithoutPhysics = true)
         {
             VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("GetIntersectionWithLine.GetChildren");
             EntityResultSet.Clear();
@@ -1160,13 +1393,13 @@ namespace Sandbox.Game.Entities
 
             //  Get collision skins near the line's bounding box (use sweep-and-prune, so we iterate only close objects)
             VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("GetIntersectionWithLine.OverlapRBAllLineSegment");
-            List<MyLineSegmentOverlapResult<MyEntity>> LineOverlapEntityList = new List<MyLineSegmentOverlapResult<MyEntity>>();
-            m_pruningStructure.OverlapAllLineSegment(ref line, LineOverlapEntityList, 0);
+            LineOverlapEntityList.Clear();
+            MyGamePruningStructure.GetAllEntitiesInRay(ref line, LineOverlapEntityList);
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
 
             LineOverlapEntityList.Sort(MyLineSegmentOverlapResult<MyEntity>.DistanceComparer);
 
-            MyIntersectionResultLineTriangleEx? ret = null;
+            VRage.Game.Models.MyIntersectionResultLineTriangleEx? ret = null;
             RayD ray = new RayD(line.From, line.Direction);
             foreach (var result in LineOverlapEntityList)
             {
@@ -1190,7 +1423,7 @@ namespace Sandbox.Game.Entities
                 if (entity == ignoreEntity0 || entity == ignoreEntity1 || (ignoreChildren && EntityResultSet.Contains(entity))) continue;
 
                 // Ignore objects without physics
-                if (entity.Physics == null || !entity.Physics.Enabled) continue;
+                if (ignoreObjectsWithoutPhysics && (entity.Physics == null || !entity.Physics.Enabled)) continue;
 
                 if (entity.MarkedForClose) continue;
 
@@ -1203,7 +1436,7 @@ namespace Sandbox.Game.Entities
 
 
                 VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("GetIntersectionWithLine.GetIntersectionWithLine");
-                MyIntersectionResultLineTriangleEx? testResultEx = null;
+                VRage.Game.Models.MyIntersectionResultLineTriangleEx? testResultEx = null;
 
                 if (timeFrame == 0 || entity.Physics == null || entity.Physics.LinearVelocity.LengthSquared() < 0.1f || !entity.IsCCDForProjectiles)
                     entity.GetIntersectionWithLine(ref line, out testResultEx, flags);
@@ -1227,12 +1460,13 @@ namespace Sandbox.Game.Entities
                 {
                     VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("GetIntersectionWithLine.GetCloserIntersection");
                     //  If intersection occured and distance to intersection is closer to origin than any previous intersection
-                    ret = MyIntersectionResultLineTriangleEx.GetCloserIntersection(ref ret, ref testResultEx);
+                    ret = VRage.Game.Models.MyIntersectionResultLineTriangleEx.GetCloserIntersection(ref ret, ref testResultEx);
                     VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
                 }
                 VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
             }
 
+            LineOverlapEntityList.Clear();
             return ret;
         }
 
@@ -1247,6 +1481,22 @@ namespace Sandbox.Game.Entities
         {
             return MyEntityIdentifier.GetEntityById(entityId) as MyEntity;
         }
+
+        public static MyEntity GetEntityByIdOrDefault(long entityId, MyEntity defaultValue = null)
+        {
+            IMyEntity result;
+            MyEntityIdentifier.TryGetEntity(entityId, out result);
+            return (result as MyEntity) ?? defaultValue;
+        }
+
+        public static T GetEntityByIdOrDefault<T>(long entityId, T defaultValue = null)
+            where T : MyEntity
+        {
+            IMyEntity result;
+            MyEntityIdentifier.TryGetEntity(entityId, out result);
+            return (result as T) ?? defaultValue;
+        }
+
 
         public static bool EntityExists(long entityId)
         {
@@ -1464,108 +1714,121 @@ namespace Sandbox.Game.Entities
 
         public static void DebugDraw()
         {
-            if (MyDebugDrawSettings.DEBUG_DRAW_GRID_GROUPS_PHYSICAL && MyCubeGridGroups.Static != null)
-            {
-                DebugDrawGroups(MyCubeGridGroups.Static.Physical);
-            }
-            if (MyDebugDrawSettings.DEBUG_DRAW_GRID_GROUPS_LOGICAL && MyCubeGridGroups.Static != null)
-            {
-                DebugDrawGroups(MyCubeGridGroups.Static.Logical);
-            }
+            ProfilerShort.Begin("MyEntities.DebugDraw");
+            MyEntityComponentsDebugDraw.DebugDraw();
 
-            if (MyDebugDrawSettings.DEBUG_DRAW_SMALL_TO_LARGE_BLOCK_GROUPS && MyCubeGridGroups.Static != null)
+            if (MyCubeGridGroups.Static != null)
             {
-                MyCubeGridGroups.DebugDrawBlockGroups(MyCubeGridGroups.Static.SmallToLargeBlockConnections);
+                if (MyDebugDrawSettings.DEBUG_DRAW_GRID_GROUPS_PHYSICAL)
+                {
+                    DebugDrawGroups(MyCubeGridGroups.Static.Physical);
+                }
+                if (MyDebugDrawSettings.DEBUG_DRAW_GRID_GROUPS_LOGICAL)
+                {
+                    DebugDrawGroups(MyCubeGridGroups.Static.Logical);
+                }
+                if (MyDebugDrawSettings.DEBUG_DRAW_SMALL_TO_LARGE_BLOCK_GROUPS)
+                {
+                    MyCubeGridGroups.DebugDrawBlockGroups(MyCubeGridGroups.Static.SmallToLargeBlockConnections);
+                }
+                if (MyDebugDrawSettings.DEBUG_DRAW_DYNAMIC_PHYSICAL_GROUPS)
+                {
+                    DebugDrawGroups(MyCubeGridGroups.Static.PhysicalDynamic);
+                }
             }
 
             if (
-                MyDebugDrawSettings.DEBUG_DRAW_COLLISION_PRIMITIVES ||
+                MyDebugDrawSettings.DEBUG_DRAW_PHYSICS ||
                 MyDebugDrawSettings.ENABLE_DEBUG_DRAW ||
                 MyFakes.SHOW_INVALID_TRIANGLES)
             {
                 using (m_renderObjectToEntityMapLock.AcquireSharedUsing())
                 {
-                    if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW)
+                    m_entitiesForDebugDraw.Clear();
+
+                    foreach (uint renderObjectID in VRageRender.MyRenderProxy.VisibleObjectsRead)
                     {
-                        m_entitiesForDebugDraw.Clear();
+                        IMyEntity entity;
+                        m_renderObjectToEntityMap.TryGetValue(renderObjectID, out entity);
 
-                        foreach (uint renderObjectID in VRageRender.MyRenderProxy.VisibleObjectsRead)
+                        if (entity != null)
                         {
-                            IMyEntity entity;
-                            m_renderObjectToEntityMap.TryGetValue(renderObjectID, out entity);
-
-                            if (entity != null)
+                            IMyEntity rootEntity = entity.GetTopMostParent();
+                            if (!m_entitiesForDebugDraw.Contains(rootEntity))
                             {
-                                IMyEntity rootEntity = entity.GetTopMostParent();
-                                if (!m_entitiesForDebugDraw.Contains(rootEntity))
-                                {
-                                    m_entitiesForDebugDraw.Add(rootEntity);
-                                }
+                                m_entitiesForDebugDraw.Add(rootEntity);
                             }
                         }
+                    }
 
-                        if (MyDebugDrawSettings.DEBUG_DRAW_GRID_COUNTER)
-                        {
-                            MyRenderProxy.DebugDrawText2D(new Vector2(700.0f, 0.0f), "Grid number: " + MyCubeGrid.GridCounter, Color.Red, 1.0f, MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_TOP);
-                        }
+                    if (MyDebugDrawSettings.DEBUG_DRAW_GRID_COUNTER)
+                    {
+                        MyRenderProxy.DebugDrawText2D(new Vector2(700.0f, 0.0f), "Grid number: " + MyCubeGrid.GridCounter, Color.Red, 1.0f, MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_TOP);
+                    }
 
-                        foreach (IMyEntity entity in m_entitiesForDebugDraw)
-                        //foreach (MyEntity entity in GetEntities())
-                        {
+                    foreach (IMyEntity entity in m_entitiesForDebugDraw)
+                    {
+                        if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW)
                             entity.DebugDraw();
+                        if (MyDebugDrawSettings.DEBUG_DRAW_PHYSICS)
+                        {
+                            if (entity.Physics != null)
+                                entity.Physics.DebugDraw();
                         }
+                        if (MyFakes.SHOW_INVALID_TRIANGLES)
+                            entity.DebugDrawInvalidTriangles();
                     }
 
                     m_entitiesForDebugDraw.Clear();
 
-                    if (MyDebugDrawSettings.DEBUG_DRAW_COLLISION_PRIMITIVES)
-                    {
-                        foreach (uint renderObjectID in VRageRender.MyRenderProxy.VisibleObjectsRead)
-                        {
-                            IMyEntity entity;
-                            m_renderObjectToEntityMap.TryGetValue(renderObjectID, out entity);
+                    //if (MyDebugDrawSettings.DEBUG_DRAW_COLLISION_PRIMITIVES)
+                    //{
+                    //    foreach (uint renderObjectID in VRageRender.MyRenderProxy.VisibleObjectsRead)
+                    //    {
+                    //        IMyEntity entity;
+                    //        m_renderObjectToEntityMap.TryGetValue(renderObjectID, out entity);
 
-                            if (entity != null)
-                            {
-                                IMyEntity rootEntity = entity.GetTopMostParent();
-                                if (!m_entitiesForDebugDraw.Contains(rootEntity))
-                                {
-                                    m_entitiesForDebugDraw.Add(rootEntity);
-                                }
-                            }
-                        }
+                    //        if (entity != null)
+                    //        {
+                    //            IMyEntity rootEntity = entity.GetTopMostParent();
+                    //            if (!m_entitiesForDebugDraw.Contains(rootEntity))
+                    //            {
+                    //                m_entitiesForDebugDraw.Add(rootEntity);
+                    //            }
+                    //        }
+                    //    }
 
-                        foreach (IMyEntity entity in m_entitiesForDebugDraw)
-                        {
-                            if(entity.Physics != null)
-                                entity.Physics.DebugDraw();
-                        }
-                    }
+                    //    foreach (IMyEntity entity in m_entitiesForDebugDraw)
+                    //    {
+                    //        if(entity.Physics != null)
+                    //            entity.Physics.DebugDraw();
+                    //    }
+                    //}
 
-                    if (MyFakes.SHOW_INVALID_TRIANGLES)
-                    {
-                        m_entitiesForDebugDraw.Clear();
+                    //if (MyFakes.SHOW_INVALID_TRIANGLES)
+                    //{
+                    //    m_entitiesForDebugDraw.Clear();
 
-                        foreach (uint renderObjectID in VRageRender.MyRenderProxy.VisibleObjectsRead)
-                        {
-                            IMyEntity entity;
-                            m_renderObjectToEntityMap.TryGetValue(renderObjectID, out entity);
+                    //    foreach (uint renderObjectID in VRageRender.MyRenderProxy.VisibleObjectsRead)
+                    //    {
+                    //        IMyEntity entity;
+                    //        m_renderObjectToEntityMap.TryGetValue(renderObjectID, out entity);
 
-                            if (entity != null)
-                            {
-                                IMyEntity rootEntity = entity.GetTopMostParent();
-                                if (!m_entitiesForDebugDraw.Contains(rootEntity))
-                                {
-                                    m_entitiesForDebugDraw.Add(rootEntity);
-                                }
-                            }
-                        }
+                    //        if (entity != null)
+                    //        {
+                    //            IMyEntity rootEntity = entity.GetTopMostParent();
+                    //            if (!m_entitiesForDebugDraw.Contains(rootEntity))
+                    //            {
+                    //                m_entitiesForDebugDraw.Add(rootEntity);
+                    //            }
+                    //        }
+                    //    }
 
-                        foreach (IMyEntity entity in m_entitiesForDebugDraw)
-                        {
-                            entity.DebugDrawInvalidTriangles();
-                        }
-                    }
+                    //    foreach (IMyEntity entity in m_entitiesForDebugDraw)
+                    //    {
+                    //        entity.DebugDrawInvalidTriangles();
+                    //    }
+                    //}
 
                     if (MyDebugDrawSettings.DEBUG_DRAW_GAME_PRUNNING)
                     {
@@ -1591,6 +1854,7 @@ namespace Sandbox.Game.Entities
                 MyPhysics.DebugDrawClusters();
             }
             MyPhysics.DebugDrawClustersEnable = MyDebugDrawSettings.DEBUG_DRAW_PHYSICS_CLUSTERS;
+            ProfilerShort.End();
         }
 
         public static MyEntity CreateFromObjectBuilderAndAdd(MyObjectBuilder_EntityBase objectBuilder)
@@ -1617,13 +1881,66 @@ namespace Sandbox.Game.Entities
 
             MyEntity retVal = CreateFromObjectBuilder(objectBuilder);
 
+            
             if (retVal != null)
             {
-                Add(retVal, insertIntoScene);
+                //by Gregory: added Check if Entity.Id == 0.
+                //means that save is corrupted and not all entities will be loaded but at least the save game will run with warning message.
+                //Mostly for compatibility with old save games
+                if (retVal.EntityId == 0)
+                {
+                    //If set to null a waning will be printed disabled that now cause got a lot fo Entities with EntityId = 0.
+                    //retVal = null;
+                }
+                else
+                {
+                    Add(retVal, insertIntoScene);
+                }
             }
 
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
             return retVal;
+        }
+
+        /// <summary>
+        /// Creates object asynchronously and adds it into scene.
+        /// DoneHandler is invoked from update thread when the object is added into scene.
+        /// </summary>
+        public static void CreateAsync(MyObjectBuilder_EntityBase objectBuilder, bool addToScene, Action<MyEntity> doneHandler = null)
+        {
+            Debug.Assert(m_creationThread != null, "Creation thread is null, unloading?");
+            if (m_creationThread != null)
+            {
+                m_creationThread.SubmitWork(objectBuilder, addToScene, doneHandler);
+            }
+        }
+
+        public static void InitAsync(MyEntity entity, MyObjectBuilder_EntityBase objectBuilder, bool addToScene, Action<MyEntity> doneHandler = null)
+        {
+            Debug.Assert(m_creationThread != null, "Creation thread is null, unloading?");
+            if (m_creationThread != null)
+            {
+                m_creationThread.SubmitWork(objectBuilder, addToScene, doneHandler, entity);
+            }
+        }
+
+        public static void InitAsync(MyEntity entity, MyObjectBuilder_EntityBase objectBuilder, bool addToScene, Action<MyEntity> doneHandler,List<MyObjectBuilder_EntityBase> subBuilders)
+        {
+            Debug.Assert(m_creationThread != null, "Creation thread is null, unloading?");
+            if (m_creationThread != null)
+            {
+                m_creationThread.SubmitWork(objectBuilder, addToScene, doneHandler, entity, subBuilders);
+            }
+        }
+
+        public static void CallAsync(MyEntity entity, Action<MyEntity> doneHandler)
+        {
+            InitAsync(entity, null, false, doneHandler);
+        }
+
+        public static void CallAsync(Action doneHandler)
+        {
+            InitAsync(null, null, false, (e) => doneHandler());
         }
 
         public static bool MemoryLimitReached
@@ -1691,20 +2008,33 @@ namespace Sandbox.Game.Entities
         public static MyEntity CreateFromObjectBuilder(MyObjectBuilder_EntityBase objectBuilder)
         {
             MyEntity entity = CreateFromObjectBuilderNoinit(objectBuilder);
+            InitEntity(objectBuilder, ref entity);
+            return entity;
+        }
+
+        public static void InitEntity(MyObjectBuilder_EntityBase objectBuilder, ref MyEntity entity)
+        {
             if (entity != null)
             {
-                try
+                if (MyFakes.THROW_LOADING_ERRORS)
                 {
                     entity.Init(objectBuilder);
                 }
-                catch (Exception ex)
+                else
                 {
-                    MySandboxGame.Log.WriteLine("ERROR Entity init!: " + ex);
-                    entity.EntityId = 0;
-                    entity = null;
+                    try
+                    {
+                        entity.Init(objectBuilder);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.Fail("Exception during entity.Init");
+                        MySandboxGame.Log.WriteLine("ERROR Entity init!: " + ex);
+                        entity.EntityId = 0;
+                        entity = null;
+                    }
                 }
             }
-            return entity;
         }
 
         /// <summary>
@@ -1723,8 +2053,10 @@ namespace Sandbox.Game.Entities
                 if (objectBuilders != null)
                 {
                     //  Objects received from server
-                    foreach (MyObjectBuilder_EntityBase objectBuilder in objectBuilders)
+                    for (int i = 0; i<objectBuilders.Count; i++)
                     {
+                        MyObjectBuilder_EntityBase objectBuilder = objectBuilders[i];
+
                         // Don't load characters
                         //if (objectBuilder.TypeId == MyObjectBuilderTypeEnum.Character)
                         //continue;
@@ -1745,14 +2077,11 @@ namespace Sandbox.Game.Entities
                         //continue;
 
                         var temporaryEntity = MyEntities.CreateFromObjectBuilderAndAdd(objectBuilder);
+
                         allEntitiesAdded &= temporaryEntity != null;
                     }
                 }
 
-            }
-            catch (System.Exception ex)
-            {
-                throw ex;
             }
             finally
             {
@@ -1857,9 +2186,86 @@ namespace Sandbox.Game.Entities
             m_entitiesForBBoxDraw.Remove(entity);
         }
 
-        internal static bool TryGetEntity(long entityId, out MyEntity entity)
+        public static MyEntity CreateFromComponentContainerDefinitionAndAdd(MyDefinitionId entityContainerDefinitionId, bool insertIntoScene = true)
         {
-            return MyEntityIdentifier.TryGetEntity(entityId, out entity);
+            // Check type
+            Debug.Assert(typeof(MyObjectBuilder_EntityBase).IsAssignableFrom(entityContainerDefinitionId.TypeId));
+            if (!typeof(MyObjectBuilder_EntityBase).IsAssignableFrom(entityContainerDefinitionId.TypeId))
+            {
+                Debug.Fail("Invalid entity object builder type");
+                return null;
+            }
+
+            // Check existing container definition
+            MyContainerDefinition definition;
+            if (!MyComponentContainerExtension.TryGetContainerDefinition(entityContainerDefinitionId.TypeId, entityContainerDefinitionId.SubtypeId, out definition))
+            {
+                Debug.Fail("Entity container definition not found");
+                MySandboxGame.Log.WriteLine("Entity container definition not found: " + entityContainerDefinitionId);
+                return null;
+            }
+
+            // Create builder
+            MyObjectBuilder_EntityBase entityBuilder = MyObjectBuilderSerializer.CreateNewObject(entityContainerDefinitionId.TypeId, entityContainerDefinitionId.SubtypeName) as MyObjectBuilder_EntityBase;
+            Debug.Assert(entityBuilder != null);
+            if (entityBuilder == null) 
+            {
+                Debug.Fail("Invalid entity object builder type");
+                MySandboxGame.Log.WriteLine("Entity builder was not created: " + entityContainerDefinitionId);
+                return null;
+            }
+
+            // TODO: remove this - should be somewhere in definition of container
+            if (insertIntoScene)
+                entityBuilder.PersistentFlags |= MyPersistentEntityFlags2.InScene;
+
+            var entity = MyEntities.CreateFromObjectBuilderAndAdd(entityBuilder);
+            Debug.Assert(entity != null, "Entity wasn't created!");
+            return entity;
+        }
+
+        public static void RaiseEntityCreated(MyEntity entity)
+        {
+            var createCallback = OnEntityCreate;
+            if (createCallback != null)
+            {
+                createCallback(entity);
+            }
+        }
+
+        /// <summary>
+        /// This method will try to retrieve a definition of components container of the entity and create the type of the entity.
+        /// This wi
+        /// </summary>
+        /// <param name="entityContainerId">This is the id of container definition</param>
+        /// <param name="setPosAndRot">Set true if want to set entity position, orientation</param>
+        /// <returns></returns>
+        public static MyEntity CreateEntityAndAdd(MyDefinitionId entityContainerId, bool setPosAndRot = false, Vector3? position = null, Vector3? up = null, Vector3? forward = null)
+        {
+            MyContainerDefinition definition;
+            if (MyDefinitionManager.Static.TryGetContainerDefinition( entityContainerId, out definition))
+            {
+                var ob = MyObjectBuilderSerializer.CreateNewObject( entityContainerId) as MyObjectBuilder_EntityBase;
+
+                if (ob != null)
+                {
+                    if (setPosAndRot)
+                    {
+                        ob.PositionAndOrientation = new VRage.MyPositionAndOrientation(position.HasValue ? position.Value : Vector3.Zero, forward.HasValue ? forward.Value : Vector3.Forward, up.HasValue ? up.Value : Vector3.Up);
+                    }
+
+                    var entity = MyEntities.CreateFromObjectBuilderAndAdd(ob);
+                    Debug.Assert(entity != null, "Entity wasn't created!");
+                    return entity;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.Fail("Entity Creation Error: Couldn't create an object builder and cast is as MyObjectBuilder_EntityBase");
+                }
+
+                return null;
+            }
+            return null;
         }
     }
 }

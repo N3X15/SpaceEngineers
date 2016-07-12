@@ -3,11 +3,12 @@
 
 #include <D3DX_DXGIFormatConvert.inl>
 
-SamplerState	DefaultSampler		: register( s0 );
-SamplerState	PointSampler		: register( s1 );
-SamplerState	LinearSampler		: register( s2 );
-SamplerState	TextureSampler		: register( s3 );
-SamplerState	AlphamaskSampler	: register( s4 );
+SamplerState	DefaultSampler			: register( s0 );
+SamplerState	PointSampler			: register( s1 );
+SamplerState	LinearSampler			: register( s2 );
+SamplerState	TextureSampler			: register( s3 );
+SamplerState	AlphamaskSampler		: register( s4 );
+SamplerState	AlphamaskArraySampler   : register( s5 );
 
 #define MERGE(a,b) a##b
 
@@ -16,6 +17,8 @@ SamplerState	AlphamaskSampler	: register( s4 );
 #define PROJECTION_SLOT 1
 #define OBJECT_SLOT 2
 #define MATERIAL_SLOT 3
+#define FOLIAGE_SLOT 4
+#define ALPHAMASK_SLOT 5
 
 // srvs 0-9 
 // material textures
@@ -64,6 +67,8 @@ SamplerState	AlphamaskSampler	: register( s4 );
 	static const bool DEPTH_CLEAR = 0;
 #endif
 
+#define MAX_ADDITIONAL_SUNS 5
+
 
 
 
@@ -92,6 +97,18 @@ static const float3 DEBUG_COLORS [] = {
 };
 
 static const uint DEBUG_COLORS_LEN = 16;
+
+struct TextureDebugMultipliersType
+{
+    float RgbMultiplier;
+    float MetalnessMultiplier;
+    float GlossMultiplier;
+    float AoMultiplier;
+
+    float EmissiveMultiplier;
+    float ColorMaskMultiplier;
+    float2 __padding;
+};
 
 
 #endif

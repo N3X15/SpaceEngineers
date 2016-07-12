@@ -158,11 +158,6 @@ namespace VRageRender
             public float? Fov;
             public Viewport? Viewport;
 
-            public float? LodTransitionNear; // Used
-            public float? LodTransitionFar; // Used
-            public float? LodTransitionBackgroundStart; // Used
-            public float? LodTransitionBackgroundEnd; // Used
-
             public bool? EnableHDR; // Used
             public bool? EnableLights; // Used
             public bool? EnableSun; // Used
@@ -200,11 +195,6 @@ namespace VRageRender
                 AspectRatio = null;
                 Fov = null;
                 Viewport = null;
-
-                LodTransitionNear = null;
-                LodTransitionFar = null;
-                LodTransitionBackgroundStart = null;
-                LodTransitionBackgroundEnd = null;
 
                 EnableHDR = null;
                 EnableLights = null;

@@ -1,16 +1,12 @@
 ﻿using VRage.ObjectBuilders;
 using ProtoBuf;
-using Sandbox.Common.ObjectBuilders.Definitions;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_ToolbarItemWeapon : MyObjectBuilder_ToolbarItemDefinition
     {
-		[ProtoMember]
-		public bool IsDeconstructor = false;
-
         public SerializableDefinitionId defId
         {
             get { return base.DefinitionId; }

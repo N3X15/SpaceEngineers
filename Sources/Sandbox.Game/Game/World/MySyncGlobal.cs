@@ -14,9 +14,11 @@ using System.Diagnostics;
 using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Gui;
 using SharpDX;
+using SharpDX.Mathematics;
 using VRage.Utils;
 using VRage.Audio;
 using VRage.Library.Utils;
+using VRage;
 
 namespace Sandbox.Game.Multiplayer
 {
@@ -104,8 +106,12 @@ namespace Sandbox.Game.Multiplayer
             Debug.Assert(Sync.IsServer, "Only server should send simulation ratio");
 
             var msg = new SimulationInfoMsg();
+            ProfilerShort.Begin("GetSimSpeed");
             msg.SimulationSpeed = Sandbox.Engine.Physics.MyPhysics.SimulationRatio;
+            ProfilerShort.End();
+            ProfilerShort.Begin("SendSimSpeed");
             MySession.Static.SyncLayer.SendMessageToAll(ref msg);
+            ProfilerShort.End();
         }
 
         static void OnSimulationInfo(ref SimulationInfoMsg msg, MyNetworkClient sender)

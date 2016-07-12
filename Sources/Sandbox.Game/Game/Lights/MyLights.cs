@@ -7,7 +7,9 @@ using VRageMath;
 using Sandbox;
 using Sandbox.Game.World;
 using Sandbox.Common;
+using VRage.Game;
 using VRage.Utils;
+using VRage.Game.Components;
 
 
 //  This class is responsible for holding list of dynamic lights, adding, removing and finally drawing on voxels or other models.
@@ -67,7 +69,12 @@ namespace Sandbox.Game.Lights
             if (light != null)
             {
                 light.Clear();
-                m_preallocatedLights.Deallocate(light);
+
+                //by Gregory: added null check happened once when unloading session
+                if (m_preallocatedLights != null)
+                {
+                    m_preallocatedLights.Deallocate(light);
+                }
             }
         }        
     }

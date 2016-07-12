@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using VRage;
+using VRage.Game.Entity;
 using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
@@ -15,23 +16,28 @@ namespace Sandbox.Game.AI.Pathfinding
 {
     public class MyVoxelPathfinding
     {
-        public struct CellId
+        public struct CellId: IEquatable<CellId>
         {
             public MyVoxelBase VoxelMap;
             public Vector3I Pos;
 
             public override bool Equals(object obj)
             {
+                Debug.Assert(false, "Equals on struct does allocation!");
                 if (ReferenceEquals(null, obj)) return false;
                 if (obj.GetType() != typeof(CellId)) return false;
 
-                CellId other = (CellId)obj;
-                return VoxelMap == other.VoxelMap && Pos == other.Pos;
+                return this.Equals((CellId)obj);
             }
 
             public override int GetHashCode()
             {
                 return VoxelMap.GetHashCode() * 1610612741 + Pos.GetHashCode();
+            }
+
+            public bool Equals(CellId other)
+            {
+                return VoxelMap == other.VoxelMap && Pos == other.Pos;
             }
         }
 
@@ -46,6 +52,8 @@ namespace Sandbox.Game.AI.Pathfinding
 
         private MyNavmeshCoordinator m_coordinator;
 
+        public MyVoxelPathfindingLog DebugLog;
+
         private static float MESH_DIST = 40.0f;
 
         public MyVoxelPathfinding(MyNavmeshCoordinator coordinator)
@@ -58,32 +66,44 @@ namespace Sandbox.Game.AI.Pathfinding
             m_tmpNavmeshes = new List<MyVoxelNavigationMesh>();
             m_coordinator = coordinator;
             coordinator.SetVoxelPathfinding(this);
+
+            if (MyFakes.REPLAY_NAVMESH_GENERATION || MyFakes.LOG_NAVMESH_GENERATION)
+            {
+                DebugLog = new MyVoxelPathfindingLog("PathfindingLog.log");
+            }
         }
 
         private void MyEntities_OnEntityAdd(MyEntity entity)
         {
-            var voxelMap = entity as MyVoxelMap;
+            var voxelMap = entity as MyVoxelBase;
             if (voxelMap == null) return;
+            if (MyPerGameSettings.Game == GameEnum.SE_GAME && !(voxelMap is MyPlanet)) return;
 
             m_navigationMeshes.Add(voxelMap, new MyVoxelNavigationMesh(voxelMap, m_coordinator, MyAIComponent.Static.Pathfinding.NextTimestampFunction));
             RegisterVoxelMapEvents(voxelMap);
         }
 
-        private void RegisterVoxelMapEvents(MyVoxelMap voxelMap)
+        private void RegisterVoxelMapEvents(MyVoxelBase voxelMap)
         {
             voxelMap.OnClose += voxelMap_OnClose;
         }
 
         private void voxelMap_OnClose(MyEntity entity)
         {
-            var voxelMap = entity as MyVoxelMap;
+            var voxelMap = entity as MyVoxelBase;
             if (voxelMap == null) return;
+            if (MyPerGameSettings.Game == GameEnum.SE_GAME && !(voxelMap is MyPlanet)) return;
 
             m_navigationMeshes.Remove(voxelMap);
         }
 
         public void UnloadData()
         {
+            if (DebugLog != null)
+            {
+                DebugLog.Close();
+                DebugLog = null;
+            }
             MyEntities.OnEntityAdd -= MyEntities_OnEntityAdd;
         }
 
@@ -91,84 +111,170 @@ namespace Sandbox.Game.AI.Pathfinding
         {
             ProfilerShort.Begin("MyVoxelPathfinding.Update");
 
-            if (++m_updateCtr >= UPDATE_PERIOD)
+            m_updateCtr++;
+            int modulo = m_updateCtr % 6;
+
+            if (modulo == 0 || modulo == 2 || modulo == 4)
             {
-                m_tmpUpdatePositions.Clear();
-                m_updateCtr = 0;
-
-                var players = Sync.Players.GetOnlinePlayers();
-                foreach (var player in players)
+                if (MyFakes.DEBUG_ONE_VOXEL_PATHFINDING_STEP_SETTING)
                 {
-                    var controlledEntity = player.Controller.ControlledEntity;
-                    if (controlledEntity == null) continue;
-
-                    m_tmpUpdatePositions.Add(controlledEntity.Entity.PositionComp.GetPosition());
+                    if (!MyFakes.DEBUG_ONE_VOXEL_PATHFINDING_STEP)
+                        // voxel pathfinding step isn't allowed
+                        return;
+                    else
+                        // disable next voxel pathfinding step - and do one
+                        MyFakes.DEBUG_ONE_VOXEL_PATHFINDING_STEP = false;
                 }
+            }
 
-                m_tmpNavmeshes.Clear();
-
-                ProfilerShort.Begin("Cell marking");
-                Vector3D offset = new Vector3D(20.0f);
-                foreach (var pos in m_tmpUpdatePositions)
-                {
-                    BoundingBoxD box = new BoundingBoxD(pos - offset, pos + offset);
-
-                    ProfilerShort.Begin("GetVoxelMaps");
-                    m_tmpVoxelMaps.Clear();
-                    MyGamePruningStructure.GetAllVoxelMapsInBox(ref box, m_tmpVoxelMaps);
-                    ProfilerShort.End();
-
-                    foreach (var map in m_tmpVoxelMaps)
-                    {
-                        MyVoxelNavigationMesh mesh = null;
-                        m_navigationMeshes.TryGetValue(map, out mesh);
-                        Debug.Assert(mesh != null, "Navigation mesh for a voxel map is not generated!");
-                        if (mesh == null) continue;
-
-                        mesh.MarkBoxForAddition(box);
-
-                        if (!m_tmpNavmeshes.Contains(mesh))
-                            m_tmpNavmeshes.Add(mesh);
-                    }
-                }
-                m_tmpVoxelMaps.Clear();
+            if (MyFakes.REPLAY_NAVMESH_GENERATION)
+            {
+                DebugLog.PerformOneOperation(MyFakes.REPLAY_NAVMESH_GENERATION_TRIGGER);
+                MyFakes.REPLAY_NAVMESH_GENERATION_TRIGGER = false;
                 ProfilerShort.End();
+                return;
+            }
 
-                m_tmpNavmeshes.Clear();
+            switch (modulo)
+            {
+                case 0:
+                    GetUpdatePositions();
+                    PerformCellMarking(m_tmpUpdatePositions);
+                    PerformCellUpdates();
+                    m_tmpUpdatePositions.Clear();
+                    break;
+                case 2:
+                    GetUpdatePositions();
+                    PerformCellMarking(m_tmpUpdatePositions);
+                    PerformCellAdditions(m_tmpUpdatePositions);
+                    m_tmpUpdatePositions.Clear();
+                    break;
+                case 4:
+                    GetUpdatePositions();
+                    PerformCellRemovals(m_tmpUpdatePositions);
+                    RemoveFarHighLevelGroups(m_tmpUpdatePositions);
+                    m_tmpUpdatePositions.Clear();
+                    break;
+            }
+            ProfilerShort.End();
+        }
 
-                ProfilerShort.Begin("Cell additions");
-                foreach (var mesh in m_navigationMeshes)
+        private void GetUpdatePositions()
+        {
+            m_tmpUpdatePositions.Clear();
+
+            var players = Sync.Players.GetOnlinePlayers();
+            foreach (var player in players)
+            {
+                var controlledEntity = player.Controller.ControlledEntity;
+                if (controlledEntity == null) continue;
+
+                m_tmpUpdatePositions.Add(controlledEntity.Entity.PositionComp.GetPosition());
+            }
+        }
+
+        private void PerformCellRemovals(List<Vector3D> updatePositions)
+        {
+            ProfilerShort.Begin("Cell removals");
+            ShuffleMeshes();
+            foreach (var mesh in m_tmpNavmeshes)
+            {
+                if (mesh.RemoveOneUnusedCell(updatePositions))
                 {
-                    m_tmpNavmeshes.Add(mesh.Value);
+                    // Break after the first removed cell
+                    break;
                 }
-                m_tmpNavmeshes.ShuffleList();
+            }
+            m_tmpNavmeshes.Clear();
+            ProfilerShort.End();
+        }
 
-                foreach (var mesh in m_tmpNavmeshes)
-                {
-                    if (mesh.AddOneMarkedCell())
-                    {
-                        // Break after the first added cell
-                        break;
-                    }
-                }
-                ProfilerShort.End();
-
-                ProfilerShort.Begin("Cell removals");
-                foreach (var mesh in m_tmpNavmeshes)
-                {
-                    if (mesh.RemoveOneUnusedCell(m_tmpUpdatePositions))
-                    {
-                        // Break after the first removed cell
-                        break;
-                    }
-                }
-                ProfilerShort.End();
-
-                m_tmpNavmeshes.Clear();
-                m_tmpUpdatePositions.Clear();
+        private void RemoveFarHighLevelGroups(List<Vector3D> updatePositions)
+        {
+            ProfilerShort.Begin("Far Cells removals");
+            foreach (var mesh in m_navigationMeshes)
+            {
+                mesh.Value.RemoveFarHighLevelGroups(updatePositions);
             }
 
             ProfilerShort.End();
+        }
+
+        private void PerformCellAdditions(List<Vector3D> updatePositions)
+        {
+            ProfilerShort.Begin("Cell additions");
+            MarkCellsOnPaths(); // it should be done before adding of cell - priority of adding is influenced by presence on path
+            ShuffleMeshes();
+            foreach (var mesh in m_tmpNavmeshes)
+            {
+                if (mesh.AddOneMarkedCell(updatePositions))
+                {
+                    // Break after the first added cell
+                    break;
+                }
+            }
+            m_tmpNavmeshes.Clear();
+            ProfilerShort.End();
+        }
+
+        private void PerformCellUpdates()
+        {
+            ProfilerShort.Begin("Cell updates");
+            ShuffleMeshes();
+            foreach (var mesh in m_tmpNavmeshes)
+            {
+                if (mesh.RefreshOneChangedCell())
+                {
+                    break;
+                }
+            }
+            m_tmpNavmeshes.Clear();
+            ProfilerShort.End();
+        }
+
+        private void ShuffleMeshes()
+        {
+            m_tmpNavmeshes.Clear();
+            foreach (var mesh in m_navigationMeshes)
+            {
+                m_tmpNavmeshes.Add(mesh.Value);
+            }
+            m_tmpNavmeshes.ShuffleList();
+        }
+
+        private void PerformCellMarking(List<Vector3D> updatePositions)
+        {
+            ProfilerShort.Begin("Cell marking");
+            Vector3D offset = new Vector3D(1.0f);
+            foreach (var pos in updatePositions)
+            {
+                BoundingBoxD box = new BoundingBoxD(pos - offset, pos + offset);
+
+                ProfilerShort.Begin("GetVoxelMaps");
+                m_tmpVoxelMaps.Clear();
+                MyGamePruningStructure.GetAllVoxelMapsInBox(ref box, m_tmpVoxelMaps);
+                ProfilerShort.End();
+
+                foreach (var map in m_tmpVoxelMaps)
+                {
+                    MyVoxelNavigationMesh mesh = null;
+                    m_navigationMeshes.TryGetValue(map, out mesh);
+                    if (mesh == null) continue;
+
+                    mesh.MarkBoxForAddition(box);
+                }
+            }
+            m_tmpVoxelMaps.Clear();
+            ProfilerShort.End();
+        }
+
+        private void MarkCellsOnPaths()
+        {
+            // walk through high level components that are observed - they have bigger priority - they are on the way
+            foreach (var mesh in m_navigationMeshes)
+            {
+                mesh.Value.MarkCellsOnPaths();
+            }
         }
 
         public void InvalidateBox(ref BoundingBoxD bbox)
@@ -185,14 +291,14 @@ namespace Sandbox.Game.AI.Pathfinding
             }
         }
 
-        public MyVoxelNavigationMesh GetVoxelMapNavmesh(MyVoxelMap map)
+        public MyVoxelNavigationMesh GetVoxelMapNavmesh(MyVoxelBase map)
         {
             MyVoxelNavigationMesh retval = null;
             m_navigationMeshes.TryGetValue(map, out retval);
             return retval;
         }
 
-        public MyNavigationPrimitive FindClosestPrimitive(Vector3D point, bool highLevel, ref double closestDistanceSq, MyVoxelMap voxelMap = null)
+        public MyNavigationPrimitive FindClosestPrimitive(Vector3D point, bool highLevel, ref double closestDistanceSq, MyVoxelBase voxelMap = null)
         {
             MyNavigationPrimitive retval = null;
             if (voxelMap != null)
@@ -220,6 +326,8 @@ namespace Sandbox.Game.AI.Pathfinding
         public void DebugDraw()
         {
             if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW == false) return;
+
+            if (DebugLog != null) DebugLog.DebugDraw();
 
             foreach (var entry in m_navigationMeshes)
             {

@@ -9,15 +9,18 @@ using System.Linq;
 using System.Text;
 using Sandbox.ModAPI.Ingame;
 using VRage.Collections;
+using VRage.Game;
+using Sandbox.ModAPI.Interfaces.Terminal;
+using Sandbox.ModAPI;
 
 namespace Sandbox.Game.Gui
 {
-    public partial class MyTerminalAction<TBlock> : ITerminalAction
+    public partial class MyTerminalAction<TBlock> : ITerminalAction, IMyTerminalAction
         where TBlock : MyTerminalBlock
     {
         private readonly string m_id;
-        private readonly string m_icon;
-        private readonly StringBuilder m_name;
+        private string m_icon;
+        private StringBuilder m_name;
         private List<TerminalActionParameter> m_parameterDefinitions = new List<TerminalActionParameter>();
         private Action<TBlock> m_action;
         private Action<TBlock, ListReader<TerminalActionParameter>> m_actionWithParameters;
@@ -73,6 +76,14 @@ namespace Sandbox.Game.Gui
             Writer = valueWriter;
         }
 
+
+        public MyTerminalAction(string id, StringBuilder name, Action<TBlock> action, MyTerminalControl<TBlock>.WriterDelegate valueWriter, string icon, Func<TBlock, bool> enabled=null)
+            :this(id, name, action, valueWriter, icon)
+        {
+            if (enabled!=null)
+                Enabled = enabled;
+        }
+
         public Action<TBlock> Action
         {
             get { return m_action; }
@@ -89,7 +100,7 @@ namespace Sandbox.Game.Gui
             set
             {
                 m_actionWithParameters = value;
-                m_action = block => m_actionWithParameters(block, ListReader<TerminalActionParameter>.Empty);
+                m_action = block => m_actionWithParameters(block, new ListReader<TerminalActionParameter>(ParameterDefinitions));
             }
         }
         
@@ -198,6 +209,107 @@ namespace Sandbox.Game.Gui
             }
 
             blockCallback(parameters, callback);
+        }
+
+        /// <summary>
+        /// Implementation of IMyTerminalAction for Mods
+        /// </summary>
+        Func<ModAPI.IMyTerminalBlock, bool> IMyTerminalAction.Enabled
+        {
+            set
+            {
+                Enabled = value;
+            }
+        }
+
+        List<MyToolbarType> IMyTerminalAction.InvalidToolbarTypes
+        {
+            get
+            {
+                return InvalidToolbarTypes;
+            }
+
+            set
+            {
+                InvalidToolbarTypes = value;
+            }
+        }
+
+        bool IMyTerminalAction.ValidForGroups
+        {
+            get
+            {
+                return ValidForGroups;
+            }
+
+            set
+            {
+                ValidForGroups = value;
+            }
+        }
+
+        StringBuilder IMyTerminalAction.Name
+        {
+            get
+            {
+                return Name;
+            }
+
+            set
+            {
+                m_name = value;
+            }
+        }
+
+        string IMyTerminalAction.Icon
+        {
+            get
+            {
+                return Icon;
+            }
+
+            set
+            {
+                m_icon = value;
+            }
+        }
+
+        Action<ModAPI.IMyTerminalBlock> IMyTerminalAction.Action
+        {
+            get
+            {
+                Action<TBlock> oldAction = Action;
+                Action<ModAPI.IMyTerminalBlock> action = (x) =>
+                {
+                    oldAction((TBlock)x);
+                };
+
+                return action;
+            }
+
+            set
+            {
+                Action = value;
+            }
+        }
+
+        Action<ModAPI.IMyTerminalBlock, StringBuilder> IMyTerminalAction.Writer
+        {
+            get
+            {
+                MyTerminalControl<TBlock>.WriterDelegate oldWriter = Writer;
+                Action<ModAPI.IMyTerminalBlock, StringBuilder> action = (x, y) =>
+                {
+                    oldWriter((TBlock)x, y);
+                };
+
+                return action;
+            }
+
+            set
+            {
+                Writer = new MyTerminalControl<TBlock>.WriterDelegate(value);
+            }
         }
     }
 }

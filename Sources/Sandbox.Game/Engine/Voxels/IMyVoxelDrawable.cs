@@ -1,9 +1,9 @@
-﻿using Sandbox.Common.Components;
+﻿
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using VRage.Components;
+using VRage.Game.Components;
 using VRage.Voxels;
 using VRageMath;
 
@@ -22,6 +22,11 @@ namespace Sandbox.Engine.Voxels
         }
 
         Vector3D PositionLeftBottomCorner
+        {
+            get;
+        }
+
+        Matrix Orientation
         {
             get;
         }

@@ -13,12 +13,15 @@ namespace VRage.Voxels
 {
     partial class MyClipmap
     {
-        private static readonly float[][] m_lodRangeGroups;
+        private static float[][] m_lodRangeGroups;
 
-        private static MyBinaryHeap<FrameT, UpdateQueueItem> m_updateQueue = new MyBinaryHeap<FrameT, UpdateQueueItem>(comparer: new UpdateFrameComparer());
+        private static MyBinaryHeap<FrameT, UpdateQueueItem> m_updateQueue = new MyBinaryHeap<FrameT, UpdateQueueItem>(128, new UpdateFrameComparer());
         private static HashSet<MyClipmap> m_toRemove = new HashSet<MyClipmap>();
         private static HashSet<MyClipmap> m_notReady = new HashSet<MyClipmap>();
         private static FrameT m_currentFrameIdx;
+        private static List<UpdateQueueItem> m_tmpDebugDraw = new List<UpdateQueueItem>();
+
+        public static float[][] DebugRanges;
 
         static MyClipmap()
         {
@@ -29,6 +32,18 @@ namespace VRage.Voxels
                 m_lodRangeGroups[i] = new float[valueCount];
             }
             UpdateLodRanges(MyRenderConstants.m_renderQualityProfiles[0].LodClipmapRanges);
+
+            CellsCache = new LRUCache<UInt64, MyClipmap_CellData>(32768);
+            CellsCache.OnItemDiscarded += OnCellDiscarded;      
+        }
+
+        static void OnCellDiscarded(UInt64 cellId, MyClipmap_CellData data)
+        {
+            if (data.Cell != null)
+            {
+                if (!data.ReadyInClipmap)
+                    data.CellHandler.DeleteCell(data.Cell);
+            }
         }
 
         public static bool UpdateLodRanges(float[][] lodDistances)
@@ -48,6 +63,7 @@ namespace VRage.Voxels
                 {
                     lodRanges[i] = lodRanges[i - 1] * 2f;
                 }
+                lodRanges[i - 1] = 10000000; 
             }
 
             return true;
@@ -58,6 +74,8 @@ namespace VRage.Voxels
             min = m_lodRangeGroups[(int)scale][lod];
             max = m_lodRangeGroups[(int)scale][lod + 1];
         }
+
+        public static float[][] LodRangeGroups { get { return m_lodRangeGroups; } }
 
         public static void AddToUpdate(Vector3D cameraPos, MyClipmap clipmap)
         {
@@ -80,28 +98,29 @@ namespace VRage.Voxels
             var cameraDistance = clipmap.m_worldAABB.Distance(cameraPos);
             FrameT framesTillUpdate;
             var lodRanges = m_lodRangeGroups[(int)clipmap.m_scaleGroup];
-            if (cameraDistance < lodRanges[1])
-                framesTillUpdate = 3;
+            if (cameraDistance < lodRanges[1] || clipmap.IsDitheringInProgress())
+                framesTillUpdate = 1;
+            else
             if (cameraDistance < lodRanges[2])
-                framesTillUpdate = 10;
+                framesTillUpdate = 3;
             else if (cameraDistance < lodRanges[5])
                 framesTillUpdate = 25;
             else
-                framesTillUpdate = 100;
+                framesTillUpdate = 60;
 
             return (FrameT)(m_currentFrameIdx + framesTillUpdate);
         }
 
-        public static void UpdateQueued(Vector3D cameraPos, float farPlaneDistance, float largeDistanceFarPlane)
+        public static void UpdateQueued(Vector3D cameraPos, Vector3 cameraForward, float farPlaneDistance, float largeDistanceFarPlane)
         {
             ++m_currentFrameIdx;
 
-            UpdateLodRanges(MyRenderConstants.RenderQualityProfile.LodClipmapRanges);
+            UpdateLodRanges(DebugRanges == null ? MyRenderConstants.m_renderQualityProfiles[(int)MyRenderProxy.Settings.VoxelQuality].LodClipmapRanges : DebugRanges);
 
             var oldNotReadyCount = m_notReady.Count;
 
             int updatedCount = 0;
-            int maxUpdates = m_updateQueue.Count / 53; // 53 is just some prime number so it spreads better
+            int maxUpdates = m_updateQueue.Count / 11; // 53 is just some prime number so it spreads better
             while (m_updateQueue.Count > 0)
             {
                 var item = m_updateQueue.Min();
@@ -112,16 +131,20 @@ namespace VRage.Voxels
                     continue;
                 }
 
+                FrameT nextFrame = ComputeNextUpdateFrame(ref cameraPos, item.Clipmap);
+
                 FrameT untilUpdate = (FrameT)(item.HeapKey - m_currentFrameIdx);
-                if (untilUpdate > 0)
+                if (untilUpdate > 0 && ((nextFrame - m_currentFrameIdx) != 1))
                     break;
 
                 ++updatedCount;
                 BoundingBoxD tmp;
                 item.Clipmap.UpdateWorldAABB(out tmp);
-                float clipmapFarPlane = (item.Clipmap.m_scaleGroup == MyClipmapScaleEnum.Massive) ? largeDistanceFarPlane : farPlaneDistance;
-                item.Clipmap.Update(ref cameraPos, clipmapFarPlane);
-                m_updateQueue.ModifyDown(item, ComputeNextUpdateFrame(ref cameraPos, item.Clipmap));
+                float clipmapFarPlane = (item.Clipmap.m_scaleGroup == MyClipmapScaleEnum.Massive) ? largeDistanceFarPlane : farPlaneDistance;                
+                item.Clipmap.Update(ref cameraPos, ref cameraForward, clipmapFarPlane);
+                item.Clipmap.m_cellHandler.UpdateMerging();
+                nextFrame = ComputeNextUpdateFrame(ref cameraPos, item.Clipmap);
+                m_updateQueue.ModifyDown(item, nextFrame);
                 if (updatedCount > maxUpdates)
                     break;
             }
@@ -130,6 +153,30 @@ namespace VRage.Voxels
             {
                 MyRenderProxy.SendClipmapsReady();
             }
+        }
+
+        public static void DebugDrawClipmaps()
+        {
+            m_updateQueue.QueryAll(m_tmpDebugDraw);
+
+            foreach (var item in m_tmpDebugDraw)
+            {
+                item.Clipmap.DebugDraw();
+            }
+
+            m_tmpDebugDraw.Clear();
+        }
+
+        public static void DebugDrawMergedCells()
+        {
+            m_updateQueue.QueryAll(m_tmpDebugDraw);
+
+            foreach (var item in m_tmpDebugDraw)
+            {
+                item.Clipmap.DebugDrawMergedMeshCells();
+            }
+
+            m_tmpDebugDraw.Clear();
         }
 
         class UpdateQueueItem : HeapItem<FrameT>

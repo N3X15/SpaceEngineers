@@ -4,8 +4,8 @@ using Sandbox.Common;
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Engine.Physics;
 using Sandbox.Engine.Utils;
-using Sandbox.Graphics.TransparentGeometry;
-using VRage.Components;
+using Sandbox.ModAPI;
+using VRage.Game.Components;
 using VRageMath;
 using VRageRender;
 
@@ -14,7 +14,7 @@ using VRageRender;
 namespace Sandbox.Game.Entities.Cube
 {
     [MyCubeBlockType(typeof(MyObjectBuilder_Passage))]
-    class MyPassage : MyCubeBlock
+    public class MyPassage : MyCubeBlock, IMyPassage
     {
         //  Return true if object intersects specified sphere.
         //  This method doesn't return exact point of intersection or any additional data.
@@ -25,7 +25,7 @@ namespace Sandbox.Game.Entities.Cube
         }
 
         //  Calculates intersection of line with any triangleVertexes in this model instance. Closest intersection and intersected triangleVertexes will be returned.
-        internal override bool GetIntersectionWithLine(ref LineD line, out MyIntersectionResultLineTriangleEx? t, IntersectionFlags flags = IntersectionFlags.ALL_TRIANGLES)
+        public override bool GetIntersectionWithLine(ref LineD line, out VRage.Game.Models.MyIntersectionResultLineTriangleEx? t, IntersectionFlags flags = IntersectionFlags.ALL_TRIANGLES)
         {
             t = null;
             return false;

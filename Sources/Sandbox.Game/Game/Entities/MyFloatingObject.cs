@@ -1,8 +1,6 @@
 ﻿#region Using
 using Havok;
 using Sandbox.Common;
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
 using Sandbox.Engine.Physics;
 using Sandbox.Engine.Utils;
@@ -10,43 +8,50 @@ using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Entities.Debris;
 using Sandbox.Game.Gui;
 using Sandbox.Game.GUI;
-using Sandbox.Game.Localization;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.Screens.Helpers;
 using Sandbox.Game.World;
-using Sandbox.Graphics.TransparentGeometry.Particles;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces;
 using System;
 using System.Text;
 using VRage;
-using VRage.Audio;
 using VRage.Input;
 using VRage.Library.Utils;
 using VRage.Utils;
 using VRageMath;
 using Sandbox.Game.GameSystems;
-using Sandbox.Common.ModAPI;
 using Sandbox.Game.Entities.UseObject;
 using VRage.ObjectBuilders;
 using VRage.ModAPI;
-using VRage.Components;
+using VRage.Game.Components;
 using VRage.Game.Entity.UseObject;
+using System.Diagnostics;
+using VRage.Network;
+using VRage.Game.Entity;
+using VRage.Import;
+using VRage.Library.Sync;
+using VRage.Game;
+using VRage.Game.ModAPI;
+using VRage.Game.ModAPI.Ingame;
+using VRage.Game.ModAPI.Interfaces;
+using Sandbox.Engine.Multiplayer;
+using IMyEntity = VRage.ModAPI.IMyEntity;
 
 #endregion
 
 namespace Sandbox.Game.Entities
 {
     [MyEntityType(typeof(MyObjectBuilder_FloatingObject))]
-    public class MyFloatingObject : MyEntity, IMyUseObject, IMyUsableEntity, IMyDestroyableObject, IMyFloatingObject
+    public class MyFloatingObject : MyEntity, IMyUseObject, IMyUsableEntity, IMyDestroyableObject, IMyFloatingObject, IMyEventProxy
     {
-        static MySoundPair TAKE_ITEM_SOUND = new MySoundPair("PlayTakeItem");
         static MyStringHash m_explosives = MyStringHash.GetOrCompute("Explosives");
-		static public MyObjectBuilder_Ore ScrapBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>("Scrap");
+        static public MyObjectBuilder_Ore ScrapBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>("Scrap");
 
         private StringBuilder m_displayedText = new StringBuilder();
 
         public MyPhysicalInventoryItem Item;
+        private int m_modelVariant;
 
         public MyVoxelMaterialDefinition VoxelMaterial;
         public long CreationTime;
@@ -63,13 +68,36 @@ namespace Sandbox.Game.Entities
         public int NumberOfFramesInsideVoxel = 0;
         public const int NUMBER_OF_FRAMES_INSIDE_VOXEL_TO_REMOVE = 5;
 
+        public long SyncWaitCounter; // counting how many times this object was skipped on sync;
+
+        public MyPhysicalItemDefinition ItemDefinition { get; private set; }
+
+        private DateTime lastTimeSound = DateTime.MinValue;
+
+        public new MyPhysicsBody Physics
+        {
+            get { return base.Physics as MyPhysicsBody; }
+            set { base.Physics = value; }
+        }
+
+        public Sync<MyFixedPoint> Amount;
+
         public MyFloatingObject()
         {
             WasRemovedFromWorld = false;
             m_soundEmitter = new MyEntity3DSoundEmitter(this);
             m_lastTimePlayedSound = MySandboxGame.TotalGamePlayTimeInMilliseconds;
             Render = new Components.MyRenderComponentFloatingObject();
+
+            SyncType = SyncHelpers.Compose(this);
+
+            Amount.ValueChanged += (x) => { Item.Amount = Amount.Value; UpdateInternalState(); };
         }
+
+        private HkEasePenetrationAction m_easeCollisionForce;
+        private TimeSpan m_timeFromSpawn = new TimeSpan();
+
+        public readonly SyncType SyncType;
 
         public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
@@ -77,22 +105,43 @@ namespace Sandbox.Game.Entities
             if (builder.Item.Amount <= 0)
             {
                 // I can only prevent creation of entity by throwing exception. This might cause crashes when thrown outside of MyEntities.CreateFromObjectBuilder().
-                throw new ArgumentOutOfRangeException("MyPhysicalInventoryItem.Amount", string.Format("Creating floating object with invalid amount: {0}x '{1}'", builder.Item.Amount, builder.Item.Content.GetId()));
+                throw new ArgumentOutOfRangeException("MyPhysicalInventoryItem.Amount", string.Format("Creating floating object with invalid amount: {0}x '{1}'", builder.Item.Amount, builder.Item.PhysicalContent.GetId()));
             }
             base.Init(objectBuilder);
 
             this.Item = new MyPhysicalInventoryItem(builder.Item);
+            this.m_modelVariant = builder.ModelVariant;
 
             InitInternal();
 
             NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+
+            UseDamageSystem = true;
+
+            MyPhysicalItemDefinition itemDefinition = null;
+            if (!MyDefinitionManager.Static.TryGetPhysicalItemDefinition(Item.GetDefinitionId(), out itemDefinition))
+            {
+                System.Diagnostics.Debug.Fail("Creating floating object, but it's physical item definition wasn't found! - " + Item.ItemId);
+                ItemDefinition = null;
+            }
+            else
+                ItemDefinition = itemDefinition;
+            m_timeFromSpawn = MySession.Static.ElapsedPlayTime;
         }
 
         public override void UpdateAfterSimulation()
         {
             base.UpdateAfterSimulation();
             // DA: Consider using havok fields (buoyancy demo) for gravity of planets.
-            Physics.RigidBody.Gravity = MyGravityProviderSystem.CalculateGravityInPointForGrid(PositionComp.GetPosition());
+            Physics.RigidBody.Gravity = Sync.RelativeSimulationRatio * Sync.RelativeSimulationRatio * MyGravityProviderSystem.CalculateNaturalGravityInPoint(PositionComp.GetPosition());
+
+            if (m_massChangeForCollisions < 1f)
+            {
+                if ((MySession.Static.ElapsedPlayTime.TotalMilliseconds - m_timeFromSpawn.TotalMilliseconds) >= 2000)
+                {
+                    m_massChangeForCollisions = 1f;
+                }
+            }
         }
 
         public override void OnAddedToScene(object source)
@@ -106,6 +155,7 @@ namespace Sandbox.Game.Entities
         {
             var builder = (MyObjectBuilder_FloatingObject)base.GetObjectBuilder(copy);
             builder.Item = Item.GetObjectBuilder();
+            builder.ModelVariant = m_modelVariant;
             return builder;
         }
 
@@ -114,68 +164,118 @@ namespace Sandbox.Game.Entities
             // TODO: This will be fixed and made much more simple once ore models are done
             // https://app.asana.com/0/6594565324126/10473934569658
 
-            var physicalItem = MyDefinitionManager.Static.GetPhysicalItemDefinition(Item.Content);
+            var itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(Item.Content);
 
-            string model = physicalItem.Model;
+            m_health = itemDefinition.Health;
 
+            // Setting voxel material (if applicable)
             VoxelMaterial = null;
-            float scale = 1.0f;
-
-            if (Item.Content is MyObjectBuilder_Ore)
+            if (itemDefinition.VoxelMaterial != MyStringHash.NullOrEmpty)
             {
-                string oreSubTypeId = physicalItem.Id.SubtypeId.ToString();
+                VoxelMaterial = MyDefinitionManager.Static.GetVoxelMaterialDefinition(itemDefinition.VoxelMaterial.String);
+            }
+            else if (Item.Content is MyObjectBuilder_Ore)
+            {
+                string oreSubTypeId = itemDefinition.Id.SubtypeName;
+                string materialName = (Item.Content as MyObjectBuilder_Ore).GetMaterialName();
+                bool hasMaterialName = (Item.Content as MyObjectBuilder_Ore).HasMaterialName();
+
                 foreach (var mat in MyDefinitionManager.Static.GetVoxelMaterialDefinitions())
                 {
-                    if (oreSubTypeId == mat.MinedOre)
+                    if ((hasMaterialName && materialName == mat.Id.SubtypeName) || (hasMaterialName == false && oreSubTypeId == mat.MinedOre))
                     {
                         VoxelMaterial = mat;
-                        model = MyDebris.GetRandomDebrisVoxel();
-                        scale = (float)Math.Pow((float)Item.Amount * physicalItem.Volume / MyDebris.VoxelDebrisModelVolume, 0.333f);
                         break;
                     }
                 }
-
-                scale = (float)Math.Pow((float)Item.Amount * physicalItem.Volume / MyDebris.VoxelDebrisModelVolume, 0.333f);
             }
 
+            // Setting the item's model
+            string model = itemDefinition.Model;
+            if (itemDefinition.HasModelVariants)
+            {
+                int modelNum = itemDefinition.Models.Length;
+                Debug.Assert(m_modelVariant >= 0 && m_modelVariant < modelNum, "Model variant overflow. This can happen if model variants changed");
+                m_modelVariant = m_modelVariant % modelNum;
+
+                model = itemDefinition.Models[m_modelVariant];
+            }
+            else if (Item.Content is MyObjectBuilder_Ore && VoxelMaterial != null)
+            {
+                // Only ores without found voxel material use the defined model (otherwise, the scrap metal does not work)
+                model = MyDebris.GetRandomDebrisVoxel();
+            }
+
+            // Setting the scale
+            float scale = this.Item.Scale;
+            if (Item.Content is MyObjectBuilder_Ore)
+            {
+                scale *= (float)Math.Pow((float)Item.Amount * itemDefinition.Volume / MyDebris.VoxelDebrisModelVolume, 0.333f);
+            }
+            else
+            {
+                scale *= (float)Math.Pow(itemDefinition.Volume / itemDefinition.ModelVolume, 0.333f);
+            }
             if (scale < 0.05f)
                 Close();
             else if (scale < 0.15f)
                 scale = 0.15f;
 
             FormatDisplayName(m_displayedText, Item);
+            Debug.Assert(model != null, "Floating object model is null");
             Init(m_displayedText, model, null, null, null);
 
             PositionComp.Scale = scale; // Must be set after init
 
-
             var massProperties = new HkMassProperties();
-            HkShape shape = GetPhysicsShape(physicalItem.Mass * (float)Item.Amount, scale, out massProperties);
+            var mass = MyPerGameSettings.Destruction ? MyDestructionHelper.MassToHavok(itemDefinition.Mass) : itemDefinition.Mass;
+            mass = mass * (float)Item.Amount;
+
+            HkShape shape = GetPhysicsShape(mass, scale, out massProperties);
             var scaleMatrix = Matrix.CreateScale(scale);
 
             if (Physics != null)
                 Physics.Close();
             Physics = new MyPhysicsBody(this, RigidBodyFlag.RBF_DEBRIS);
 
-            if (VoxelMaterial != null)
+            int layer = mass > MyPerGameSettings.MinimumLargeShipCollidableMass ? MyPhysics.CollisionLayers.FloatingObjectCollisionLayer : MyPhysics.CollisionLayers.LightFloatingObjectCollisionLayer;
+
+            if (VoxelMaterial != null || (shape.IsConvex && scale != 1f))
             {
                 HkConvexTransformShape transform = new HkConvexTransformShape((HkConvexShape)shape, ref scaleMatrix, HkReferencePolicy.None);
-        
-                Physics.CreateFromCollisionObject(transform, Vector3.Zero, MatrixD.Identity, massProperties, MyPhysics.FloatingObjectCollisionLayer);
-               
+
+                Physics.CreateFromCollisionObject(transform, Vector3.Zero, MatrixD.Identity, massProperties, layer);
+
                 Physics.Enabled = true;
                 transform.Base.RemoveReference();
             }
             else
             {
-                Physics.CreateFromCollisionObject(shape, Vector3.Zero, MatrixD.Identity, massProperties, MyPhysics.FloatingObjectCollisionLayer);
+                Physics.CreateFromCollisionObject(shape, Vector3.Zero, MatrixD.Identity, massProperties, layer);
                 Physics.Enabled = true;
             }
 
-            Physics.MaterialType = VoxelMaterial != null ? MyMaterialType.ROCK : MyMaterialType.METAL;
+            Physics.MaterialType = this.EvaluatePhysicsMaterial(itemDefinition.PhysicalMaterial);
             Physics.PlayCollisionCueEnabled = true;
+            Physics.RigidBody.ContactSoundCallbackEnabled = true;
+            m_easeCollisionForce = new HkEasePenetrationAction(Physics.RigidBody, 2f);
+            m_massChangeForCollisions = 0.010f;
 
             NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME;
+        }
+
+        /// <summary>
+        /// Evaluates what kind of material should be used for this floating object. If material is not defined than returns empty one and throws an assert.
+        /// </summary>
+        /// <param name="originalMaterial">Original material set in this object.</param>
+        /// <returns>Final material.</returns>
+        private MyStringHash EvaluatePhysicsMaterial(MyStringHash originalMaterial)
+        {
+
+            //Debug.Assert(originalMaterial.String != string.Empty, "No physical material set for this object, please define it in coresponding cbs file");
+
+            return VoxelMaterial != null ? MyMaterialType.ROCK : originalMaterial;
+
         }
 
         public void RefreshDisplayName()
@@ -206,6 +306,10 @@ namespace Sandbox.Game.Entities
         {
             const bool SimpleShape = false;
 
+            Debug.Assert(Model != null, "Invalid floating object model: " + Item.GetDefinitionId());
+            if (Model == null)
+                MyLog.Default.WriteLine("Invalid floating object model: " + Item.GetDefinitionId());
+
             Vector3 halfExtents = (Model.BoundingBox.Max - Model.BoundingBox.Min) / 2;
             HkShapeType shapeType;
 
@@ -224,14 +328,24 @@ namespace Sandbox.Game.Entities
             return MyDebris.Static.GetDebrisShape(Model, SimpleShape ? shapeType : HkShapeType.ConvexVertices);
         }
 
+        IMyEntity IMyUseObject.Owner
+        {
+            get { return this; }
+        }
+
+        MyModelDummy IMyUseObject.Dummy
+        {
+            get { return null; }
+        }
+
         float IMyUseObject.InteractiveDistance
         {
-            get { return 2.0f; }
+            get { return MyConstants.FLOATING_OBJ_INTERACTIVE_DISTANCE; }
         }
 
         MatrixD IMyUseObject.ActivationMatrix
         {
-            get { return Matrix.CreateScale(this.PositionComp.LocalAABB.Size) * WorldMatrix; }
+            get { return PositionComp != null ? Matrix.CreateScale(this.PositionComp.LocalAABB.Size) * WorldMatrix : MatrixD.Zero; }
         }
 
         MatrixD IMyUseObject.WorldMatrix
@@ -249,6 +363,22 @@ namespace Sandbox.Game.Entities
             }
         }
 
+        void IMyUseObject.SetRenderID(uint id)
+        {
+        }
+
+        int IMyUseObject.InstanceID
+        {
+            get
+            {
+                return -1;
+            }
+        }
+
+        void IMyUseObject.SetInstanceID(int id)
+        {
+        }
+
         bool IMyUseObject.ShowOverlay
         {
             get { return false; }
@@ -256,7 +386,7 @@ namespace Sandbox.Game.Entities
 
         UseActionEnum IMyUseObject.SupportedActions
         {
-            get { return UseActionEnum.Manipulate; }
+            get { return MyFakes.ENABLE_SEPARATE_USE_AND_PICK_UP_KEY ?  UseActionEnum.PickUp : UseActionEnum.Manipulate; }
         }
 
         void IMyUseObject.Use(UseActionEnum actionEnum, IMyEntity entity)
@@ -264,52 +394,77 @@ namespace Sandbox.Game.Entities
             var user = entity as MyCharacter;
             if (!MarkedForClose)
             {
-                if (!MySession.Static.CreativeMode)
+                System.Diagnostics.Debug.Assert((user.GetInventory() as MyInventory) != null, "Null or unexpected inventory type returned!");
+
+                MyFixedPoint amount = MyFixedPoint.Min(Item.Amount, (user.GetInventory() as MyInventory).ComputeAmountThatFits(Item.Content.GetId()));
+                if (amount == 0)
                 {
-                    var amount = Item.Amount;
-                    amount = MyFixedPoint.Min(amount, user.GetInventory().ComputeAmountThatFits(Item.Content.GetId()));
-                    if (amount == 0)
+                    if (MySandboxGame.TotalGamePlayTimeInMilliseconds - m_lastTimePlayedSound > 2500)
                     {
-                        if (MySandboxGame.TotalGamePlayTimeInMilliseconds - m_lastTimePlayedSound > 2500)
-                        {
-                            MyGuiAudio.PlaySound(MyGuiSounds.HudVocInventoryFull);
-                            m_lastTimePlayedSound = MySandboxGame.TotalGamePlayTimeInMilliseconds;
-                        }
-
-                        MyHud.Notifications.Add(MyNotificationSingletons.InventoryFull);
-                        return;
+                        MyGuiAudio.PlaySound(MyGuiSounds.HudVocInventoryFull);
+                        m_lastTimePlayedSound = MySandboxGame.TotalGamePlayTimeInMilliseconds;
                     }
-                }
-                if (MySession.ControlledEntity == user)
-                    MyAudio.Static.PlaySound(TAKE_ITEM_SOUND.SoundId);
-                //user.StartSecondarySound(TAKE_ITEM_SOUND);
 
-                user.GetInventory().TakeFloatingObject(this);
+                    MyHud.Notifications.Add(MyNotificationSingletons.InventoryFull);
+                    return;
+                }
+
+                if (amount > 0)
+                {
+                    if (MySession.Static.ControlledEntity == user && (lastTimeSound == DateTime.MinValue || (DateTime.UtcNow - lastTimeSound).TotalMilliseconds > 500))
+                    {
+                        MyGuiAudio.PlaySound(MyGuiSounds.PlayTakeItem);
+                        lastTimeSound = DateTime.UtcNow;
+                    }
+                    System.Diagnostics.Debug.Assert((user.GetInventory() as MyInventory) != null, "Null or unexpected inventory type returned");
+                    (user.GetInventory() as MyInventory).PickupItem(this, amount);
+                }
+
                 MyHud.Notifications.ReloadTexts();
             }
         }
 
-        public void UpdateDisplay()
+        public void UpdateInternalState()
         {
             if (Item.Amount <= 0)
                 Close();
             else
             {
+                Render.UpdateRenderObject(false);
                 InitInternal();
+                Physics.Activate();
+                InScene = true;
+                Render.UpdateRenderObject(true);
                 MyHud.Notifications.ReloadTexts();
             }
         }
 
         MyActionDescription IMyUseObject.GetActionInfo(UseActionEnum actionEnum)
         {
-            var key = MyInput.Static.GetGameControl(MyControlsSpace.USE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard);
-            return new MyActionDescription()
+            string key = "";
+            switch (actionEnum)
             {
-                Text = MySpaceTexts.NotificationPickupObject,
-                FormatParams = new object[] { MyInput.Static.GetGameControl(MyControlsSpace.USE), m_displayedText },
-                IsTextControlHint = false,
-                JoystickFormatParams = new object[] { MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_CHARACTER, MyControlsSpace.USE), m_displayedText },
-            };
+                case UseActionEnum.PickUp:
+                    key = MyInput.Static.GetGameControl(MyControlsSpace.PICK_UP).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard);
+                    return new MyActionDescription()
+                    {
+                        Text = MyCommonTexts.NotificationPickupObject,
+                        FormatParams = new object[] { MyInput.Static.GetGameControl(MyControlsSpace.PICK_UP), m_displayedText },
+                        IsTextControlHint = false,
+                        JoystickFormatParams = new object[] { MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_CHARACTER, MyControlsSpace.PICK_UP), m_displayedText },
+                    };
+                case UseActionEnum.Manipulate:
+                    key = MyInput.Static.GetGameControl(MyControlsSpace.USE).GetControlButtonName(MyGuiInputDeviceEnum.Keyboard);
+                    return new MyActionDescription()
+                    {
+                        Text = MyCommonTexts.NotificationPickupObject,
+                        FormatParams = new object[] { MyInput.Static.GetGameControl(MyControlsSpace.USE), m_displayedText },
+                        IsTextControlHint = false,
+                        JoystickFormatParams = new object[] { MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_CHARACTER, MyControlsSpace.USE), m_displayedText },
+                    };
+                default:
+                    return new MyActionDescription();
+            }
         }
 
         bool IMyUseObject.ContinuousUsage
@@ -327,22 +482,28 @@ namespace Sandbox.Game.Entities
             get { return false; }
         }
 
-        public void DoDamage(float damage, MyDamageType damageType, bool sync)
+        public bool DoDamage(float damage, MyStringHash damageType, bool sync, long attackerId)
         {
             if (MarkedForClose)
-                return;
+                return false;
 
             if (sync)
             {
-                if (!Sync.IsServer)
-                    return;
+                if (Sync.IsServer)
+                {
+                    MySyncDamage.DoDamageSynced(this, damage, damageType, attackerId);
+                    return true;
+                }
                 else
                 {
-                    MySyncHelper.DoDamageSynced(this, damage, damageType);
-                    return;
+                    return false;
                 }
+
             }
 
+            MyDamageInformation damageinfo = new MyDamageInformation(false, damage, damageType, attackerId);
+            if (UseDamageSystem)
+                MyDamageSystem.Static.RaiseBeforeDamageApplied(this, ref damageinfo);
 
             var typeId = Item.Content.TypeId;
             if (typeId == typeof(MyObjectBuilder_Ore) ||
@@ -356,18 +517,21 @@ namespace Sandbox.Game.Entities
                     {
                         effect.WorldMatrix = WorldMatrix;
                         effect.UserScale = 0.4f;
-                        MyFloatingObjects.RemoveFloatingObject(this);
                     }
+                    MyFloatingObjects.RemoveFloatingObject(this);
                 }
                 else
                 {
                     if (Sync.IsServer)
-                        MyFloatingObjects.RemoveFloatingObject(this, (MyFixedPoint)damage);
+                        MyFloatingObjects.RemoveFloatingObject(this, (MyFixedPoint)damageinfo.Amount);
                 }
             }
             else
             {
-                m_health -= (10 + 90 * DamageMultiplier) * damage;
+                m_health -= 10 * damageinfo.Amount;
+
+                if (UseDamageSystem)
+                    MyDamageSystem.Static.RaiseAfterDamageApplied(this, damageinfo);
 
                 if (m_health < 0)
                 {
@@ -409,7 +573,7 @@ namespace Sandbox.Game.Entities
                     if (MyFakes.ENABLE_SCRAP && Sync.IsServer)
                     {
                         if (Item.Content.SubtypeId == ScrapBuilder.SubtypeId)
-                            return;
+                            return true;
 
                         var contentDefinitionId = Item.Content.GetId();
                         if (contentDefinitionId.TypeId == typeof(MyObjectBuilder_Component))
@@ -419,24 +583,26 @@ namespace Sandbox.Game.Entities
                                 MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(Item.Amount * 0.8f, ScrapBuilder), PositionComp.GetPosition(), WorldMatrix.Forward, WorldMatrix.Up);
                         }
                     }
+
+                    if (ItemDefinition != null && ItemDefinition.DestroyedPieceId.HasValue && Sync.IsServer)
+                    {
+                        MyPhysicalItemDefinition pieceDefinition;
+                        if (MyDefinitionManager.Static.TryGetPhysicalItemDefinition(ItemDefinition.DestroyedPieceId.Value, out pieceDefinition))
+                        {
+                            MyFloatingObjects.Spawn(pieceDefinition, WorldMatrix.Translation, WorldMatrix.Forward, WorldMatrix.Up, ItemDefinition.DestroyedPieces);
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.Fail("Trying to spawn piece of the item after being destroyed, but definition wasn't found! - " + ItemDefinition.DestroyedPieceId.Value);
+                        }
+                    }
+
+                    if (UseDamageSystem)
+                        MyDamageSystem.Static.RaiseDestroyed(this, damageinfo);
                 }
             }
 
-            return;
-        }
-
-        private float DamageMultiplier
-        {
-            get
-            {
-                var contentDefinitionId = Item.Content.GetId();
-                if (contentDefinitionId.TypeId == typeof(MyObjectBuilder_Component))
-                {
-                    var definition = MyDefinitionManager.Static.GetComponentDefinition(contentDefinitionId);
-                    return 1 - definition.DropProbability;
-                }
-                return 0.0f;
-            }
+            return true;
         }
 
         public void RemoveUsers(bool local)
@@ -444,21 +610,24 @@ namespace Sandbox.Game.Entities
         }
 
         public void OnDestroy()
-        { }
+        {
+        }
 
         public float Integrity
         {
             get { return m_health; }
         }
 
+        public bool UseDamageSystem { get; private set; }
+
         void IMyDestroyableObject.OnDestroy()
         {
             OnDestroy();
         }
 
-        void IMyDestroyableObject.DoDamage(float damage, MyDamageType damageType, bool sync, MyHitInfo? hitInfo)
+        bool IMyDestroyableObject.DoDamage(float damage, MyStringHash damageType, bool sync, MyHitInfo? hitInfo, long attackerId)
         {
-            DoDamage(damage, damageType, sync);
+            return DoDamage(damage, damageType, sync, attackerId);
         }
 
         float IMyDestroyableObject.Integrity
@@ -466,8 +635,26 @@ namespace Sandbox.Game.Entities
             get { return Integrity; }
         }
 
+        bool IMyDestroyableObject.UseDamageSystem
+        {
+            get { return UseDamageSystem; }
+        }
+
         bool IMyUseObject.HandleInput() { return false; }
 
         void IMyUseObject.OnSelectionLost() { }
+
+
+        public void SendCloseRequest()
+        {
+            MyMultiplayer.RaiseEvent(this,x => x.OnClosedRequest);
+        }
+
+        [Event, Reliable, Server]
+        void OnClosedRequest()
+        {
+            Close();
+        }
+
     }
 }

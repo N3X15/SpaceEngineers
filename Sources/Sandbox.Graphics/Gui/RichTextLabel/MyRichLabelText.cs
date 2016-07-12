@@ -1,10 +1,11 @@
-﻿using Sandbox.Common;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage.Game;
 using VRage.Utils;
 using VRageMath;
+using VRageRender;
 
 namespace Sandbox.Graphics.GUI
 {
@@ -14,8 +15,7 @@ namespace Sandbox.Graphics.GUI
         private MyFontEnum m_font;
         private Vector4 m_color;
         private float m_scale;
-
-        private Vector2 m_size;
+        private bool mShowTextShadow;
 
         public MyRichLabelText(StringBuilder text, MyFontEnum font, float scale, Vector4 color)
         {
@@ -49,11 +49,12 @@ namespace Sandbox.Graphics.GUI
             {
                 return m_text;
             }
-            set
-            {
-                m_text = value;
-                RecalculateSize();
-            }
+        }
+
+        public bool ShowTextShadow
+        {
+            get { return mShowTextShadow; }
+            set { mShowTextShadow = value; }
         }
 
         public void Append(string text)
@@ -94,14 +95,15 @@ namespace Sandbox.Graphics.GUI
             set { m_color = value; }
         }
 
-        private void RecalculateSize()
+        public string Tag
         {
-            m_size = MyGuiManager.MeasureString(m_font, m_text, m_scale);
+            get;
+            set;
         }
 
-        public override Vector2 GetSize()
+        public override void AppendTextTo(StringBuilder builder)
         {
-            return m_size;
+            builder.Append(m_text);
         }
 
         /// <summary>
@@ -111,13 +113,27 @@ namespace Sandbox.Graphics.GUI
         /// <returns></returns>
         public override bool Draw(Vector2 position)
         {
-            MyGuiManager.DrawString(m_font, m_text, position, m_scale, new Color(m_color), MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
+            if (ShowTextShadow && !String.IsNullOrWhiteSpace(m_text.ToString()))
+            {
+                Vector2 size = Size;
+                MyGuiTextShadows.DrawShadow(ref position, ref size,
+                    alignment: MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
+            }
+
+            MyGuiManager.DrawString(m_font, m_text, position, m_scale, new Color(m_color),
+                MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
+
             return true;
         }
 
         public override bool HandleInput(Vector2 position)
         {
             return false;
+        }
+
+        private void RecalculateSize()
+        {
+            Size = MyGuiManager.MeasureString(m_font, m_text, m_scale);
         }
     }
 }

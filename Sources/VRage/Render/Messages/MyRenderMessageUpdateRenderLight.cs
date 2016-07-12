@@ -3,16 +3,17 @@ using VRageRender.Lights;
 
 namespace VRageRender
 {
-    public class MyRenderMessageUpdateRenderLight : IMyRenderMessage
+    public class MyRenderMessageUpdateRenderLight : MyRenderMessageBase
     {
         public uint ID;
         public LightTypeEnum Type;
-        public Vector3D Position;
+        public Vector3D ReflectorPosition;
         public int ParentID;
-        public float Offset;
+        public float PointPositionOffset;
         public Color Color;
         public Color SpecularColor;
         public float Falloff;
+        public float GlossFactor;
         public float Range;
         public float Intensity;
         public bool LightOn;
@@ -25,6 +26,7 @@ namespace VRageRender
         public Color ReflectorColor;
         public float ReflectorRange;
         public float ReflectorFalloff;
+        public float ReflectorGlossFactor;
         public string ReflectorTexture;
         public float ShadowDistance;
         public bool CastShadows;
@@ -36,7 +38,7 @@ namespace VRageRender
         public string GlareMaterial;
         public float GlareMaxDistance;
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.UpdateRenderLight; } }
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.UpdateRenderLight; } }
     }
 }

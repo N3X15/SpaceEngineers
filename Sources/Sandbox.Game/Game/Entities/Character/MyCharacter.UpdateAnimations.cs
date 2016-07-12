@@ -18,274 +18,118 @@ using VRage;
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Engine.Physics;
 using Havok;
-using VRage;
 using VRage.Library.Utils;
 using VRage.FileSystem;
+using Sandbox.Game.World;
+using VRage.Game;
+using VRage.Game.Definitions.Animation;
+using VRage.Game.Entity;
+using Sandbox.Game.Multiplayer;
 
 
 #endregion
 
 namespace Sandbox.Game.Entities.Character
 {
-    #region Enums
-
-    [Flags]
-    public enum MyPlayAnimationMode
-    {
-        Immediate = 1 << 0,
-        WaitForPreviousEnd = 1 << 1,
-        JustFirstFrame = 1 << 2,
-        Play = 1 << 3,
-        Stop = 1 << 4,
-    }
-
-    #endregion
-
-    #region Structs
-
-    public struct MyAnimationCommand
-    {
-        public string AnimationSubtypeName;
-        public bool Loop;
-        public MyPlayAnimationMode Mode;
-        public MyBonesArea Area;
-        public float BlendTime;
-        public float TimeScale;
-    }
-
-    public struct MyFeetIKSettings
-    {
-        public bool Enabled;
-        public float BelowReachableDistance; // distance reachable below the character's rigid body
-        public float AboveReachableDistance; // distance reachable above character's ground (how high foot can be placed)
-        public float VerticalShiftUpGain; // how quickly can shift character's root
-        public float VerticalShiftDownGain; // how quickly can crouch..
-        public Vector3 FootSize; // x = foot width, y = foot height, z = foot lenght/size
-    }
-
-    #endregion
-
     public partial class MyCharacter
     {
         #region Fields
 
+        static string TopBody = "LeftHand RightHand LeftFingers RightFingers Head Spine";
 
-
-        /// <summary>
-        /// An associated animation clip player
-        /// </summary>
-        private AnimationPlayer m_player;
-        private AnimationPlayer m_playerNextAnim;
-
-        MyAnimationPlayerBlendPair m_headPlayer;
-        MyAnimationPlayerBlendPair m_spinePlayer;
-        MyAnimationPlayerBlendPair m_leftHandPlayer;
-        MyAnimationPlayerBlendPair m_rightHandPlayer;
-        MyAnimationPlayerBlendPair m_leftFingersPlayer;
-        MyAnimationPlayerBlendPair m_rightFingersPlayer;
-
-        //Animation blending logic
-        Queue<MyAnimationCommand> m_commandQueue = new Queue<MyAnimationCommand>();
-
-        float m_currentBlendTime = 0;
-        float m_totalBlendTime = 0;
-
-        //0 - none, 1 - blend in, -1 - blend out
-        int m_currentUpperState = 0;
-        float m_currentUpperBlendTime = 0;
-        float m_totalUpperBlendTime = 0;
-
-        MatrixD m_helperMatrix;
-
-        float m_verticalFootError = 0;
-        float m_cummulativeVerticalFootError = 0;
+        bool m_resetWeaponAnimationState;
 
         #endregion
 
         #region Animations init
 
 
+        // temporary solution, resolving jittering
+        private readonly Vector3[] m_animationSpeedFilter = new Vector3[4];
+        private int m_animationSpeedFilterCursor = 0;
+
         void InitAnimations()
         {
-            InitBones();
+            m_animationSpeedFilterCursor = 0;
+            for (int i = 0; i < m_animationSpeedFilter.Length; i++)
+                m_animationSpeedFilter[i] = Vector3.Zero;
 
+            foreach (var bones in m_characterDefinition.BoneSets)
+            {
+                AddAnimationPlayer(bones.Key, bones.Value);
+            }
 
-            Debug.Assert(TestCharacterBoneDefinitions(), "Warning! Bone definitions in model " + this.ModelName + " are incorrect.");
+            SetBoneLODs(m_characterDefinition.BoneLODs);
 
-            m_helperMatrix = Matrix.CreateRotationY((float)Math.PI);
-            
-            m_player = new AnimationPlayer();
-            m_playerNextAnim = new AnimationPlayer();
-
-            string[] bones = null;
-            m_characterDefinition.BoneSets.TryGetValue("Head", out bones);
-            m_headPlayer = new MyAnimationPlayerBlendPair(this, bones);
-
-            bones = null;
-            m_characterDefinition.BoneSets.TryGetValue("Spine", out bones);
-            m_spinePlayer = new MyAnimationPlayerBlendPair(this, bones);
-
-            bones = null;
-            m_characterDefinition.BoneSets.TryGetValue("LeftHand", out bones);
-            m_leftHandPlayer = new MyAnimationPlayerBlendPair(this, bones);
-
-            bones = null;
-            m_characterDefinition.BoneSets.TryGetValue("RightHand", out bones);
-            m_rightHandPlayer = new MyAnimationPlayerBlendPair(this, bones);
-
-            bones = null;
-            m_characterDefinition.BoneSets.TryGetValue("LeftFingers", out bones);
-            m_leftFingersPlayer = new MyAnimationPlayerBlendPair(this, bones);
-
-            bones = null;
-            m_characterDefinition.BoneSets.TryGetValue("RightFingers", out bones);
-            m_rightFingersPlayer = new MyAnimationPlayerBlendPair(this, bones);
-
-            FindBone(m_characterDefinition.HeadBone, out m_headBoneIndex);
-            FindBone(m_characterDefinition.Camera3rdBone, out m_camera3rdBoneIndex);
+            AnimationController.FindBone(m_characterDefinition.HeadBone, out m_headBoneIndex);
+            AnimationController.FindBone(m_characterDefinition.Camera3rdBone, out m_camera3rdBoneIndex);
             if (m_camera3rdBoneIndex == -1)
-                m_camera3rdBoneIndex = m_headBoneIndex;            
-            FindBone(m_characterDefinition.LeftHandIKStartBone, out m_leftHandIKStartBone);
-            FindBone(m_characterDefinition.LeftHandIKEndBone, out m_leftHandIKEndBone);
-            FindBone(m_characterDefinition.RightHandIKStartBone, out m_rightHandIKStartBone);
-            FindBone(m_characterDefinition.RightHandIKEndBone, out m_rightHandIKEndBone);
+                m_camera3rdBoneIndex = m_headBoneIndex;
+            AnimationController.FindBone(m_characterDefinition.LeftHandIKStartBone, out m_leftHandIKStartBone);
+            AnimationController.FindBone(m_characterDefinition.LeftHandIKEndBone, out m_leftHandIKEndBone);
+            AnimationController.FindBone(m_characterDefinition.RightHandIKStartBone, out m_rightHandIKStartBone);
+            AnimationController.FindBone(m_characterDefinition.RightHandIKEndBone, out m_rightHandIKEndBone);
 
-            FindBone(m_characterDefinition.LeftUpperarmBone, out m_leftUpperarmBone);
-            FindBone(m_characterDefinition.LeftForearmBone, out m_leftForearmBone);
-            FindBone(m_characterDefinition.RightUpperarmBone, out m_rightUpperarmBone);
-            FindBone(m_characterDefinition.RightForearmBone, out m_rightForearmBone);
+            AnimationController.FindBone(m_characterDefinition.LeftUpperarmBone, out m_leftUpperarmBone);
+            AnimationController.FindBone(m_characterDefinition.LeftForearmBone, out m_leftForearmBone);
+            AnimationController.FindBone(m_characterDefinition.RightUpperarmBone, out m_rightUpperarmBone);
+            AnimationController.FindBone(m_characterDefinition.RightForearmBone, out m_rightForearmBone);
 
-            FindBone(m_characterDefinition.WeaponBone, out m_weaponBone);
-            FindBone(m_characterDefinition.LeftHandItemBone, out m_leftHandItemBone);
-            FindBone(m_characterDefinition.RighHandItemBone, out m_rightHandItemBone);
-            FindBone(m_characterDefinition.SpineBone, out m_spineBone);
-
-            FindBone(m_characterDefinition.ModelRootBoneName, out m_rootBone);
-            FindBone(m_characterDefinition.LeftHipBoneName, out m_leftHipBone);
-            FindBone(m_characterDefinition.LeftKneeBoneName, out m_leftKneeBone);
-            FindBone(m_characterDefinition.LeftAnkleBoneName, out m_leftAnkleBone);
-            FindBone(m_characterDefinition.RightHipBoneName, out m_rightHipBone);
-            FindBone(m_characterDefinition.RightKneeBoneName, out m_rightKneeBone);
-            FindBone(m_characterDefinition.RightAnkleBoneName, out m_rightAnkleBone);           
-
-            //footDimensions = new Vector3(m_characterDefinition.FootWidth, m_characterDefinition.AnkleHeight, m_characterDefinition.FootLenght);
-
-            UpdateAnimation();
+            AnimationController.FindBone(m_characterDefinition.WeaponBone, out m_weaponBone);
+            AnimationController.FindBone(m_characterDefinition.LeftHandItemBone, out m_leftHandItemBone);
+            AnimationController.FindBone(m_characterDefinition.RighHandItemBone, out m_rightHandItemBone);
+            AnimationController.FindBone(m_characterDefinition.SpineBone, out m_spineBone);
+            
+            UpdateAnimation(0);
         }
 
 
-        // FOR DEBUG ONLY - TEST THE LOADED DEFINITIONS OF BONES
-        private bool TestCharacterBoneDefinitions()
+        public override void UpdateToolPosition()
         {
-           bool isOk = true;
-            // Test only mandatory bones - add if needed
-           if (m_characterDefinition.HeadBone == null)
-           {
-               Debug.Fail("Warning! Headbone definition is missing! Model: " + this.ModelName);
-               isOk = false;                
-           }
-           //if (m_characterDefinition.ModelRootBoneName == null)
-           //{
-           //    Debug.Fail("Warning! Rootbone definition is missing! Model: " + this.ModelName);
-           //    isOk = false;
-           //}
-           if (m_characterDefinition.SpineBone == null)
-           {
-               Debug.Fail("Warning! Spine bone definition is missing! Model: " + this.ModelName);
-               isOk = false;
-           }
-           return isOk;
+            if (m_currentWeapon != null)
+            {
+                if (!MyPerGameSettings.CheckUseAnimationInsteadOfIK(m_currentWeapon))
+                {
+                    UpdateWeaponPosition();
+                }
+            }
         }
 
-      
-
-        /// <summary>
-        /// Find a bone in this model by name
-        /// </summary>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        public MyCharacterBone FindBone(string name, out int index)
-        {
-            index = -1;
-            if (name == null) return null;
-            foreach (MyCharacterBone bone in Bones)
-            {
-                index++;
-
-                if (bone.Name == name)
-                    return bone;
-            }
-            if (MyFakes.ENABLE_BONES_AND_ANIMATIONS_DEBUG)
-            {
-                Debug.Fail("Warning! Bone with name: " + name + " was not found in the skeleton of model name: " + this.ModelName + ". Pleace check your bone definitions in SBC file.");
-            }
-            return null;
-        }
-
-        Matrix[] m_boneRelativeTransforms;
-        public Matrix[] BoneRelativeTransforms { get { return m_boneRelativeTransforms; } }
-        void CalculateTransforms()
+        protected override void CalculateTransforms(float distance)
         {
             ProfilerShort.Begin("MyCharacter.CalculateTransforms");
 
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Clear bones");
-            foreach (var bone in Bones)
-            {
-                bone.Translation = Vector3.Zero;
-                bone.Rotation = Quaternion.Identity;
-            }
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
+            base.CalculateTransforms(distance);
 
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Update bones m_player");
-            if (m_player.IsInitialized)
-            {
-                m_player.UpdateBones();
-            }
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Update bones m_playerNextAnim");
-            if (m_playerNextAnim.IsInitialized)
-            {
-                m_playerNextAnim.UpdateBones();
-            }
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Update bones hands");
-            m_headPlayer.UpdateBones();
-            m_spinePlayer.UpdateBones();
-            m_leftHandPlayer.UpdateBones();
-            m_rightHandPlayer.UpdateBones();
-            m_leftFingersPlayer.UpdateBones();
-            m_rightFingersPlayer.UpdateBones();
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("ComputeAbsoluteTransforms");
-            for (int i = 0; i < Bones.Count; i++)
-            {
-                MyCharacterBone bone = Bones[i];
-                bone.ComputeAbsoluteTransform();
-            }
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
+            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("UpdateLeftHandItemPosition");
             if (m_leftHandItem != null)
             {
                 UpdateLeftHandItemPosition();
             }
 
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Calculate Hand IK");
+            VRageRender.MyRenderProxy.GetRenderProfiler().StartNextBlock("Calculate Hand IK");
+
+
+            if (this == MySession.Static.ControlledEntity)
+            {
+                // (OM) Note: only controlled character can get it's aimed point from camera, otherwise all character's will aim the same direction
+                // set the aimed point explicitly using AimedPoint property
+                m_aimedPoint = GetAimedPointFromCamera();
+            }
+
             if (m_currentWeapon != null)
             {
-                if (!MyPerGameSettings.UseAnimationInsteadOfIK)
+                if (!MyPerGameSettings.CheckUseAnimationInsteadOfIK(m_currentWeapon))
                 {
-                    UpdateWeaponPosition(); //mainly IK and some zoom + ironsight stuff
+                    UpdateWeaponPosition();
+                    //mainly IK and some zoom + ironsight stuff
                     if (m_handItemDefinition.SimulateLeftHand && m_leftHandIKStartBone != -1 && m_leftHandIKEndBone != -1 && (!UseAnimationForWeapon && m_animationToIKState == 0))
                     {
                         MatrixD leftHand = (MatrixD)m_handItemDefinition.LeftHand * ((MyEntity)m_currentWeapon).WorldMatrix;
                         CalculateHandIK(m_leftHandIKStartBone, m_leftForearmBone, m_leftHandIKEndBone, ref leftHand);
                     }
 
-                    if (m_handItemDefinition.SimulateRightHand && m_rightHandIKStartBone != -1 && m_rightHandIKEndBone != -1 && (!UseAnimationForWeapon || m_animationToIKState != 0))
+                    if (m_handItemDefinition.SimulateRightHand && m_rightHandIKStartBone != -1 && m_rightHandIKEndBone != -1 && (!UseAnimationForWeapon || m_animationToIKState != 0) && IsSitting == false)
                     {
                         MatrixD rightHand = (MatrixD)m_handItemDefinition.RightHand * ((MyEntity)m_currentWeapon).WorldMatrix;
                         CalculateHandIK(m_rightHandIKStartBone, m_rightForearmBone, m_rightHandIKEndBone, ref rightHand);
@@ -293,733 +137,301 @@ namespace Sandbox.Game.Entities.Character
                 }
                 else
                 {
+                    GetHeadMatrix(true); // CH: REMOVE ME! I'M A TERRIBLE HACK!
                     Debug.Assert(m_rightHandItemBone != -1, "Invalid bone for weapon.");
                     if (m_rightHandItemBone != -1)
                     {
                         //use animation for right hand item
-                        MatrixD rightHandItemMatrix = Bones[m_rightHandItemBone].AbsoluteTransform * WorldMatrix;
-                        //var rightHandItemMatrix = ((MyEntity)m_currentWeapon).PositionComp.WorldMatrix; //use with UpdateWeaponPosition() but not working for barbarians
-                        Vector3D up = rightHandItemMatrix.Up;
-                        rightHandItemMatrix.Up = rightHandItemMatrix.Forward;
-                        rightHandItemMatrix.Forward = up;
-                        rightHandItemMatrix.Right = -rightHandItemMatrix.Right;
-                        ((MyEntity)m_currentWeapon).PositionComp.WorldMatrix = rightHandItemMatrix;
+                        MyCharacterBone boneRightHand = AnimationController.CharacterBones[m_rightHandItemBone];
+                        ((MyEntity)m_currentWeapon).PositionComp.WorldMatrix = boneRightHand.AbsoluteTransform * PositionComp.WorldMatrix;
                     }
                 }
             }
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-            if (m_boneRelativeTransforms == null || Bones.Count != m_boneRelativeTransforms.Length)
-                m_boneRelativeTransforms = new Matrix[Bones.Count];
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Saving bone transforms");
-            for (int i = 0; i < Bones.Count; i++)
+            else
             {
-                MyCharacterBone bone = Bones[i];
-                m_boneRelativeTransforms[i] = bone.ComputeBoneTransform();
-                bone.ComputeAbsoluteTransform();
-                BoneTransforms[i] = bone.AbsoluteTransform;
+                GetHeadMatrix(true); // CH: REMOVE ME! I'M A TERRIBLE HACK!
             }
+
+
+            VRageRender.MyRenderProxy.GetRenderProfiler().StartNextBlock("ComputeBoneTransform");
+
+            var characterBones = AnimationController.CharacterBones;
+            if (characterBones == null)
+                return;
+            for (int i = 0; i < characterBones.Length; i++)
+            {
+                MyCharacterBone bone = characterBones[i];
+                bone.ComputeBoneTransform();
+                BoneRelativeTransforms[i] = bone.RelativeTransform;
+            }
+
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
 
             ProfilerShort.End();
         }
 
 
-        void CalculateHandIK(int startBoneIndex, int endBoneIndex, ref MatrixD targetTransform)
-        {
-            MyCharacterBone endBone = Bones[endBoneIndex];
-            MyCharacterBone startBone = Bones[startBoneIndex];
-
-            // Solve IK Problem
-            List<MyCharacterBone> bones = new List<MyCharacterBone>();
-
-            for (int i = startBoneIndex; i <= endBoneIndex; i++) 
-                bones.Add(Bones[i]);
-
-            MatrixD invWorld = MatrixD.Invert(WorldMatrix);
-            Matrix localFinalTransform = targetTransform * invWorld;
-            Vector3 finalPos = localFinalTransform.Translation;
-            if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW && MyDebugDrawSettings.DEBUG_DRAW_CHARACTER_IK_IKSOLVERS)
-            {
-                VRageRender.MyRenderProxy.DebugDrawText3D(targetTransform.Translation, "Hand target transform", Color.Purple, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere(targetTransform.Translation, 0.03f, Color.Purple, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawAxis((MatrixD)targetTransform, 0.03f, false);
-            }
-
-            MyInverseKinematics.SolveCCDIk(ref finalPos, bones, 0.0005f, 5, 0.5f, ref localFinalTransform, endBone);
-            //MyInverseKinematics.SolveTwoJointsIk(ref finalPos, bones[0], bones[1], bones[2], ref localFinalTransform, WorldMatrix, bones[3],false);
-
-        }
-
-        void CalculateHandIK(int upperarm, int forearm, int palm,  ref MatrixD targetTransform)
-        {
-            if (MyFakes.ENABLE_BONES_AND_ANIMATIONS_DEBUG)
-            {
-                Debug.Assert(Bones.IsValidIndex(upperarm), "UpperArm index for IK is invalid");
-                Debug.Assert(Bones.IsValidIndex(forearm), "ForeArm index for IK is invalid");
-                Debug.Assert(Bones.IsValidIndex(palm), "Palm index for IK is invalid");
-            }
-
-            MatrixD invWorld = MatrixD.Invert(WorldMatrix);
-            Matrix localFinalTransform = targetTransform * invWorld;
-            Vector3 finalPos = localFinalTransform.Translation;
-            if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW && MyDebugDrawSettings.DEBUG_DRAW_CHARACTER_IK_IKSOLVERS)
-            {
-                VRageRender.MyRenderProxy.DebugDrawText3D(targetTransform.Translation, "Hand target transform", Color.Purple, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere(targetTransform.Translation, 0.03f, Color.Purple, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawAxis((MatrixD)targetTransform, 0.03f, false);
-            }
-
-            //MyInverseKinematics.SolveCCDIk(ref finalPos, bones, 0.0005f, 5, 0.5f, ref localFinalTransform, endBone);
-            if (Bones.IsValidIndex(upperarm) && Bones.IsValidIndex(forearm) && Bones.IsValidIndex(palm))
-            {
-                MyInverseKinematics.SolveTwoJointsIkCCD(ref finalPos, Bones[upperarm], Bones[forearm], Bones[palm], ref localFinalTransform, WorldMatrix, Bones[palm], false);
-            }
-
-        }
-
-        /// <summary>
-        /// This updates the foot placement in the world using raycasting and finding closest support. 
-        /// </summary>
-        /// <param name="upDirection">This direction is used to raycast from feet - must be normalized!</param>
-        /// <param name="underFeetReachableDistance">How below the original position can character reach down with legs</param>
-        /// <param name="maxFootHeight">How high from the original position can be foot placed</param>
-        /// <param name="verticalChangeGainUp">How quickly we raise up the character</param>
-        /// <param name="verticalChangeGainDown">How quickly we crouch down</param>
-        /// <param name="maxDistanceSquared">This is the maximal error in foot placement</param>
-        /// <param name="footDimensions">This is foot dimensions, in Y axis is the ankle's height</param>
-        /// <param name="footPlacementDistanceSquared">This is the distance limit between calculated and current position to start IK on foot placement</param>
-        void UpdateFeetPlacement(Vector3 upDirection, float belowCharacterReachableDistance, float aboveCharacterReachableDistance, float verticalShiftUpGain, float verticalShiftDownGain, Vector3 footDimensions)
-        {
-            Debug.Assert(footDimensions != Vector3.Zero,"void UpdateFeetPlacement(...) : foot dimensions can not be zero!");
-
-            float ankleHeight = footDimensions.Y;
-                        
-            // get the current foot matrix and location
-            Matrix invWorld = PositionComp.WorldMatrixInvScaled;
-            MyCharacterBone rootBone = Bones[m_rootBone]; // root bone is used to transpose the model up or down
-            Matrix modelRootBoneMatrix = rootBone.AbsoluteTransform;
-            float verticalShift = modelRootBoneMatrix.Translation.Y;
-            Matrix leftFootMatrix = Bones[m_leftAnkleBone].AbsoluteTransform;
-            Matrix rightFootMatrix = Bones[m_rightAnkleBone].AbsoluteTransform;
-
-            // ok first we get the closest support to feet and we need to know from where to raycast for each foot in world coords
-            // we need to raycast from original ground position of the feet, no from the character shifted position            
-            // we cast from the ground of the model space, assuming the model's local space up vector is in Y axis
-            Vector3 leftFootGroundPosition = new Vector3(leftFootMatrix.Translation.X, 0, leftFootMatrix.Translation.Z);
-            Vector3 rightFootGroundPosition = new Vector3(rightFootMatrix.Translation.X, 0, rightFootMatrix.Translation.Z);
-            Vector3 fromL = Vector3.Transform(leftFootGroundPosition, WorldMatrix);  // we get this position in the world
-            Vector3 fromR = Vector3.Transform(rightFootGroundPosition, WorldMatrix);            
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("GetClosestFootPosition");
-
-            // find the closest ground support, raycasting from Up to Down
-            var contactLeft = MyInverseKinematics.GetClosestFootSupportPosition(this, null, fromL, upDirection, footDimensions, WorldMatrix, belowCharacterReachableDistance, aboveCharacterReachableDistance, Physics.CharacterCollisionFilter);        // this returns world coordinates of support for left foot
-            var contactRight = MyInverseKinematics.GetClosestFootSupportPosition(this, null, fromR, upDirection, footDimensions, WorldMatrix, belowCharacterReachableDistance, aboveCharacterReachableDistance, Physics.CharacterCollisionFilter);
-            
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Characters root shift estimation");
-
-            // if we got hit only for one feet, we do nothing, but slowly return back root bone (character vertical shift) position if it was changed from original
-            // that happends very likely when the support below is too far for one leg
-            if (contactLeft == null || contactRight == null)
-            {
-                modelRootBoneMatrix.Translation -= modelRootBoneMatrix.Translation * verticalShiftUpGain;
-                rootBone.SetBindTransform(modelRootBoneMatrix);
-                VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-                return;
-            }
-
-            // Here we recalculate if we shift the root of the character to reach bottom or top
-            // get the desired foot world coords
-
-            Vector3 supportL = contactLeft.Value.Position;
-            Vector3 supportR = contactRight.Value.Position;
-
-            if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW && MyDebugDrawSettings.DEBUG_DRAW_CHARACTER_IK_CLOSESTSUPPORTPOSITION)
-            {
-                VRageRender.MyRenderProxy.DebugDrawText3D(supportL, "Foot support position", Color.Blue, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawText3D(supportR, "Foot support position", Color.Blue, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere(supportL, 0.03f, Color.Blue, 0, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere(supportR, 0.03f, Color.Blue, 0, false);               
-            }
-
-            // Get the vector between actual feet position and possible support in local model coords
-            //                                  local model space coord of desired position + shift it up of ankle heights
-            Vector3 leftAnkleDesiredPosition = Vector3.Transform(supportL, invWorld) + ((leftFootMatrix.Translation.Y - verticalShift) * upDirection);
-            Vector3 rightAnkleDesiredPosition = Vector3.Transform(supportR, invWorld) + ((rightFootMatrix.Translation.Y - verticalShift) * upDirection);
-
-            if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW && MyDebugDrawSettings.DEBUG_DRAW_CHARACTER_IK_ANKLE_DESIREDPOSITION)
-            {
-                VRageRender.MyRenderProxy.DebugDrawText3D(supportL, "Ankle desired position", Color.Purple, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawText3D(supportR, "Ankle desired position", Color.Purple, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere(Vector3.Transform(leftAnkleDesiredPosition, WorldMatrix), 0.03f, Color.Purple, 0, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere(Vector3.Transform(rightAnkleDesiredPosition, WorldMatrix), 0.03f, Color.Purple, 0, false);
-            }
-
-            // Get the height of found support related to character's position in model's local space, assuming it's Y axis
-            float leftAnkleDesiredHeight = leftAnkleDesiredPosition.Y;
-            float rightAnkleDesiredHeight = rightAnkleDesiredPosition.Y;
-
-            // if we the distances are too big, so we will not be able to set the position, we can skip it
-            if (Math.Abs(leftAnkleDesiredHeight - rightAnkleDesiredHeight) > aboveCharacterReachableDistance)
-            {
-                modelRootBoneMatrix.Translation -= modelRootBoneMatrix.Translation * verticalShiftUpGain;
-                rootBone.SetBindTransform(modelRootBoneMatrix);
-                VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-                return;
-            }
-            
-            // if we got one of the supports below the character root, we must check whether we can reach it, if yes, we need to crouch to reach it            
-            if ((((leftAnkleDesiredHeight > -belowCharacterReachableDistance) && (leftAnkleDesiredHeight < ankleHeight)) ||      // left support is below model and is reachable
-                ((rightAnkleDesiredHeight > -belowCharacterReachableDistance) && (rightAnkleDesiredHeight < ankleHeight))) &&    // right support is below model and is reachable
-                // finally check if character is shifted down, the other feet won't get too high
-                (Math.Max(leftAnkleDesiredHeight, rightAnkleDesiredHeight) - Math.Min(leftAnkleDesiredHeight, rightAnkleDesiredHeight) < aboveCharacterReachableDistance))               
-            {
-                // then we can try to reach down according to the difference
-                float distanceBelow = Math.Min(leftAnkleDesiredHeight, rightAnkleDesiredHeight)-ankleHeight;
-                Vector3 verticalTranslation = upDirection * distanceBelow;
-                Vector3 translation = modelRootBoneMatrix.Translation;
-                translation.Interpolate3(modelRootBoneMatrix.Translation, verticalTranslation, verticalShiftDownGain);
-                modelRootBoneMatrix.Translation = translation;
-                rootBone.SetBindTransform(modelRootBoneMatrix);                
-            }               
-            else // if both supports are up, we need to get up, however, that should be done by rigid body as well.. we limit it only by reachable distance, so it is bounded to rigid body position
-                if ((leftAnkleDesiredHeight > ankleHeight) && (leftAnkleDesiredHeight < aboveCharacterReachableDistance) &&
-                    (rightAnkleDesiredHeight > ankleHeight) && (rightAnkleDesiredHeight < aboveCharacterReachableDistance))
-            {
-                // move up to reach the highest support
-                float distanceAbove = Math.Max(leftAnkleDesiredHeight, rightAnkleDesiredHeight) - ankleHeight;
-                Vector3 verticalTranslation = upDirection * distanceAbove;
-                Vector3 translation = modelRootBoneMatrix.Translation;
-                translation.Interpolate3(modelRootBoneMatrix.Translation, verticalTranslation, verticalShiftUpGain);
-                modelRootBoneMatrix.Translation = translation;
-                rootBone.SetBindTransform(modelRootBoneMatrix);
-            }
-            // finally if we can not get into right vertical position for foot placement, slowly reset the vertical shift
-            else
-            {
-                modelRootBoneMatrix.Translation -= modelRootBoneMatrix.Translation * verticalShiftUpGain;
-                rootBone.SetBindTransform(modelRootBoneMatrix);
-            }
-
-            // Hard limit to root's shift in vertical position
-            //if (characterVerticalShift < -underFeetReachableDistance)
-            //{
-            //    modelRootBoneMatrix.Translation = -upDirection * underFeetReachableDistance;
-            //    rootBone.SetBindTransform(modelRootBoneMatrix);
-            //    characterVerticalShift = -underFeetReachableDistance; // get the new height
-            //}
-            //if (characterVerticalShift > underFeetReachableDistance)
-            //{
-            //    modelRootBoneMatrix.Translation = upDirection * underFeetReachableDistance;
-            //    rootBone.SetBindTransform(modelRootBoneMatrix);
-            //    characterVerticalShift = underFeetReachableDistance; // get the new height
-            //}
-
-            // Then we need to recalculate all other bones matrices so we get proper data for children, since we changed the root position
-            //foreach (var b in m_bones) b.ComputeAbsoluteTransform();
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("CalculateFeetPlacement");
-
-            // Then recalculate feet positions only if we can reach the final and if we are in the limits
-            if ((-belowCharacterReachableDistance < leftAnkleDesiredHeight) && (leftAnkleDesiredHeight < aboveCharacterReachableDistance)) // and the found foot support height is not over limit                
-                CalculateFeetPlacement(
-                    m_leftHipBone, 
-                    m_leftKneeBone, 
-                    m_leftAnkleBone,
-                    leftAnkleDesiredPosition,
-                    contactLeft.Value.Normal,
-                    footDimensions,
-                    leftFootMatrix.Translation.Y - verticalShift <= ankleHeight);
-
-            if ((-belowCharacterReachableDistance < rightAnkleDesiredHeight) && (rightAnkleDesiredHeight < aboveCharacterReachableDistance))
-                CalculateFeetPlacement(
-                    m_rightHipBone,
-                    m_rightKneeBone,
-                    m_rightAnkleBone,
-                    rightAnkleDesiredPosition,
-                    contactRight.Value.Normal,
-                    footDimensions,
-                    rightFootMatrix.Translation.Y - verticalShift <= ankleHeight);
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-            if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW && MyDebugDrawSettings.DEBUG_DRAW_CHARACTER_IK_BONES)
-            {
-                List<Matrix> left = new List<Matrix> { Bones[m_leftHipBone].AbsoluteTransform, Bones[m_leftKneeBone].AbsoluteTransform, Bones[m_leftAnkleBone].AbsoluteTransform };
-                List<Matrix> right = new List<Matrix> { Bones[m_rightHipBone].AbsoluteTransform, Bones[m_rightKneeBone].AbsoluteTransform, Bones[m_rightAnkleBone].AbsoluteTransform };
-                debugDrawBones(left);
-                debugDrawBones(right);
-                VRageRender.MyRenderProxy.DebugDrawText3D(WorldMatrix.Translation, "Rigid body", Color.Yellow, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere(WorldMatrix.Translation, 0.05f, Color.Yellow, 0, false);
-                VRageRender.MyRenderProxy.DebugDrawText3D((modelRootBoneMatrix * WorldMatrix).Translation, "Character root bone", Color.Yellow, 1, false);
-                VRageRender.MyRenderProxy.DebugDrawSphere((modelRootBoneMatrix * WorldMatrix).Translation, 0.07f, Color.Red, 0, false);
-            }
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Storing bones transforms");
-
-            // After the feet placement we need to save new bone transformations
-            if (m_boneRelativeTransforms == null || Bones.Count != m_boneRelativeTransforms.Length)
-                m_boneRelativeTransforms = new Matrix[Bones.Count];
-
-            for (int i = 0; i < Bones.Count; i++)
-            {
-                MyCharacterBone bone = Bones[i];
-                m_boneRelativeTransforms[i] = bone.ComputeBoneTransform();
-                //bone.ComputeAbsoluteTransform();
-                //BoneTransforms[i] = bone.AbsoluteTransform;
-                //m_simulatedBones.Add(bone.AbsoluteTransform);
-            }
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-        }
-
-
-        void debugDrawBones(List<Matrix> boneTransforms)
-        {
-            Vector3 p1 = Vector3.Zero;
-            Vector3 p2;
-            foreach (var boneMat in boneTransforms)
-            {
-
-                VRageRender.MyRenderProxy.DebugDrawAxis(boneMat * WorldMatrix, 1f, false);
-                p2 = (boneMat * PositionComp.WorldMatrix).Translation;
-               
-                if (!Vector3.IsZero(p1)) VRageRender.MyRenderProxy.DebugDrawLine3D(p1, p2, Color.Yellow, Color.Yellow, false);
-                               
-                p1 = p2;
-            }
-        }
-
-
-        /// <summary>
-        /// This calculates new bone rotations for legs so the foot is placed on supported ground or object, which is found by RayCast
-        /// </summary>
-        /// <param name="hipBoneIndex">it is the index of the hip bone in m_bones list</param>
-        /// <param name="kneeBoneIndex">it is the index of the hip bone in m_bones list</param>
-        /// <param name="FeetBoneIndex">it is the index of the hip bone in m_bones list</param>
-        /// <param name="footPosition">this is the model space of the final foot placement, it is then recalculated to local model space</param>
-        void CalculateFeetPlacement(int hipBoneIndex, int kneeBoneIndex, int ankleBoneIndex, Vector3 footPosition, Vector3 footNormal, Vector3 footDimensions, bool setFootTransform)
-        {
-                        
-            Vector3 endPos = footPosition;
-           
-            List<MyCharacterBone> boneTransforms = new List<MyCharacterBone>();
-            boneTransforms.Add(Bones[hipBoneIndex]);
-            boneTransforms.Add(Bones[kneeBoneIndex]);
-            boneTransforms.Add(Bones[ankleBoneIndex]);
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("Calculate foot transform");
-
-            Matrix finalAnkleTransform = Matrix.Identity;
-
-            if (setFootTransform)
-            {           
-                // compute rotation based on normal of foot support position
-                Vector3 currentUp = WorldMatrix.Up;
-                currentUp.Normalize();
-                Vector3 crossResult = Vector3.Cross(currentUp, footNormal);
-                crossResult.Normalize();
-                double cosAngle = currentUp.Dot(footNormal);
-                cosAngle = MathHelper.Clamp(cosAngle, -1, 1);
-                double turnAngle = Math.Acos(cosAngle);	// get the angle
-                Matrix rotation = Matrix.CreateFromAxisAngle((Vector3)crossResult, (float)turnAngle);
-
-                // now rotate the model world to the rotation
-                if (rotation.IsValid()) finalAnkleTransform = WorldMatrix * rotation;
-                else finalAnkleTransform = WorldMatrix;
-                // but the position of this world will be different
-                finalAnkleTransform.Translation = Vector3.Transform(footPosition, WorldMatrix);
-
-                // compute transformation in model space
-                MatrixD invWorld = MatrixD.Invert(WorldMatrix);
-                finalAnkleTransform = finalAnkleTransform * invWorld;
-
-                // get the original ankleSpace
-                MatrixD originalAngleTransform = Bones[ankleBoneIndex].BindTransform * Bones[ankleBoneIndex].Parent.AbsoluteTransform;
-
-                // now it needs to be related to rig transform
-                finalAnkleTransform = originalAngleTransform.GetOrientation() * finalAnkleTransform.GetOrientation();
-             
-            }
-
-            finalAnkleTransform.Translation = footPosition;
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-          
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("IK Calculation");
-
-            MyInverseKinematics.SolveTwoJointsIk(ref endPos, Bones[hipBoneIndex], Bones[kneeBoneIndex], Bones[ankleBoneIndex], ref finalAnkleTransform, WorldMatrix, setFootTransform ? Bones[ankleBoneIndex] : null, false);
-
-            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-
-            // draw our foot placement transformation
-            if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW && MyDebugDrawSettings.DEBUG_DRAW_CHARACTER_IK_ANKLE_FINALPOS)
-            {
-                Matrix debug = finalAnkleTransform * WorldMatrix;
-                Matrix debug2 = Bones[ankleBoneIndex].AbsoluteTransform * WorldMatrix;
-                VRageRender.MyRenderProxy.DebugDrawText3D(debug.Translation, "Final ankle position", Color.Red, 1.0f, false);
-                VRageRender.MyRenderProxy.DebugDrawOBB(Matrix.CreateScale(footDimensions) * debug, Color.Red, 1, false, false);
-                VRageRender.MyRenderProxy.DebugDrawText3D(debug2.Translation, "Actual ankle position", Color.Green, 1.0f, false);
-                VRageRender.MyRenderProxy.DebugDrawOBB(Matrix.CreateScale(footDimensions) * debug2, Color.Green, 1, false, false);
-                VRageRender.MyRenderProxy.DebugDrawLine3D(debug.Translation, debug.Translation + debug.Forward * 0.5f, Color.Yellow, Color.Yellow, false);
-                VRageRender.MyRenderProxy.DebugDrawLine3D(debug.Translation, debug.Translation + debug.Up * 0.2f, Color.Purple, Color.Purple, false);
-            }
-           
-        }
 
         #endregion
 
         #region Animations update
 
-        void FlushAnimationQueue()
+        public override void UpdateAnimation(float distance)
         {
-            while (m_commandQueue.Count > 0)
-                UpdateAnimation();
-        }
-
-        void UpdateAnimation()
-        {
-            float stepTime = MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS;
-
-            if (m_player.IsInitialized)
+            if (UseNewAnimationSystem)
+                UpdateAnimationNewSystem();
+            if (MySandboxGame.IsDedicated && MyPerGameSettings.DisableAnimationsOnDS)
+                return;
+            MyAnimationPlayerBlendPair leftHandPlayer;
+            if (TryGetAnimationPlayer("LeftHand", out leftHandPlayer))
             {
-                m_player.Advance(stepTime);
-            }
-
-            if (m_playerNextAnim.IsInitialized)
-            {
-                m_currentBlendTime += stepTime;
-            }
-
-            m_headPlayer.Advance();
-            m_spinePlayer.Advance();
-            m_leftHandPlayer.Advance();
-            m_rightHandPlayer.Advance();
-            m_leftFingersPlayer.Advance();
-            m_rightFingersPlayer.Advance();
-
-            if (m_leftHandPlayer.GetState() == MyAnimationPlayerBlendPair.AnimationBlendState.Stopped && m_leftHandItem != null)
-            {
-                m_leftHandItem.Close();
-                m_leftHandItem = null;
-            }
-
-            if (m_commandQueue.Count > 0)
-            {
-                MyAnimationCommand command = m_commandQueue.Peek();
-
-                if ((command.Mode & MyPlayAnimationMode.Play) == MyPlayAnimationMode.Play)
+                if (leftHandPlayer.GetState() == MyAnimationPlayerBlendPair.AnimationBlendState.Stopped && m_leftHandItem != null)
                 {
-                    m_commandQueue.Dequeue();
-
-                    MyAnimationDefinition animDefinition;
-                    if (!TryGetAnimationDefinition(command.AnimationSubtypeName, out animDefinition))
-                        return;
-
-                    if (animDefinition.AllowWithWeapon)
-                    {
-                        if (!UseAnimationForWeapon)
-                        {
-                            StoreWeaponRelativeMatrix();
-                            UseAnimationForWeapon = true;
-                            ResetWeaponAnimationState = true;
-                        }
-                    }
-
-                    if (!animDefinition.LeftHandItem.TypeId.IsNull)
-                    {
-                        if (m_leftHandItem != null)
-                        {
-                            (m_leftHandItem as IMyHandheldGunObject<Sandbox.Game.Weapons.MyDeviceBase>).OnControlReleased();
-                            m_leftHandItem.Close();
-                        }
-
-                        m_leftHandItem = MyEntityFactory.CreateEntity(animDefinition.LeftHandItem.TypeId);
-                        var ob = MyEntityFactory.CreateObjectBuilder(m_leftHandItem);
-                        m_leftHandItem.Init(ob);
-
-                        (m_leftHandItem as IMyHandheldGunObject<Sandbox.Game.Weapons.MyDeviceBase>).OnControlAcquired(this);
-                        UpdateLeftHandItemPosition();
-
-                        MyEntities.Add(m_leftHandItem);
-                       
-                    }
-                    bool firstFrame = (command.Mode & MyPlayAnimationMode.JustFirstFrame) == MyPlayAnimationMode.JustFirstFrame;
-                    if ((animDefinition.InfluenceArea & MyBonesArea.Head) == MyBonesArea.Head)
-                        m_headPlayer.Play(animDefinition, command.Loop, command.BlendTime, command.TimeScale, firstFrame);
-
-                    if ((animDefinition.InfluenceArea & MyBonesArea.Spine) == MyBonesArea.Spine)
-                        m_spinePlayer.Play(animDefinition, command.Loop, command.BlendTime, command.TimeScale, firstFrame);
-
-                    if ((animDefinition.InfluenceArea & MyBonesArea.LeftHand) == MyBonesArea.LeftHand)
-                        m_leftHandPlayer.Play(animDefinition, command.Loop, command.BlendTime, command.TimeScale, firstFrame);
-
-                    if ((animDefinition.InfluenceArea & MyBonesArea.RightHand) == MyBonesArea.RightHand)
-                        m_rightHandPlayer.Play(animDefinition, command.Loop, command.BlendTime, command.TimeScale, firstFrame);
-
-                    if ((animDefinition.InfluenceArea & MyBonesArea.LeftFingers) == MyBonesArea.LeftFingers)
-                        m_leftFingersPlayer.Play(animDefinition, command.Loop, command.BlendTime, command.TimeScale, firstFrame);
-
-                    if ((animDefinition.InfluenceArea & MyBonesArea.RightFingers) == MyBonesArea.RightFingers)
-                        m_rightFingersPlayer.Play(animDefinition, command.Loop, command.BlendTime, command.TimeScale, firstFrame);
-
-                    if ((animDefinition.InfluenceArea & MyBonesArea.Body) == MyBonesArea.Body)
-                        PlayAnimation(animDefinition, command.Loop, command.BlendTime, command.TimeScale, command.Mode);
-                }
-
-                else if ((command.Mode & MyPlayAnimationMode.Stop) == MyPlayAnimationMode.Stop)
-                {
-                    m_commandQueue.Dequeue();
-
-                    if ((command.Area & MyBonesArea.Head) == MyBonesArea.Head)
-                        m_headPlayer.Stop(command.BlendTime);
-
-                    if ((command.Area & MyBonesArea.Spine) == MyBonesArea.Spine)
-                        m_spinePlayer.Stop(command.BlendTime);
-
-                    if ((command.Area & MyBonesArea.LeftHand) == MyBonesArea.LeftHand)
-                        m_leftHandPlayer.Stop(command.BlendTime);
-
-                    if ((command.Area & MyBonesArea.RightHand) == MyBonesArea.RightHand)
-                        m_rightHandPlayer.Stop(command.BlendTime);
-
-                    if ((command.Area & MyBonesArea.LeftFingers) == MyBonesArea.LeftFingers)
-                        m_leftFingersPlayer.Stop(command.BlendTime);
-
-                    if ((command.Area & MyBonesArea.RightFingers) == MyBonesArea.RightFingers)
-                        m_rightFingersPlayer.Stop(command.BlendTime);
-                }
-
-                else if((command.Mode & (MyPlayAnimationMode.Immediate | MyPlayAnimationMode.JustFirstFrame | MyPlayAnimationMode.WaitForPreviousEnd)) != 0)
-                //if ((command.Mode == MyPlayAnimationMode.Immediate) || (command.Mode == MyPlayAnimationMode.JustFirstFrame) || (command.Mode == MyPlayAnimationMode.WaitForPreviousEnd))
-                    if (m_currentBlendTime <= 0)
-                    {
-                        m_commandQueue.Dequeue();
-                        
-                        MyAnimationDefinition animDefinition;
-                        if (!TryGetAnimationDefinition(command.AnimationSubtypeName, out animDefinition))
-                            return;
-
-                        PlayAnimation(animDefinition, command.Loop, command.BlendTime, command.TimeScale, command.Mode);
-                    }
-            }
-
-            float blendRatio = 0;
-            if (m_playerNextAnim.IsInitialized && m_currentBlendTime > 0)
-            {
-                //0.. full current animation
-                //1.. full next animation
-                blendRatio = 1;
-                if (m_totalBlendTime > 0)
-                    blendRatio = MathHelper.Clamp(m_currentBlendTime / m_totalBlendTime, 0, 1);
-
-                if (blendRatio > 0)
-                {
-                    m_playerNextAnim.Advance(stepTime);
+                    m_leftHandItem.Close();
+                    m_leftHandItem = null;
                 }
             }
 
-            //Advance to next animation
-            if (blendRatio == 1 && m_playerNextAnim.IsInitialized)
-            {
-                m_player.Initialize(m_playerNextAnim);
-                m_playerNextAnim.Done();
-                blendRatio = 0;
-                m_currentBlendTime = 0;
-            }
+            base.UpdateAnimation(distance);
 
-            if (m_player.IsInitialized)
-            {
-                m_player.Weight = 1; 
-            }
-
-            if (m_playerNextAnim.IsInitialized)
-            {
-                m_playerNextAnim.Weight = blendRatio;
-            }
-
-            m_headPlayer.UpdateAnimation();
-            m_spinePlayer.UpdateAnimation();
-            m_leftHandPlayer.UpdateAnimation();
-            m_rightHandPlayer.UpdateAnimation();
-            m_leftFingersPlayer.UpdateAnimation();
-            m_rightFingersPlayer.UpdateAnimation();
+            Render.UpdateThrustMatrices(BoneAbsoluteTransforms);
 
             // check if animations on hands stopped and whether we need to reset the state for weapon positioning
-            if (ResetWeaponAnimationState)
+            if (m_resetWeaponAnimationState)
             {
-                if ((m_rightHandPlayer.GetState() == MyAnimationPlayerBlendPair.AnimationBlendState.Stopped) &&
-                    (m_rightFingersPlayer.GetState() == MyAnimationPlayerBlendPair.AnimationBlendState.Stopped))
+                //if ((m_rightHandPlayer.GetState() == MyAnimationPlayerBlendPair.AnimationBlendState.Stopped) &&
+                //    (m_rightFingersPlayer.GetState() == MyAnimationPlayerBlendPair.AnimationBlendState.Stopped))
                 {
-                    ResetWeaponAnimationState = false;
+                    m_resetWeaponAnimationState = false;
                     UseAnimationForWeapon = false;
                 }
             }
         }
 
-
-        /// <summary>
-        /// Play an animation clip
-        /// </summary>
-        /// <param name="clip">The clip to play</param>
-        /// <returns>The player that will play this clip</returns>
-        private void PlayAnimation(MyAnimationDefinition animationDefinition, bool loop, float blendTime, float timeScale, MyPlayAnimationMode mode)
+        private void UpdateAnimationNewSystem()
         {
-            string model = animationDefinition.AnimationModel;
-            int clipIndex = animationDefinition.ClipIndex;
-
-            if (string.IsNullOrEmpty(model))
-                return;
-
-            if (animationDefinition.Status == MyAnimationDefinition.AnimationStatus.Unchecked)
+            var variableStorage = AnimationController.Variables;
+            // character speed
+            if (Physics != null && Physics.CharacterProxy != null)
             {
-                var fsPath = System.IO.Path.IsPathRooted(model) ? model : System.IO.Path.Combine(MyFileSystem.ContentPath, model);
-                if (!MyFileSystem.FileExists(fsPath))
+                Vector3 localSpeedWorldRotUnfiltered = (Physics.CharacterProxy.LinearVelocity - Physics.CharacterProxy.CharacterRigidBody.GroundVelocity) / Sync.RelativeSimulationRatio;
+                var localSpeedWorldRot = FilterLocalSpeed(localSpeedWorldRotUnfiltered);
+                variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdSpeed, localSpeedWorldRot.Length());
+                float localSpeedX = localSpeedWorldRot.Dot(PositionComp.WorldMatrix.Right);
+                float localSpeedY = localSpeedWorldRot.Dot(PositionComp.WorldMatrix.Up);
+                float localSpeedZ = localSpeedWorldRot.Dot(PositionComp.WorldMatrix.Forward);
+                variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdSpeedX, localSpeedX);
+                variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdSpeedY, localSpeedY);
+                variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdSpeedZ, localSpeedZ);
+                const float speedThreshold2 = 0.1f * 0.1f;
+                float speedangle = localSpeedWorldRot.LengthSquared() > speedThreshold2 ? (float)(-Math.Atan2(localSpeedZ, localSpeedX) * 180.0f / Math.PI) + 90.0f : 0.0f;
+                while (speedangle < 0.0f)
+                    speedangle += 360.0f;
+                variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdSpeedAngle, speedangle);
+
+                if (ControllerInfo.IsLocallyControlled())
+                    m_animTurningSpeed.Value = RotationIndicator.Y * 180.0f / (float)Math.PI;
+                variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdTurningSpeed, m_animTurningSpeed);
+
+                if (OxygenComponent != null)
+                    variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdHelmetOpen, OxygenComponent.HelmetEnabled ? 0.0f : 1.0f);
+
+                if (Parent is MyCockpit)
+                    variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdLean, 0);
+                else
+                    variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdLean, m_animLeaning);
+            }
+
+            if (JetpackComp != null)
+                AnimationController.Variables.SetValue(MyAnimationVariableStorageHints.StrIdFlying, JetpackComp.Running ? 1.0f : 0.0f);
+
+            AnimationController.Variables.SetValue(MyAnimationVariableStorageHints.StrIdFalling, GetCurrentMovementState() == MyCharacterMovementEnum.Falling ? 1.0f : 0.0f);
+            MyCharacterMovementEnum movementState = GetCurrentMovementState();
+            variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdFlying, movementState == MyCharacterMovementEnum.Flying ? 1.0f : 0.0f);
+            variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdFalling, movementState == MyCharacterMovementEnum.Falling ? 1.0f : 0.0f);
+            variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdCrouch, (WantsCrouch && !WantsSprint) ? 1.0f : 0.0f);
+            variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdSitting, movementState == MyCharacterMovementEnum.Sitting ? 1.0f : 0.0f);
+
+            variableStorage.SetValue(MyAnimationVariableStorageHints.StrIdFirstPerson, m_isInFirstPerson ? 1.0f : 0.0f);
+        }
+
+        private Vector3 FilterLocalSpeed(Vector3 localSpeedWorldRotUnfiltered)
+        {
+            m_animationSpeedFilter[m_animationSpeedFilterCursor++] = localSpeedWorldRotUnfiltered;
+            if (m_animationSpeedFilterCursor >= m_animationSpeedFilter.Length)
+                m_animationSpeedFilterCursor = 0;
+
+            Vector3 localSpeedWorldRot = Vector3.Zero;
+            for (int i = 0; i < m_animationSpeedFilter.Length; i++)
+            {
+                if (m_animationSpeedFilter[i].X*m_animationSpeedFilter[i].X > localSpeedWorldRot.X*localSpeedWorldRot.X)
+                    localSpeedWorldRot.X = m_animationSpeedFilter[i].X;
+                if (m_animationSpeedFilter[i].Y*m_animationSpeedFilter[i].Y > localSpeedWorldRot.Y*localSpeedWorldRot.Y)
+                    localSpeedWorldRot.Y = m_animationSpeedFilter[i].Y;
+                if (m_animationSpeedFilter[i].Z*m_animationSpeedFilter[i].Z > localSpeedWorldRot.Z*localSpeedWorldRot.Z)
+                    localSpeedWorldRot.Z = m_animationSpeedFilter[i].Z;
+            }
+            return localSpeedWorldRot;
+        }
+
+        /*
+         * This was hacked so the character would have a fluid movement (when shooting still and then start another movement - jump, strafe, running, etc...).
+         * Before this, the attack animation would be overriden, but still with normal physical/damage effects.
+         */
+        MyStringHash medievelMaleSubtypeId = MyStringHash.GetOrCompute("Medieval_male");
+        string m_lastBonesArea = string.Empty;
+        protected override void OnAnimationPlay(MyAnimationDefinition animDefinition,MyAnimationCommand command, ref string bonesArea, ref MyFrameOption frameOption, ref bool useFirstPersonVersion)
+        {
+            var currentMovementState = GetCurrentMovementState();
+
+            if (DefinitionId.Value.SubtypeId == medievelMaleSubtypeId)
+            {
+                if (command.ExcludeLegsWhenMoving)
                 {
-                    animationDefinition.Status = MyAnimationDefinition.AnimationStatus.Failed;
-                    return;
+                    //In this case, we must stop all upper animations correctly
+
+                    if (currentMovementState == MyCharacterMovementEnum.RotatingLeft ||
+                        currentMovementState == MyCharacterMovementEnum.RotatingRight ||
+                        currentMovementState == MyCharacterMovementEnum.Standing)
+                        bonesArea = TopBody + " LowerBody";
+                    else
+                        bonesArea = TopBody;
+                    frameOption = frameOption != MyFrameOption.JustFirstFrame ? MyFrameOption.PlayOnce : frameOption;
+                }
+                else if (m_lastBonesArea == TopBody + " LowerBody")
+                    StopLowerCharacterAnimation(0.2f);
+
+                m_lastBonesArea = bonesArea;
+            }
+            else
+            {
+                if (currentMovementState != MyCharacterMovementEnum.Standing &&
+                    currentMovementState != MyCharacterMovementEnum.RotatingLeft &&
+                    currentMovementState != MyCharacterMovementEnum.RotatingRight &&
+                     command.ExcludeLegsWhenMoving)
+                {
+                    //In this case, we must stop all upper animations correctly
+                    bonesArea = TopBody;
+                    frameOption = frameOption != MyFrameOption.JustFirstFrame ? MyFrameOption.PlayOnce : frameOption;
                 }
             }
 
-            animationDefinition.Status = MyAnimationDefinition.AnimationStatus.OK;
+            
+            useFirstPersonVersion = IsInFirstPersonView;
 
-            MyModel animation = MyModels.GetModelOnlyAnimationData(model);
-            AnimationClip clip = animation.Animations.Clips[clipIndex];
-
-            // Create a clip player and assign it to this model
-            m_playerNextAnim.Initialize(clip, this, 1, timeScale, mode == MyPlayAnimationMode.JustFirstFrame);
-            m_playerNextAnim.Looping = loop;
-
-            m_currentBlendTime = 0;
-
-            float actualTimeToEnd = 0;
-
-            if (m_player.IsInitialized)
+            if (animDefinition.AllowWithWeapon)
             {
-                actualTimeToEnd = m_player.Duration - m_player.Position;
-
-                //from idle to anything
-                if (actualTimeToEnd > 0 && m_player.Looping)
-                    actualTimeToEnd = blendTime;
+                if (!UseAnimationForWeapon)
+                {
+                    StoreWeaponRelativeMatrix();
+                    UseAnimationForWeapon = true;
+                    m_resetWeaponAnimationState = true;
+                }
             }
 
-            //blend always that time it was required
-            m_totalBlendTime = blendTime;
-
-            if (mode == MyPlayAnimationMode.WaitForPreviousEnd)
+            if (!animDefinition.LeftHandItem.TypeId.IsNull)
             {
-                m_currentBlendTime = m_totalBlendTime - actualTimeToEnd;
+                if (m_leftHandItem != null)
+                {
+                    (m_leftHandItem as IMyHandheldGunObject<Sandbox.Game.Weapons.MyDeviceBase>).OnControlReleased();
+                    m_leftHandItem.Close();
+                }
+
+                // CH: TODO: The entity id is not synced, but it never was in this place. It should be fixed later
+                long handItemId = MyEntityIdentifier.AllocateId();
+                uint? inventoryItemId = null;
+                var builder = GetObjectBuilderForWeapon(animDefinition.LeftHandItem, ref inventoryItemId, handItemId);
+                var leftHandItem = CreateGun(builder, inventoryItemId);
+
+                if (leftHandItem != null)
+                {
+                    m_leftHandItem = leftHandItem as MyEntity;
+                    leftHandItem.OnControlAcquired(this);
+                    UpdateLeftHandItemPosition();
+
+                    MyEntities.Add(m_leftHandItem);
+                }
             }
         }
 
 
         private void StopUpperAnimation(float blendTime)
         {
-            m_headPlayer.Stop(blendTime);
-            m_spinePlayer.Stop(blendTime);
-            m_leftHandPlayer.Stop(blendTime);
-            m_rightHandPlayer.Stop(blendTime);            
+            PlayerStop("Head", blendTime);
+            PlayerStop("Spine", blendTime);
+            PlayerStop("LeftHand", blendTime);
+            PlayerStop("RightHand", blendTime);
         }
 
         private void StopFingersAnimation(float blendTime)
         {
-            m_leftFingersPlayer.Stop(blendTime);
-            m_rightFingersPlayer.Stop(blendTime);
+            PlayerStop("LeftFingers", blendTime);
+            PlayerStop("RightFingers", blendTime);
         }
 
-        internal void AddCommand(MyAnimationCommand command, bool sync = false)
+        public override void AddCommand(MyAnimationCommand command, bool sync = false)
         {
-            if (command.Mode == MyPlayAnimationMode.Immediate)
-            {
-                m_commandQueue.Clear();
-            }
+            if (UseNewAnimationSystem)
+                return;
 
-            m_commandQueue.Enqueue(command);
+            base.AddCommand(command, sync);
 
             if (sync)
-                SyncObject.SendAnimationCommand(ref command);
+            {
+                SendAnimationCommand(ref command);
+            }
         }
 
 
-        public void SetSpineAdditionalRotation(Quaternion rotationUsed, Quaternion rotationForClients, bool updateSync = true)
+        public void SetSpineAdditionalRotation(Quaternion rotation, Quaternion rotationForClients, bool updateSync = true)
         {
-            bool valueChanged = m_player.SpineAdditionalRotation != rotationUsed;
-            m_player.SpineAdditionalRotation = rotationUsed;
-            m_playerNextAnim.SpineAdditionalRotation = rotationUsed;
-
-            m_headPlayer.SpineAdditionalRotation = rotationUsed;
-            m_spinePlayer.SpineAdditionalRotation = rotationUsed;
-            m_leftHandPlayer.SpineAdditionalRotation = rotationUsed;
-            m_rightHandPlayer.SpineAdditionalRotation = rotationUsed;
-
-            if (updateSync && valueChanged)
+            if (!string.IsNullOrEmpty(Definition.SpineBone))
             {
-                SyncObject.ChangeHeadOrSpine(m_headLocalXAngle, m_headLocalYAngle,
-                    rotationForClients, m_player.HandAdditionalRotation, m_player.HandAdditionalRotation, m_player.UpperHandAdditionalRotation);
-            }  
+                bool valueChanged = GetAdditionalRotation(Definition.SpineBone) != rotation;
+                if (valueChanged)
+                {
+                    m_additionalRotations[Definition.SpineBone] = rotation;
+                }
+            }
         }
 
         public void SetHeadAdditionalRotation(Quaternion rotation, bool updateSync = true)
         {
-            bool valueChanged = m_player.HeadAdditionalRotation != rotation;
-            m_player.HeadAdditionalRotation = rotation;
-            m_playerNextAnim.HeadAdditionalRotation = rotation;
-
-            m_headPlayer.HeadAdditionalRotation = rotation;
-            m_spinePlayer.HeadAdditionalRotation = rotation;            
-            m_leftHandPlayer.HeadAdditionalRotation = rotation;
-            m_rightHandPlayer.HeadAdditionalRotation = rotation;
-
-            if (updateSync && valueChanged)
+            if (!string.IsNullOrEmpty(Definition.HeadBone))
             {
-                SyncObject.ChangeHeadOrSpine(m_headLocalXAngle, m_headLocalYAngle,
-                    m_player.SpineAdditionalRotation, m_player.HandAdditionalRotation, m_player.HandAdditionalRotation, m_player.UpperHandAdditionalRotation);
-            }  
+                bool valueChanged = GetAdditionalRotation(Definition.HeadBone) != rotation;
+
+                if (valueChanged)
+                {
+                    m_additionalRotations[Definition.HeadBone] = rotation;
+                }
+            }
         }
 
         public void SetHandAdditionalRotation(Quaternion rotation, bool updateSync = true)
         {
-            bool valueChanged = m_player.HandAdditionalRotation != rotation;
-            m_player.HandAdditionalRotation = rotation;
-            m_playerNextAnim.HandAdditionalRotation = rotation;
-
-            m_headPlayer.HandAdditionalRotation = rotation;
-            m_spinePlayer.HandAdditionalRotation = rotation;
-            m_leftHandPlayer.HandAdditionalRotation = rotation;
-            m_rightHandPlayer.HandAdditionalRotation = rotation;
-
-
-            if (updateSync && valueChanged)
+            if (!string.IsNullOrEmpty(Definition.LeftForearmBone))
             {
-                SyncObject.ChangeHeadOrSpine(m_headLocalXAngle, m_headLocalYAngle,
-                    m_player.SpineAdditionalRotation, m_player.HandAdditionalRotation, m_player.HandAdditionalRotation, m_player.UpperHandAdditionalRotation);
-            }  
+                bool valueChanged = GetAdditionalRotation(Definition.LeftForearmBone) != rotation;
+                if (valueChanged)
+                {
+                    m_additionalRotations[Definition.LeftForearmBone] = rotation;
+                    m_additionalRotations[Definition.RightForearmBone] = Quaternion.Inverse(rotation);
+                }
+            }
         }
 
         public void SetUpperHandAdditionalRotation(Quaternion rotation, bool updateSync = true)
         {
-            bool valueChanged = m_player.UpperHandAdditionalRotation != rotation;
-            m_player.UpperHandAdditionalRotation = rotation;
-            m_playerNextAnim.UpperHandAdditionalRotation = rotation;
-
-            m_headPlayer.UpperHandAdditionalRotation = rotation;
-            m_spinePlayer.UpperHandAdditionalRotation = rotation;
-            m_leftHandPlayer.UpperHandAdditionalRotation = rotation;
-            m_rightHandPlayer.UpperHandAdditionalRotation = rotation;
-
-            if (updateSync && valueChanged)
+            if (!string.IsNullOrEmpty(Definition.LeftUpperarmBone))
             {
-                SyncObject.ChangeHeadOrSpine(m_headLocalXAngle, m_headLocalYAngle,
-                    Quaternion.Zero, m_player.HandAdditionalRotation, m_player.HandAdditionalRotation, m_player.UpperHandAdditionalRotation);
-            }  
+                bool valueChanged = GetAdditionalRotation(Definition.LeftUpperarmBone) != rotation;
+                if (valueChanged)
+                {
+                    m_additionalRotations[Definition.LeftUpperarmBone] = rotation;
+                    m_additionalRotations[Definition.RightUpperarmBone] = Quaternion.Inverse(rotation);
+                }
+            }
         }
 
         public bool HasAnimation(string animationName)
@@ -1027,50 +439,57 @@ namespace Sandbox.Game.Entities.Character
             return Definition.AnimationNameToSubtypeName.ContainsKey(animationName);
         }
 
-        bool TryGetAnimationDefinition(string animationSubtypeName, out MyAnimationDefinition animDefinition)
-        {
-            if (animationSubtypeName == null)
-            {
-                animDefinition = null;
-                return false;
-            }
-
-            animDefinition = MyDefinitionManager.Static.TryGetAnimationDefinition(animationSubtypeName);
-            if (animDefinition == null)
-            {
-                //Try backward compatibility
-                //Backward compatibility
-                string oldPath = System.IO.Path.Combine(MyFileSystem.ContentPath, animationSubtypeName);
-                if (MyFileSystem.FileExists(oldPath))
-                {
-                    animDefinition = new MyAnimationDefinition()
-                    { 
-                        AnimationModel = oldPath,
-                        ClipIndex = 0,
-                    };
-                    return true;
-                }
-
-                animDefinition = null;
-                return false;
-            }
-
-            return true;
-        }
 
         #endregion
 
         #region Animation commands
 
+        public void DisableAnimationCommands()
+        {
+            m_animationCommandsEnabled = false;
+        }
+
+        public void EnableAnimationCommands()
+        {
+            m_animationCommandsEnabled = true;
+        }
+
+        public void TriggerCharacterAnimationEvent(string eventName, bool sync)
+        {
+            if (!UseNewAnimationSystem || string.IsNullOrEmpty(eventName))
+                return;
+
+            if (sync)
+            {
+                SendAnimationEvent(eventName);
+            }
+            else
+            {
+                AnimationController.TriggerAction(MyStringId.GetOrCompute(eventName));
+            }
+        }
+
         public void PlayCharacterAnimation(
            string animationName,
-           bool loop,
-           MyPlayAnimationMode mode,
+           MyBlendOption blendOption,
+           MyFrameOption frameOption,
            float blendTime,           
            float timeScale = 1,
-           bool sync = false
+           bool sync = false,
+           string influenceArea = null, //use defined boneset area from character definitions
+           bool excludeLegsWhenMoving = false
            )
         {
+            if (UseNewAnimationSystem)
+                return;
+            bool disableAnimations = MySandboxGame.IsDedicated && MyPerGameSettings.DisableAnimationsOnDS;
+            if (disableAnimations && !sync)
+            {
+                return;
+            }
+
+            if (!m_animationCommandsEnabled) return;
+
             if (animationName == null)
             {
                 System.Diagnostics.Debug.Fail("Cannot play null animation!");
@@ -1080,83 +499,63 @@ namespace Sandbox.Game.Entities.Character
             string animationSubtype = null;
             if (!m_characterDefinition.AnimationNameToSubtypeName.TryGetValue(animationName, out animationSubtype))
             {
-
-                // TODO: Rethinkif we have different skeleton model, we can't play default character animations. 
-                // This may still cause problems if character model has humanoid skeleton, but with different bone names and animation subtype wasn't defined.
-                if (m_characterDefinition.Skeleton != "Humanoid") return;
-
                 animationSubtype = animationName;
             }
 
-            AddCommand(new MyAnimationCommand()
-                {
-                    AnimationSubtypeName = animationSubtype,
-                    Loop = loop,
-                    Mode = mode,
-                    BlendTime = blendTime,
-                    TimeScale = timeScale
-                }, sync);
+            var command = new MyAnimationCommand()
+            {
+                AnimationSubtypeName = animationSubtype,
+                PlaybackCommand = MyPlaybackCommand.Play,
+                BlendOption = blendOption,
+                FrameOption = frameOption,
+                BlendTime = blendTime,
+                TimeScale = timeScale,
+                Area = influenceArea,
+                ExcludeLegsWhenMoving = excludeLegsWhenMoving
+            };
 
-            FlushAnimationQueue();
+            // CH: If we don't want to play the animation ourselves, but it has to be synced, we have to send it to clients at least
+            // MZ: when sync is on, we always want to send the message
+            if (sync)
+            {
+                SendAnimationCommand(ref command);
+            }
+            else
+            {
+                // if animations are disabled and sync is off, don't do anything
+                if (!disableAnimations)
+                    AddCommand(command, sync);
+            }
         }
 
-        public void StopUpperCharacterAnimation(
-          float blendTime
-          )
+        public void StopUpperCharacterAnimation(float blendTime)
         {
+            if (UseNewAnimationSystem)
+                return;
             AddCommand(new MyAnimationCommand()
                 {
                     AnimationSubtypeName = null,
-                    Loop = false,
-                    Mode = MyPlayAnimationMode.Stop,
-                    Area = MyBonesArea.LeftHand | MyBonesArea.RightHand,
-                    BlendTime = 0,
+                    PlaybackCommand = MyPlaybackCommand.Stop,
+                    Area = TopBody,
+                    BlendTime = blendTime,
                     TimeScale = 1
                 });
         }
 
-
-        public void PlayFingersCharacterAnimation(
-         string animation,
-         bool loop,
-         float blendTime,
-         float timeScale = 1
-            )
+        public void StopLowerCharacterAnimation(float blendTime)
         {
-            if (animation == null)
-            {
-                System.Diagnostics.Debug.Fail("Cannot play null animation!");
+            if (UseNewAnimationSystem)
                 return;
-            }
-
-            AddCommand(new MyAnimationCommand()
-            {
-                AnimationSubtypeName = animation,
-                Loop = loop,
-                Mode = MyPlayAnimationMode.Play,
-                Area = MyBonesArea.LeftFingers | MyBonesArea.RightFingers,
-                BlendTime = blendTime,
-                TimeScale = timeScale,
-            });
-        }
-
-        public void StopFingersCharacterAnimation(
-          float blendTime
-          )
-        {
             AddCommand(new MyAnimationCommand()
             {
                 AnimationSubtypeName = null,
-                Loop = false,
-                Mode = MyPlayAnimationMode.Stop,
-                Area = MyBonesArea.LeftFingers | MyBonesArea.RightFingers,
-                BlendTime = 0,
+                PlaybackCommand = MyPlaybackCommand.Stop,
+                Area = "LowerBody",
+                BlendTime = blendTime,
                 TimeScale = 1
             });
         }
 
         #endregion
-
-        public bool ResetWeaponAnimationState { get; set; }
     }
 }

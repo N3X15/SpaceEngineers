@@ -4,16 +4,29 @@ using VRageMath;
 
 namespace VRageRender
 {
-    public class MyRenderMessageUpdateClipmapCell : IMyRenderMessage
+    public struct MyClipmapCellMeshMetadata
     {
-        public uint ClipmapId;
         public MyCellCoord Cell;
-        public readonly List<MyClipmapCellBatch> Batches = new List<MyClipmapCellBatch>();
         public Vector3D PositionOffset;
         public Vector3 PositionScale;
-        public BoundingBox MeshAabb;
+        public BoundingBox LocalAabb;
+        public int BatchCount;
+    }
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.UpdateClipmapCell; } }
+    public class MyRenderMessageUpdateClipmapCell : MyRenderMessageBase
+    {
+        public uint ClipmapId;
+        public MyClipmapCellMeshMetadata Metadata;
+        public List<MyClipmapCellBatch> Batches = new List<MyClipmapCellBatch>();
+
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.UpdateClipmapCell; } }
+
+        public override void Close()
+        {
+            base.Close();
+            Metadata = new MyClipmapCellMeshMetadata();
+            Batches.Clear();
+        }
     }
 }

@@ -17,20 +17,29 @@ namespace VRage.Audio
         float IMyAudio.VolumeMusic { get; set; }
         float IMyAudio.VolumeHud { get { return 0; } set { } }
         float IMyAudio.VolumeGame { get; set; }
+        float IMyAudio.VolumeVoiceChat { get; set; }
         bool IMyAudio.GameSoundIsPaused { get { return true; } }
         bool IMyAudio.Mute { get { return true; } set { } }
         bool IMyAudio.MusicAllowed { get { return false; } set { } }
         bool IMyAudio.EnableVoiceChat { get { return false; } set { } }
+        bool IMyAudio.UseSameSoundLimiter { get { return false; } set { } }
+        bool IMyAudio.UseVolumeLimiter { get { return false; } set { } }
+        void IMyAudio.SetSameSoundLimiter() { }
+        void IMyAudio.EnableMasterLimiter(bool e) { }
         event Action<bool> IMyAudio.VoiceChatEnabled { add { } remove { } }
+
+        bool IMyAudio.IsValidTransitionCategory(MyStringId transitionCategory, MyStringId musicCategory) { return false; }
 
         List<MyStringId> IMyAudio.GetCategories() { return null; }
         MySoundData IMyAudio.GetCue(MyCueId cue) { return null; }
+        Dictionary<MyStringId, List<MyCueId>> IMyAudio.GetAllMusicCues() { return null; }
 
         void IMyAudio.Pause() { }
         void IMyAudio.Resume() { }
         void IMyAudio.PauseGameSounds() { }
         void IMyAudio.ResumeGameSounds() { }
-        void IMyAudio.PlayMusic(MyMusicTrack? track) { }
+        void IMyAudio.PlayMusic(MyMusicTrack? track, int priorityForRandom) { }
+        IMySourceVoice IMyAudio.PlayMusicCue(MyCueId musicCue, bool overrideMusicAllowed) { return null; }
         void IMyAudio.StopMusic() { }
         void IMyAudio.MuteHud(bool mute) { }
         bool IMyAudio.HasAnyTransition() { return false; }
@@ -44,7 +53,7 @@ namespace VRage.Audio
         int IMyAudio.GetSoundInstancesTotal2D() { return 0; }
         int IMyAudio.GetSoundInstancesTotal3D() { return 0; }
         void IMyAudio.StopUpdatingAll3DCues() { }
-        bool IMyAudio.SourceIsCloseEnoughToPlaySound(IMy3DSoundEmitter source, MyCueId cueId) { return false; }
+        bool IMyAudio.SourceIsCloseEnoughToPlaySound(Vector3 position, MyCueId cueId, float? customMaxDistance) { return false; }
         object IMyAudio.CalculateDspSettingsDebug(IMy3DSoundEmitter source) { return null; }
         void IMyAudio.WriteDebugInfo(StringBuilder sb) { }
         bool IMyAudio.IsLoopable(MyCueId cueId) { return false; }

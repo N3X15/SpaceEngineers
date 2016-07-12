@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Text;
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Definitions;
-using Sandbox.Graphics.TransparentGeometry;
 
 using VRageMath;
 using Sandbox.Game.World;
@@ -24,6 +23,8 @@ using Sandbox.Graphics;
 using VRage.Groups;
 using Sandbox.Game.Multiplayer;
 using Sandbox.ModAPI;
+using VRage.Game;
+using VRage.Game.ModAPI;
 
 #endregion
 
@@ -46,36 +47,42 @@ namespace Sandbox.Game.Entities
         }
         public MyOwnershipShareModeEnum ShareMode = MyOwnershipShareModeEnum.None;
 
-        public MyRelationsBetweenPlayerAndBlock GetUserRelationToOwner(long playerId)
+        public VRage.Game.MyRelationsBetweenPlayerAndBlock GetUserRelationToOwner(long identityId)
+        {
+            return GetRelation(Owner, identityId, ShareMode);
+        }
+
+        public static VRage.Game.MyRelationsBetweenPlayerAndBlock GetRelation(long owner, long user, MyOwnershipShareModeEnum share = MyOwnershipShareModeEnum.None)
         {
             if (!MyFakes.SHOW_FACTIONS_GUI)
-                return MyRelationsBetweenPlayerAndBlock.FactionShare;
+                return VRage.Game.MyRelationsBetweenPlayerAndBlock.NoOwnership;
 
-            if (Owner == 0)
-                return MyRelationsBetweenPlayerAndBlock.FactionShare;
+            if (owner == 0)
+                return VRage.Game.MyRelationsBetweenPlayerAndBlock.NoOwnership;
 
-            if (Owner == playerId)
-                return MyRelationsBetweenPlayerAndBlock.Owner;
+            if (owner == user)
+                return VRage.Game.MyRelationsBetweenPlayerAndBlock.Owner;
 
-            IMyFaction playerFaction = MySession.Static.Factions.TryGetPlayerFaction(playerId);
-            IMyFaction faction = MySession.Static.Factions.TryGetPlayerFaction(Owner);
+            IMyFaction playerFaction = MySession.Static.Factions.TryGetPlayerFaction(user);
+            IMyFaction faction = MySession.Static.Factions.TryGetPlayerFaction(owner);
 
-            if ((playerFaction != null && playerFaction == faction && ShareMode == MyOwnershipShareModeEnum.Faction) || ShareMode == MyOwnershipShareModeEnum.All)
-                return MyRelationsBetweenPlayerAndBlock.FactionShare;
+            if ((playerFaction != null && playerFaction == faction && share == MyOwnershipShareModeEnum.Faction) || share == MyOwnershipShareModeEnum.All)
+                return VRage.Game.MyRelationsBetweenPlayerAndBlock.FactionShare;
 
             if (playerFaction == null)
-                return MyRelationsBetweenPlayerAndBlock.Enemies;
+                return VRage.Game.MyRelationsBetweenPlayerAndBlock.Enemies;
 
             if (faction == null)
-                return MyRelationsBetweenPlayerAndBlock.Enemies;
+                return VRage.Game.MyRelationsBetweenPlayerAndBlock.Enemies;
 
             var factionRelation = MySession.Static.Factions.GetRelationBetweenFactions(faction.FactionId, playerFaction.FactionId);
 
             if (factionRelation == MyRelationsBetweenFactions.Neutral)
-                return MyRelationsBetweenPlayerAndBlock.Neutral;
+                return VRage.Game.MyRelationsBetweenPlayerAndBlock.Neutral;
 
-            return MyRelationsBetweenPlayerAndBlock.Enemies;
+            return VRage.Game.MyRelationsBetweenPlayerAndBlock.Enemies;
         }
+
     }
 }
 

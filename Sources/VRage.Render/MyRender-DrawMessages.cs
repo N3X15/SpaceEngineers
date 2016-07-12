@@ -6,7 +6,6 @@ using VRageMath;
 using System.Text;
 using System;
 using VRage;
-using VRage;
 using VRage.Utils;
 
 namespace VRageRender
@@ -22,8 +21,8 @@ namespace VRageRender
         static Rectangle m_safeFullscreenRectangle;     //  Rectangle for safe fullscreen and GUI - use only when you draw fullscreen images and want to stretch it from left to right. 
         static Rectangle m_fullscreenRectangle;         //  Real fullscreen
 
-        static Queue<IMyRenderMessage> m_drawMessages = new Queue<IMyRenderMessage>();
-        static Queue<IMyRenderMessage> m_debugDrawMessages = new Queue<IMyRenderMessage>();
+        static Queue<MyRenderMessageBase> m_drawMessages = new Queue<MyRenderMessageBase>();
+        static Queue<MyRenderMessageBase> m_debugDrawMessages = new Queue<MyRenderMessageBase>();
 
         static MyRender.MyRenderSetup m_backup = new MyRender.MyRenderSetup();
 
@@ -35,7 +34,6 @@ namespace VRageRender
             if (m_spriteBatch == null)
                 return;
 
-            DrawSpriteStencilEnum currentStencil = DrawSpriteStencilEnum.None;
 
 
             BeginSpriteBatch();
@@ -50,7 +48,7 @@ namespace VRageRender
 
             while (m_drawMessages.Count > 0)
             {
-                IMyRenderMessage drawMessage = m_drawMessages.Dequeue();
+                MyRenderMessageBase drawMessage = m_drawMessages.Dequeue();
 
                 MyRenderMessageEnum messageType = drawMessage.MessageType;
                 switch (messageType)
@@ -245,7 +243,7 @@ namespace VRageRender
 
             while (m_debugDrawMessages.Count > 0)
             {
-                IMyRenderMessage debugDrawMessage = m_debugDrawMessages.Dequeue();
+                MyRenderMessageBase debugDrawMessage = m_debugDrawMessages.Dequeue();
 
                 MyRenderMessageEnum messageType = debugDrawMessage.MessageType;
 
@@ -452,6 +450,13 @@ namespace VRageRender
 
                             MyDebugDraw.DrawPlane((Vector3D)message.Position, message.Normal, message.Color, message.DepthRead);
 
+                            break;
+                        }
+
+                    case MyRenderMessageEnum.DebugWaitForPresent:
+                        {
+                            MyRenderMessageDebugWaitForPresent rMessage = (MyRenderMessageDebugWaitForPresent) debugDrawMessage;
+                            MyRenderProxy.RenderThread.DebugAddWaitingForPresent(rMessage.WaitHandle);
                             break;
                         }
 

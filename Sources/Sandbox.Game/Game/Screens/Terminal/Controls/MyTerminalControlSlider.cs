@@ -8,21 +8,22 @@ using System.Linq.Expressions;
 using System.Text;
 using VRage;
 using VRage.Input;
+using VRage.Library.Collections;
 using VRage.Library.Utils;
 using VRage.Utils;
 using VRageMath;
+using Sandbox.ModAPI;
+using Sandbox.ModAPI.Interfaces.Terminal;
 
 namespace Sandbox.Game.Gui
 {
-    public class MyTerminalControlSlider<TBlock> : MyTerminalValueControl<TBlock, float>
+    public class MyTerminalControlSlider<TBlock> : MyTerminalValueControl<TBlock, float>, IMyTerminalControlSlider
         where TBlock : MyTerminalBlock
     {
         public delegate float FloatFunc(TBlock block, float val);
-        public delegate float GetterDelegate(TBlock block);
-        public delegate void SetterDelegate(TBlock block, float value);
-
-        public readonly MyStringId Title;
-        public readonly MyStringId Tooltip;
+        
+        public MyStringId Title;
+        public MyStringId Tooltip;
 
         private MyGuiControlSlider m_slider;
         private MyGuiControlBlockProperty m_control;
@@ -30,8 +31,6 @@ namespace Sandbox.Game.Gui
 
         public bool AmountDialogEnabled = true;
 
-        public GetterDelegate Getter;
-        public SetterDelegate Setter;
         public WriterDelegate Writer;
         public WriterDelegate CompactWriter;
 
@@ -43,15 +42,6 @@ namespace Sandbox.Game.Gui
         // This is not supported as method, because label and tooltip has issues
         //public Writer Title;
         //public Writer Tooltip;
-
-        public Expression<Func<TBlock, float>> Member
-        {
-            set
-            {
-                Getter = new GetterDelegate(value.CreateGetter());
-                Setter = new SetterDelegate(value.CreateSetter());
-            }
-        }
 
         public float? DefaultValue
         {
@@ -65,7 +55,7 @@ namespace Sandbox.Game.Gui
         {
             set
             {
-                Writer = value != null ? new WriterDelegate((block, result) => result.AppendFormat(value, Getter(block))) : null;
+                Writer = value != null ? new WriterDelegate((block, result) => result.AppendFormat(value, GetValue(block))) : null;
             }
         }
 
@@ -79,6 +69,7 @@ namespace Sandbox.Game.Gui
 
             CompactWriter = CompactWriterMethod;
             m_amountConfirmed = AmountSetter;
+            Serializer = delegate(BitStream stream, ref float value) { stream.Serialize(ref value); };
         }
 
         // TODO: separate slider gui to different class
@@ -133,6 +124,8 @@ namespace Sandbox.Game.Gui
             {
                 sb.Remove(index, 1);
             }
+            if (sb[0] == '-' && sb[1] == '0')
+                sb.Remove(0, 1);
         }
 
         public void SetLimits(float min, float max)
@@ -187,6 +180,13 @@ namespace Sandbox.Game.Gui
                 };
         }
 
+        void IMyTerminalControlSlider.SetLimits(Func<IMyTerminalBlock, float> minGetter, Func<IMyTerminalBlock, float> maxGetter)
+        {
+            var minGetterDelegate = new GetterDelegate(minGetter);
+            var maxGetterDelegate = new GetterDelegate(maxGetter);
+            SetLimits(minGetterDelegate, maxGetterDelegate);
+        }
+
         public void SetLogLimits(GetterDelegate minGetter, GetterDelegate maxGetter)
         {
             Normalizer = (block, f) =>
@@ -201,6 +201,13 @@ namespace Sandbox.Game.Gui
                 float max = maxGetter(block);
                 return MathHelper.Clamp(MathHelper.InterpLog(f, min, max), min, max);
             };
+        }
+
+        void IMyTerminalControlSlider.SetLogLimits(Func<IMyTerminalBlock, float> minGetter, Func<IMyTerminalBlock, float> maxGetter)
+        {
+            var minGetterDelegate = new GetterDelegate(minGetter);
+            var maxGetterDelegate = new GetterDelegate(maxGetter);
+            SetLogLimits(minGetterDelegate, maxGetterDelegate);
         }
 
         public void SetDualLogLimits(GetterDelegate minGetter, GetterDelegate maxGetter, float centerBand)
@@ -219,19 +226,26 @@ namespace Sandbox.Game.Gui
             };
         }
 
+        void IMyTerminalControlSlider.SetDualLogLimits(Func<IMyTerminalBlock, float> minGetter, Func<IMyTerminalBlock, float> maxGetter, float centerBand)
+        {
+            var minGetterDelegate = new GetterDelegate(minGetter);
+            var maxGetterDelegate = new GetterDelegate(maxGetter);
+            SetDualLogLimits(minGetterDelegate, maxGetterDelegate, centerBand);
+        }
+
         protected override void OnUpdateVisual()
         {
             // TODO: we don't support 'undefined' value in GUI, we just show first block values
             base.OnUpdateVisual();
             var first = FirstBlock;
-            if (first != null)
+            if (first != null && m_slider != null)
             {
                 m_slider.ValueChanged = null;
                 m_slider.DefaultValue = DefaultValueGetter != null ? Normalizer(first, DefaultValueGetter(first)) : default(float?);
-                m_slider.Value = Normalizer(first, Getter(first));
+                m_slider.Value = Normalizer(first, GetValue(first));
                 m_slider.ValueChanged = m_valueChanged;
 
-                m_control.SetDetailedInfo(Writer, first);
+                if(Writer != null)m_control.SetDetailedInfo(Writer, first);
             }
         }
 
@@ -245,7 +259,7 @@ namespace Sandbox.Game.Gui
         {
             foreach (var item in TargetBlocks)
             {
-                Setter(item, Denormalizer(item, value));
+                SetValue(item, Denormalizer(item, value));
             }
         }
 
@@ -268,7 +282,7 @@ namespace Sandbox.Game.Gui
                 float val = Denormalizer(first, arg.Value);
 
                 // TODO: allocations, needs GUI redo
-                MyGuiScreenDialogAmount dialog = new MyGuiScreenDialogAmount(min, max, defaultAmount: val, caption: MySpaceTexts.DialogAmount_SetValueCaption);
+                MyGuiScreenDialogAmount dialog = new MyGuiScreenDialogAmount(min, max, defaultAmount: val, caption: MyCommonTexts.DialogAmount_SetValueCaption);
                 dialog.OnConfirmed += m_amountConfirmed;
                 MyGuiSandbox.AddScreen(dialog);
                 return true;
@@ -278,25 +292,26 @@ namespace Sandbox.Game.Gui
 
         void IncreaseAction(TBlock block, float step)
         {
-            float curr = Normalizer(block, Getter(block));
-            Setter(block, Denormalizer(block, MathHelper.Clamp(curr + step, 0, 1)));
+            float curr = Normalizer(block, GetValue(block));
+            SetValue(block, Denormalizer(block, MathHelper.Clamp(curr + step, 0, 1)));
         }
 
         void DecreaseAction(TBlock block, float step)
         {
-            float curr = Normalizer(block, Getter(block));
-            Setter(block, Denormalizer(block, MathHelper.Clamp(curr - step, 0, 1)));
+            float curr = Normalizer(block, GetValue(block));
+            SetValue(block, Denormalizer(block, MathHelper.Clamp(curr - step, 0, 1)));
         }
 
         void ResetAction(TBlock block)
         {
             if (DefaultValueGetter != null)
-                Setter(block, DefaultValueGetter(block));
+                SetValue(block, DefaultValueGetter(block));
         }
 
         void ActionWriter(TBlock block, StringBuilder appendTo)
         {
-            (CompactWriter ?? Writer)(block, appendTo);
+			var wr = CompactWriter ?? Writer;
+            wr(block, appendTo);
         }
 
         private void SetActions(params MyTerminalAction<TBlock>[] actions)
@@ -304,24 +319,19 @@ namespace Sandbox.Game.Gui
             Actions = actions;
         }
 
-        public void EnableActions(string increaseIcon, string decreaseIcon, StringBuilder increaseName, StringBuilder decreaseName, float step, string resetIcon = null, StringBuilder resetName = null)
+        public void EnableActions(string increaseIcon, string decreaseIcon, StringBuilder increaseName, StringBuilder decreaseName, float step, string resetIcon = null, StringBuilder resetName = null, Func<TBlock, bool> enabled = null)
         {
-            var increase = new MyTerminalAction<TBlock>("Increase" + Id, increaseName, (b) => IncreaseAction(b, step), ActionWriter, increaseIcon);
-            var decrease = new MyTerminalAction<TBlock>("Decrease" + Id, decreaseName, (b) => DecreaseAction(b, step), ActionWriter, decreaseIcon);
+            var increase = new MyTerminalAction<TBlock>("Increase" + Id, increaseName, (b) => IncreaseAction(b, step), ActionWriter, increaseIcon, enabled);
+            var decrease = new MyTerminalAction<TBlock>("Decrease" + Id, decreaseName, (b) => DecreaseAction(b, step), ActionWriter, decreaseIcon, enabled);
             if (resetIcon != null)
                 SetActions(increase, decrease, new MyTerminalAction<TBlock>("Reset" + Id, resetName, ResetAction, ActionWriter, resetIcon));
             else
                 SetActions(increase, decrease);
         }
 
-        public override float GetValue(TBlock block)
-        {
-            return Getter(block);
-        }
-
         public override void SetValue(TBlock block, float value)
         {
-            Setter(block, MathHelper.Clamp(value, Denormalizer(block, 0), Denormalizer(block, 1)));
+            base.SetValue(block, MathHelper.Clamp(value, Denormalizer(block, 0), Denormalizer(block, 1)));
         }
 
         public override float GetDefaultValue(TBlock block)
@@ -329,7 +339,7 @@ namespace Sandbox.Game.Gui
             return DefaultValueGetter(block);
         }
 
-        public override float GetMininum(TBlock block)
+        public override float GetMinimum(TBlock block)
         {
             return Denormalizer(block, 0);
         }
@@ -337,6 +347,59 @@ namespace Sandbox.Game.Gui
         public override float GetMaximum(TBlock block)
         {
             return Denormalizer(block, 1);
+        }
+
+        public override float GetValue(TBlock block)
+        {
+            return base.GetValue(block);
+        }
+
+        /// <summary>
+        /// Implementation of IMyTerminalControlSlider for Mods
+        /// </summary>
+        MyStringId IMyTerminalControlTitleTooltip.Title
+        {
+            get
+            {
+                return Title;
+            }
+
+            set
+            {
+                Title = value;
+            }
+        }
+
+        MyStringId IMyTerminalControlTitleTooltip.Tooltip
+        {
+            get
+            {
+                return Tooltip;
+            }
+
+            set
+            {
+                Tooltip = value;
+            }
+        }
+
+        Action<IMyTerminalBlock, StringBuilder> IMyTerminalControlSlider.Writer
+        {
+            get
+            {
+                WriterDelegate oldWriter = Writer;
+                Action<IMyTerminalBlock, StringBuilder> action = (x, y) =>
+                {
+                    oldWriter((TBlock)x, y);
+                };
+
+                return action;
+            }
+
+            set
+            {
+                Writer = new WriterDelegate(value);
+            }
         }
     }
 }

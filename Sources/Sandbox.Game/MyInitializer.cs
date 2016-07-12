@@ -23,6 +23,7 @@ using VRage.Trace;
 using VRageRender;
 using VRage.Library.Utils;
 using VRage.Common.Utils;
+using VRage.Game;
 
 namespace Sandbox
 {
@@ -128,6 +129,9 @@ namespace Sandbox
 
         public static void InitCheckSum()
         {
+#if XB1
+			return; //everything's fine.
+#else
             try
             {
                 var checkSumFile = Path.Combine(MyFileSystem.ContentPath, "checksum.xml");
@@ -163,6 +167,7 @@ namespace Sandbox
             catch
             {
             }
+#endif
         }
 
         #region Special exception handling
@@ -182,6 +187,7 @@ namespace Sandbox
         /// <param name="args">The <see cref="System.UnhandledExceptionEventArgs"/> instance containing the event data.</param>
         /// 
         [System.Runtime.ExceptionServices.HandleProcessCorruptedStateExceptions]
+        [System.Security.SecurityCriticalAttribute]
         private static void UnhandledExceptionHandler(object sender, UnhandledExceptionEventArgs args)
         {
             MySandboxGame.Log.AppendToClosedLog(args.ExceptionObject as Exception);
@@ -230,6 +236,21 @@ namespace Sandbox
                     MySandboxGame.Log.AppendToClosedLog(e);
                 }
             }
+            var oomEx = exception as OutOfMemoryException;
+            if (oomEx != null)
+            {
+                MySandboxGame.Log.AppendToClosedLog("Handling out of memory exception... " + MySandboxGame.Config);
+                if (MySandboxGame.Config.LowMemSwitchToLow == MyConfig.LowMemSwitch.ARMED)
+                    if (!MySandboxGame.Config.IsSetToLowQuality())
+                    {
+                        MySandboxGame.Log.AppendToClosedLog("Creating switch to low request");
+                        MySandboxGame.Config.LowMemSwitchToLow = MyConfig.LowMemSwitch.TRIGGERED;
+                        MySandboxGame.Config.Save();
+                        MySandboxGame.Log.AppendToClosedLog("Switch to low request created");
+                    }
+                MySandboxGame.Log.AppendToClosedLog(oomEx);
+            }
+
             HandleSpecialExceptions(exception.InnerException);
         }
 

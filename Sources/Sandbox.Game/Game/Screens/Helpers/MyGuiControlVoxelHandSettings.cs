@@ -3,6 +3,7 @@ using Sandbox.Game.Localization;
 using Sandbox.Game.SessionComponents;
 using Sandbox.Graphics.GUI;
 using VRage;
+using VRage.Game;
 using VRage.Utils;
 using VRageMath;
 
@@ -24,13 +25,12 @@ namespace Sandbox.Game.Screens.Helpers
             m_labelSettings = new MyGuiControlLabel()
             {
                 Position = new Vector2(-0.1f, -0.1875f),
-                TextEnum = MySpaceTexts.VoxelHandSettingScreen_ShapeSettings,
+                TextEnum = MyCommonTexts.VoxelHandSettingScreen_ShapeSettings,
                 OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP,
                 Font = MyFontEnum.ScreenCaption,
             };
 
-            OKButton = new MyGuiControlButton() { Position = new Vector2(0f, 0.19f), TextEnum = MySpaceTexts.Ok, OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM };
-            OKButton.ButtonClicked += OKButton_Clicked;
+            OKButton = new MyGuiControlButton() { Position = new Vector2(0f, 0.19f), TextEnum = MyCommonTexts.Ok, OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM };
         }
 
         public void UpdateControls()
@@ -52,37 +52,6 @@ namespace Sandbox.Game.Screens.Helpers
                     Elements.Add(control);
 
                 Elements.Add(OKButton);
-            }
-        }
-
-        private void OKButton_Clicked(MyGuiControlButton sender)
-        {
-            bool itemSet = false;
-            for (int i = 0; i < MyToolbarComponent.CurrentToolbar.SlotCount; ++i)
-            {
-                var item = MyToolbarComponent.CurrentToolbar.GetSlotItem(i);
-                if (item != null && item.Equals(Item))
-                {
-                    MyToolbarComponent.CurrentToolbar.SetItemAtIndex(i, Item);
-                    if (item.WantsToBeActivated)
-                        MyToolbarComponent.CurrentToolbar.ActivateItemAtSlot(i);
-                    itemSet = true;
-                    break;
-                }
-            }
-
-            if (itemSet)
-                return;
-
-            for (int i = 0; i < MyToolbarComponent.CurrentToolbar.SlotCount; ++i)
-            {
-                if (MyToolbarComponent.CurrentToolbar.GetSlotItem(i) == null)
-                { 
-                    MyToolbarComponent.CurrentToolbar.SetItemAtIndex(i, Item);
-                    if (Item.WantsToBeActivated)
-                        MyToolbarComponent.CurrentToolbar.ActivateItemAtSlot(i);
-                    break;
-                }
             }
         }
 

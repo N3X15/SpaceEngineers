@@ -1,12 +1,8 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
 using System.Xml.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     public class EnvironmentItemsEntry
@@ -25,6 +21,10 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember, DefaultValue(true)]
         public bool Enabled = true;
+
+        [ProtoMember]
+        [XmlAttribute]
+        public float Frequency = 1.0f;
 
         public override bool Equals(object other)
         {

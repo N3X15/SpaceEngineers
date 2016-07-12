@@ -1,12 +1,15 @@
 ﻿using VRage.ObjectBuilders;
 using ProtoBuf;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_DoorDefinition : MyObjectBuilder_CubeBlockDefinition
     {
+	    [ProtoMember]
+	    public string ResourceSinkGroup;
+
         [ProtoMember]
         public float MaxOpen;
 

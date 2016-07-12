@@ -106,8 +106,10 @@ namespace VRageRender
 
             code.AppendLine("__position_object = unpack_voxel_position(input.position);");
             code.AppendLine("__material_weights = unpack_voxel_weights(input.position.w);");
+            code.AppendLine("__ambient_occlusion = unpack_voxel_ao(input.position.w);");
             code.AppendLine("__position_object_morph = unpack_voxel_position(input.position_morph);");
             code.AppendLine("__material_weights_morph = unpack_voxel_weights(input.position_morph.w);");
+            code.AppendLine("__ambient_occlusion_morph = unpack_voxel_ao(input.position_morph.w);");
         }
     }
 
@@ -273,8 +275,8 @@ namespace VRageRender
             AddSingle("TEXCOORD", "float4 packed_bone5", Format.R8G8B8A8_UNorm, component, list, dict, declaration, code);
             AddSingle("TEXCOORD", "float4 packed_bone6", Format.R8G8B8A8_UNorm, component, list, dict, declaration, code);
             AddSingle("TEXCOORD", "float4 packed_bone7", Format.R8G8B8A8_UNorm, component, list, dict, declaration, code);
-            AddSingle("TEXCOORD", "float4 cube_transformation", Format.R16G16B16A16_Float, component, list, dict, declaration, code);
-            AddSingle("TEXCOORD", "float4 colormask", Format.R16G16B16A16_Float, component, list, dict, declaration, code);
+            AddSingle("TEXCOORD", "float4 cube_transformation", Format.R32G32B32A32_Float, component, list, dict, declaration, code);
+            AddSingle("TEXCOORD", "float4 colormask", Format.R32G32B32A32_Float, component, list, dict, declaration, code);
 
             code.AppendLine("__packed_bone0 = input.packed_bone0;");
             code.AppendLine("__packed_bone1 = input.packed_bone1;");

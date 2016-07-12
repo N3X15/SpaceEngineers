@@ -7,7 +7,7 @@ Texture2D	DepthResolved	: register( t5 );
 #define NUM_FOURS_BATCHES 2
 
 #include <frame.h>
-#include <math.h>
+#include <Math/math.h>
 #include <gbuffer.h>
 
 cbuffer SSAO_params : register( b1 )
@@ -20,7 +20,7 @@ cbuffer SSAO_params : register( b1 )
 	float radius_bias;
 	float contrast;
 	float normalization;
-	float _padding;
+	float colorScale;
 
 	float4 OcclPos[NUM_SAMPLES];
 	float4 OcclPosFlipped[NUM_SAMPLES];
@@ -65,7 +65,12 @@ float ao_batch4(int i, float2 rot, float3 position, float3 T, float3 B, float ra
 // sample depth
 		float4 zi;
 		[unroll] for(j=0; j<4; j++) {
-			zi[j] = -linearize_depth(DepthResolved.SampleLevel(PointSampler, occlProjPos[j], 0).x, frame_.projection_matrix);
+			// this complex calculation is placed here because of stero rendering
+			// the calculation modifies screencord to proper place in gbuffer
+			float2 screencoord = (frame_.offset_in_gbuffer + clamp(occlProjPos[j] * frame_.resolution, 0, frame_.resolution - 1)) / frame_.resolution_of_gbuffer;
+
+			float nonlinearDepth = DepthResolved.SampleLevel(PointSampler, screencoord, 0).x;
+			zi[j] = -linearize_depth(nonlinearDepth, frame_.projection_matrix);
 		}
 	
 // compute ao portion of the sample	
@@ -124,7 +129,7 @@ float4 ao_taps4(uint2 pixel, int i, float2 rot, float3 position)
 
 //#define DISPLAY_TAPS
 
-float4 volumetric_ssao2(PostprocessVertex input) : SV_Target0
+float4 __pixel_shader(PostprocessVertex input) : SV_Target0
 {
 #ifdef DISPLAY_TAPS
 	uint2 testPixel = uint2(800, 800);
@@ -147,7 +152,7 @@ float4 volumetric_ssao2(PostprocessVertex input) : SV_Target0
 	sincos(noise, rndrot.x, rndrot.y);
 	rndrot*= radius;	
 
-	float3 view_pos = gbuffer.positionView + 0.5 * (bias + radius) * N;
+    float3 view_pos = mad(0.5f, mad(bias, N, radius*N), gbuffer.positionView);
 
 	float4 sum = 0;
 	sum += ao_taps4(uint2(input.position.xy), 0, rndrot, view_pos);
@@ -163,11 +168,12 @@ float4 volumetric_ssao2(PostprocessVertex input) : SV_Target0
 
 	//float vignette = input.position - frame_.resolution;
 
-	float margin = 150.f;
+	// unimportant calculation
+/*	float margin = 1.f;
 	float2 vignette_dist = saturate(input.position.xy / margin);
-	vignette_dist = min(vignette_dist, saturate((frame_.resolution - input.position.xy) / margin));
+	vignette_dist = min(vignette_dist, saturate((frame_.resolution - input.position.xy - frame_.offset_in_gbuffer) / margin));
 	float vignette = min(vignette_dist.x, vignette_dist.y);
-
+	*/
 	float depth = gbuffer.depth;
 
 	float3 N = gbuffer.N;
@@ -177,7 +183,7 @@ float4 volumetric_ssao2(PostprocessVertex input) : SV_Target0
 // view space normal	
 	N = normalize(mul(N, (float3x3)frame_.view_matrix));
 
-	float	radius	= min_radius + (1 - pow(abs(radius_grow), -depth)) * (max_radius - min_radius);
+    float	radius = lerp(min_radius, max_radius, 1 - pow(abs(radius_grow), -depth));
 	float	bias	= radius * radius_bias;
 
 	float2	rndrot;		
@@ -185,18 +191,18 @@ float4 volumetric_ssao2(PostprocessVertex input) : SV_Target0
 	sincos(noise, rndrot.x, rndrot.y);
 	rndrot*= radius;	
 
-	float3 view_pos = gbuffer.positionView + 0.5 * (bias + radius) * N;
-
+    float3 view_pos = mad(0.5f, mad(bias, N, radius*N), gbuffer.positionView);
 
 	float ao = 0;
-	for(int i=0; i< NUM_FOURS_BATCHES; i++) {
+    [unroll]
+	for(int i=0; i< NUM_FOURS_BATCHES; i++)
 		ao += ao_batch4(i * 4, rndrot, view_pos, T, B, radius, falloff );
-	}
 
 	ao = saturate(ao * normalization / radius);
 	ao = (ao - 0.5) * contrast + 0.5;
 	
-	return lerp(ao, 1, 1 - vignette);
+	return ao; //lerp(ao, 1, 1 - vignette);
+
 
 #endif
 }

@@ -4,8 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Havok;
-using Medieval.ObjectBuilders;
-using Medieval.ObjectBuilders.Definitions;
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
@@ -14,6 +12,8 @@ using VRageMath;
 using Sandbox.Game.Entities.EnvironmentItems;
 using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Game.Multiplayer;
+using VRage.Game;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.Entities.EnvironmentItems
 {
@@ -26,11 +26,17 @@ namespace Sandbox.Game.Entities.EnvironmentItems
     {
         public MyDestroyableItems() { }
 
-        public override void DoDamage(float damage, int instanceId, Vector3D position, Vector3 normal, MyDamageType type)
+        public override void DoDamage(float damage, int instanceId, Vector3D position, Vector3 normal, MyStringHash type)
         {
             if (!Sync.IsServer) return;
 
             RemoveItem(instanceId, sync: true);
+        }
+
+        protected override MyEntity DestroyItem(int itemInstanceId)
+        {
+            RemoveItem(itemInstanceId, sync: true);
+            return null;
         }
     }
 }

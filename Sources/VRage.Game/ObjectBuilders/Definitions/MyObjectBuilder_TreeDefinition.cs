@@ -1,8 +1,5 @@
-﻿using System;
-using VRage.ObjectBuilders;
-using ProtoBuf;
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Definitions;
+﻿using ProtoBuf;
+using VRage.Game;
 
 
 namespace VRage.ObjectBuilders.Definitions
@@ -14,5 +11,17 @@ namespace VRage.ObjectBuilders.Definitions
         // Distance [m] from tree origin to first log with branches
         [ProtoMember]
         public float BranchesStartHeight = 0.0f;
+
+        [ProtoMember]
+        public float HitPoints = 100.0f;
+
+        [ProtoMember]
+        public string CutEffect;
+
+        [ProtoMember]
+        public string FallSound;
+
+        [ProtoMember]
+        public string BreakSound;
     }
 }

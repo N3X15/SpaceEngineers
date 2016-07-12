@@ -8,7 +8,6 @@ using System.Text;
 using VRage.Audio;
 using VRage.Library.Utils;
 using VRage.Utils;
-using VRage.Utils;
 
 namespace Sandbox.Game.GUI
 {
@@ -38,7 +37,12 @@ namespace Sandbox.Game.GUI
         HudVocEnergyNo,
         HudVocStationFuelNo,
         HudVocShipFuelNo,
-
+        HudCraftBarProgressLoop,
+        HudErrorMessage,
+        HudOpenCraftWin,
+        HudOpenInventory,
+        HudItem,
+        PlayTakeItem
     }
     public class MyGuiAudio : IMyGuiAudio
     {
@@ -76,6 +80,8 @@ namespace Sandbox.Game.GUI
                     return MyGuiSounds.HudMouseClick;
                 case(GuiSounds.MouseOver):
                     return MyGuiSounds.HudMouseOver;
+                case (GuiSounds.Item):
+                    return MyGuiSounds.HudItem;
                 default:
                     return MyGuiSounds.HudClick;
             }

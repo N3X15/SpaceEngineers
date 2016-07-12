@@ -13,8 +13,9 @@ Texture2D<float> Dither8x8 : register( MERGE(t,DITHER_8X8_SLOT) );
 
 struct PixelInterface 
 {
-	float2 screen_position;
+	float3 screen_position;
 	float3 key_color;
+	float hologram;
 	float custom_alpha;
 	float3 color_mul;
 	float emissive;
@@ -33,6 +34,7 @@ void init_ps_interface(inout PixelInterface pix) {
 	pix.emissive = 0;
 	pix.material_index = 0;
 	pix.material_flags = 0;
+	pix.hologram = 0;
 #ifndef PASS_OBJECT_VALUES_THROUGH_STAGES
 	pix.material_index = object_.material_index;
 	pix.material_flags = object_.material_flags;
@@ -54,7 +56,9 @@ struct MaterialOutputInterface
 	float ao;
 	float emissive;
 	uint coverage;
-	bool DISCARD;
+#ifdef CUSTOM_DEPTH
+	float depth;
+#endif
 };
 
 MaterialOutputInterface make_mat_interface()
@@ -69,13 +73,13 @@ MaterialOutputInterface make_mat_interface()
 	result.ao = 1;
 	result.emissive = 0;
 	result.coverage = COVERAGE_MASK_ALL;
-	result.DISCARD = 0;
+#ifdef CUSTOM_DEPTH
+	result.depth = 0;
+#endif
 	return result;
 }
 
-#define DISCARD_PIXEL \
-	output.DISCARD = 1; \
-	return;
+#include <materials/pixel_utils_materials.h>
 
 // TOKEN START
 __MATERIAL_PIXELPROGRAM__

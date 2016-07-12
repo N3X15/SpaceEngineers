@@ -138,8 +138,8 @@ namespace VRageRender
         MyDepthView m_depthSubresource;
         MyStencilView m_stencilSubresource;
 
-        internal MyBindableResource Depth { get { return m_depthSubresource; } }
-        internal MyBindableResource Stencil { get { return m_stencilSubresource; } }
+        internal MyDepthView Depth { get { return m_depthSubresource; } }
+        internal MyStencilView Stencil { get { return m_stencilSubresource; } }
 
         internal MyDepthStencil(int width, int height,
             int sampleCount, int sampleQuality)
@@ -279,10 +279,11 @@ namespace VRageRender
         }
     }
 
-    class MyUnorderedAccessTexture : MyBindableResource, IUnorderedAccessBindable, IShaderResourceBindable
+    class MyUnorderedAccessTexture : MyBindableResource, IUnorderedAccessBindable, IShaderResourceBindable, IRenderTargetBindable
     {
         internal ShaderResourceView m_SRV;
         internal UnorderedAccessView m_UAV;
+        internal RenderTargetView m_RTV;
 
         internal Vector2I m_resolution;
 
@@ -294,6 +295,11 @@ namespace VRageRender
         UnorderedAccessView IUnorderedAccessBindable.UAV
         {
             get { return m_UAV; }
+        }
+
+        RenderTargetView IRenderTargetBindable.RTV
+        {
+            get { return m_RTV; }
         }
 
         internal override void Release()
@@ -308,6 +314,11 @@ namespace VRageRender
                 m_UAV.Dispose();
                 m_UAV = null;
             }
+            if (m_RTV != null)
+            {
+                m_RTV.Dispose();
+                m_RTV = null;
+            }
 
             base.Release();
         }
@@ -317,7 +328,7 @@ namespace VRageRender
             return new Vector3I(m_resolution.X, m_resolution.Y, 0);
         }
 
-        internal MyUnorderedAccessTexture(int width, int height, Format format)
+        internal MyUnorderedAccessTexture(int width, int height, Format format, int samplesCount = 1, int samplesQuality = 0, string debugName = null)
         {
             m_resolution = new Vector2I(width, height);
 
@@ -327,16 +338,24 @@ namespace VRageRender
             desc.Format = format;
             desc.ArraySize = 1;
             desc.MipLevels = 1;
-            desc.BindFlags = BindFlags.UnorderedAccess | BindFlags.ShaderResource;
+            desc.BindFlags = BindFlags.UnorderedAccess | BindFlags.ShaderResource | BindFlags.RenderTarget;
             desc.Usage = ResourceUsage.Default;
             desc.CpuAccessFlags = 0;
-            desc.SampleDescription.Count = 1;
-            desc.SampleDescription.Quality = 0;
+            desc.SampleDescription.Count = samplesCount;
+            desc.SampleDescription.Quality = samplesQuality;
             desc.OptionFlags = 0;
 
             m_resource = new Texture2D(MyRender11.Device, desc);
             m_UAV = new UnorderedAccessView(MyRender11.Device, m_resource);
             m_SRV = new ShaderResourceView(MyRender11.Device, m_resource);
+            m_RTV = new RenderTargetView(MyRender11.Device, m_resource);
+            if (debugName != null)
+            {
+                m_resource.DebugName = debugName;
+                m_UAV.DebugName = debugName + "UAV";
+                m_SRV.DebugName = debugName + "SRV";
+                m_RTV.DebugName = debugName + "RTV";
+            }
         }
     }
 
@@ -351,6 +370,22 @@ namespace VRageRender
     {
         internal MyViewEnum View;
         internal Format Fmt;
+
+        #region Equals
+        public class MyViewKeyComparerType : IEqualityComparer<MyViewKey>
+        {
+            public bool Equals(MyViewKey left, MyViewKey right)
+            {
+                return left.View == right.View && left.Fmt == right.Fmt;
+            }
+
+            public int GetHashCode(MyViewKey viewKey)
+            {
+                return (int)viewKey.View << 16 + (int)viewKey.Fmt;
+            }
+        }
+        public static readonly MyViewKeyComparerType Comparer = new MyViewKeyComparerType();
+        #endregion
     }
 
     class MySrvView : MyBindableResource, IShaderResourceBindable
@@ -503,10 +538,10 @@ namespace VRageRender
     {
         internal Vector2I m_resolution;
 
-        internal Dictionary<MyViewKey, MyBindableResource> m_views = new Dictionary<MyViewKey, MyBindableResource>();
+        internal Dictionary<MyViewKey, MyBindableResource> m_views = new Dictionary<MyViewKey, MyBindableResource>(MyViewKey.Comparer);
 
-        internal MyCustomTexture(int width, int height, BindFlags bindflags,
-            Format format)
+        internal MyCustomTexture(int width, int height, BindFlags bindflags, Format format,
+            int samplesCount = 1, int samplesQuality = 0, string debugName = null)
         {
             m_resolution = new Vector2I(width, height);
 
@@ -519,10 +554,12 @@ namespace VRageRender
             desc.BindFlags = bindflags;
             desc.Usage = ResourceUsage.Default;
             desc.CpuAccessFlags = 0;
-            desc.SampleDescription.Count = 1;
-            desc.SampleDescription.Quality = 0;
+            desc.SampleDescription.Count = samplesCount;
+            desc.SampleDescription.Quality = samplesQuality;
             desc.OptionFlags = 0;
-            m_resource = new Texture2D(MyRender11.Device, desc);   
+            m_resource = new Texture2D(MyRender11.Device, desc);
+            if (debugName != null)
+                m_resource.DebugName = debugName;
         }
 
         internal void AddView(MyViewKey view)
@@ -601,8 +638,14 @@ namespace VRageRender
         {
             return new Vector3I(m_resolution.X, m_resolution.Y, 0);
         }
-
-        internal MyRWStructuredBuffer(int elements, int stride)
+        internal enum UAVType
+        {
+            None,
+            Default,
+            Append,
+            Counter
+        }
+        internal MyRWStructuredBuffer(int elements, int stride, UAVType uav, bool srv, string debugName)
         {
             m_resolution = new Vector2I(elements, 1);
 
@@ -610,11 +653,107 @@ namespace VRageRender
                 CpuAccessFlags.None, ResourceOptionFlags.BufferStructured, stride);
 
             m_resource = new SharpDX.Direct3D11.Buffer(MyRender11.Device, bufferDesc);
-            m_UAV = new UnorderedAccessView(MyRender11.Device, m_resource);
-            m_SRV = new ShaderResourceView(MyRender11.Device, m_resource);
+            m_resource.DebugName = debugName;
+            if (uav != UAVType.None)
+            {
+                if (uav == UAVType.Default)
+                    m_UAV = new UnorderedAccessView(MyRender11.Device, m_resource);
+                else
+                {
+                    var description = new UnorderedAccessViewDescription()
+                    {
+                        Buffer = new UnorderedAccessViewDescription.BufferResource()
+                        {
+                            ElementCount = elements,
+                            FirstElement = 0,
+                            Flags = uav == UAVType.Append ? UnorderedAccessViewBufferFlags.Append : UnorderedAccessViewBufferFlags.Counter
+                        },
+                        Format = Format.Unknown,
+                        Dimension = UnorderedAccessViewDimension.Buffer
+                    };
+                    m_UAV = new UnorderedAccessView(MyRender11.Device, m_resource, description);
+                }
+                m_UAV.DebugName = debugName + "UAV";
+            }
+            if (srv)
+            {
+                m_SRV = new ShaderResourceView(MyRender11.Device, m_resource);
+                m_SRV.DebugName = debugName + "SRV";
+            }
         }
     }
+    class MyIndirectArgsBuffer : MyBindableResource, IUnorderedAccessBindable
+    {
+        internal UnorderedAccessView m_UAV;
 
+        internal Vector2I m_resolution;
+
+        internal SharpDX.Direct3D11.Buffer Buffer { get { return m_resource as SharpDX.Direct3D11.Buffer; } }
+        UnorderedAccessView IUnorderedAccessBindable.UAV
+        {
+            get { return m_UAV; }
+        }
+
+        internal override void Release()
+        {
+            if (m_UAV != null)
+            {
+                m_UAV.Dispose();
+                m_UAV = null;
+            }
+
+            base.Release();
+        }
+
+        internal override Vector3I GetSize()
+        {
+            return new Vector3I(m_resolution.X, m_resolution.Y, 0);
+        }
+        internal MyIndirectArgsBuffer(int elements, int stride, string debugName)
+        {
+            m_resolution = new Vector2I(elements, 1);
+
+            var bufferDesc = new BufferDescription(elements * stride, ResourceUsage.Default, BindFlags.UnorderedAccess,
+                CpuAccessFlags.None, ResourceOptionFlags.DrawIndirectArguments, stride);
+
+            m_resource = new SharpDX.Direct3D11.Buffer(MyRender11.Device, bufferDesc);
+            m_resource.DebugName = debugName;
+
+            var description = new UnorderedAccessViewDescription()
+            {
+                Buffer = new UnorderedAccessViewDescription.BufferResource()
+                {
+                    ElementCount = elements,
+                    FirstElement = 0,
+                    Flags = 0
+                },
+                Format = Format.R32_UInt,
+                Dimension = UnorderedAccessViewDimension.Buffer
+            };
+            m_UAV = new UnorderedAccessView(MyRender11.Device, m_resource, description);
+            m_UAV.DebugName = debugName + "UAV";
+        }
+    }
+    class MyReadStructuredBuffer : MyBindableResource
+    {
+        internal int m_resolution;
+
+        internal override Vector3I GetSize()
+        {
+            return new Vector3I(m_resolution, 1, 0);
+        }
+
+        internal MyReadStructuredBuffer(int elements, int stride, string debugName)
+        {
+            m_resolution = elements;
+
+            var bufferDesc = new BufferDescription(elements * stride, ResourceUsage.Staging, BindFlags.None, 
+                CpuAccessFlags.Read, ResourceOptionFlags.None, stride);
+
+            m_resource = new SharpDX.Direct3D11.Buffer(MyRender11.Device, bufferDesc);
+            m_resource.DebugName = debugName;
+        }
+    }
     class MyRenderTarget : MyBindableResource, IRenderTargetBindable, IShaderResourceBindable
     {
         internal ShaderResourceView m_SRV;

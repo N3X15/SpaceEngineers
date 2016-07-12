@@ -1,5 +1,6 @@
-﻿using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Definitions;
+﻿using Sandbox.Common.ObjectBuilders.Definitions;
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRage.Utils;
 
 

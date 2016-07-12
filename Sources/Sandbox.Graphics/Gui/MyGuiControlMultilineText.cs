@@ -1,13 +1,14 @@
-﻿using Sandbox.Common;
-using Sandbox.Common.ObjectBuilders.Gui;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+#if !XB1
 using System.Windows.Forms;
+#endif
 using VRage;
+using VRage.Game;
 using VRage.Input;
 using VRage.Library.Utils;
 using VRage.Utils;
@@ -34,6 +35,7 @@ namespace Sandbox.Graphics.GUI
 
         private bool m_drawScrollbar;
         private float m_scrollbarOffset;
+        private bool m_showTextShadow;
 
         private bool m_selectable;
 
@@ -117,7 +119,7 @@ namespace Sandbox.Graphics.GUI
 
         public Vector2 TextSize
         {
-            get { return m_label.GetSize(); }
+            get { return m_label.Size; }
         }
 
         public float ScrollbarOffset
@@ -147,7 +149,10 @@ namespace Sandbox.Graphics.GUI
             StringBuilder contents = null,
             bool drawScrollbar = true,
             MyGuiDrawAlignEnum textBoxAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
-            bool selectable = false)
+            int? visibleLinesCount = null,
+            bool selectable = false,
+            bool showTextShadow = false
+        )
             : base(position: position,
                     size: size,
                     colorMask: backgroundColor,
@@ -164,7 +169,8 @@ namespace Sandbox.Graphics.GUI
             m_scrollbarSize = new Vector2(0.0334f, MyGuiConstants.COMBOBOX_VSCROLLBAR_SIZE.Y);
             m_scrollbarSize = MyGuiConstants.COMBOBOX_VSCROLLBAR_SIZE;
             float minLineHeight = MyGuiManager.MeasureString(Font, m_lineHeightMeasure, TextScaleWithLanguage).Y;
-            m_label = new MyRichLabel(ComputeRichLabelWidth(), minLineHeight);
+            m_label = new MyRichLabel(this, ComputeRichLabelWidth(), minLineHeight, visibleLinesCount) { ShowTextShadow = showTextShadow };
+            m_label.AdjustingScissorRectangle += AdjustScissorRectangleLabel;
             m_label.TextAlign = textAlign;
             m_text = new StringBuilder();
             m_selection = new MyGuiControlMultilineSelection();
@@ -287,7 +293,7 @@ namespace Sandbox.Graphics.GUI
 
         private void RecalculateScrollBar()
         {
-            float realHeight = m_label.GetSize().Y;
+            float realHeight = m_label.Size.Y;
 
             bool vScrollbarVisible = Size.Y < realHeight;
 
@@ -345,6 +351,7 @@ namespace Sandbox.Graphics.GUI
             scissor.X -= 0.001f;
             scissor.Y -= 0.001f;
 
+            AdjustScissorRectangle(ref scissor);
             using (MyGuiManager.UsingScissorRectangle(ref scissor))
             {
                 DrawSelectionBackgrounds(textArea, backgroundTransitionAlpha);
@@ -374,6 +381,38 @@ namespace Sandbox.Graphics.GUI
                     m_scrollbar.Draw(ApplyColorMaskModifiers(ColorMask, Enabled, transitionAlpha));
             }
             //m_scrollbar.DebugDraw();
+        }
+
+        private void AdjustScissorRectangle(ref RectangleF rectangle)
+        {
+            // TODO: Consider making this moddable
+            if (Name == "MyHudControlChat")
+                AdjustScissorRectangle(ref rectangle, 1.2f, 1.4f);
+        }
+
+        private void AdjustScissorRectangleLabel(ref RectangleF rectangle)
+        {
+            // TODO: Consider making this moddable
+            if (Name == "MyHudControlChat")
+                AdjustScissorRectangle(ref rectangle, 1.4f, 2.1f);
+        }
+
+        /// <summary>
+        /// Adjust rectangle for shadows
+        /// </summary>
+        private void AdjustScissorRectangle(ref RectangleF rectangle, float multWidth, float multHeight)
+        {
+            float width = rectangle.Width;
+            float height = rectangle.Height;
+
+            rectangle.Width *= multWidth;
+            rectangle.Height *= multHeight;
+
+            float diffWidth = rectangle.Width - width;
+            float diffHeight = rectangle.Height - height;
+
+            rectangle.Position.X -= diffWidth / 2;
+            rectangle.Position.Y -= diffHeight / 2;
         }
 
         public override MyGuiControlBase HandleInput()
@@ -610,6 +649,11 @@ namespace Sandbox.Graphics.GUI
         {
             get { return m_textScaleWithLanguage; }
             private set { m_textScaleWithLanguage = value; }
+        }
+
+        public bool ShowTextShadow
+        {
+            get { return m_showTextShadow; }
         }
 
         /// <summary>
@@ -850,10 +894,14 @@ namespace Sandbox.Graphics.GUI
             public void CopyText(MyGuiControlMultilineText sender)
             {
                 ClipboardText = Regex.Replace(sender.Text.ToString().Substring(Start, Length), "\n", "\r\n");
-                Thread myth;
-                myth = new Thread(new System.Threading.ThreadStart(CopyToClipboard));
-                myth.ApartmentState = ApartmentState.STA;
-                myth.Start();
+
+                if (!string.IsNullOrEmpty(ClipboardText))
+                {
+                    Thread thread = new Thread(() => System.Windows.Forms.Clipboard.SetText(ClipboardText));
+                    thread.SetApartmentState(ApartmentState.STA);
+                    thread.Start();
+                    thread.Join();
+                }
             }
 
             public void CutText(MyGuiControlMultilineText sender)
@@ -869,11 +917,11 @@ namespace Sandbox.Graphics.GUI
             {
                 //First we erase the selection
                 EraseText(sender);
+
                 var prefix = sender.Text.ToString().Substring(0, sender.CarriagePositionIndex);
                 var suffix = sender.Text.ToString().Substring(sender.CarriagePositionIndex);
-                Thread myth;
 
-                myth = new Thread(new System.Threading.ThreadStart(PasteFromClipboard));
+                Thread myth = new Thread(new System.Threading.ThreadStart(PasteFromClipboard));
                 myth.ApartmentState = ApartmentState.STA;
                 myth.Start();
 
@@ -887,13 +935,22 @@ namespace Sandbox.Graphics.GUI
 
             void PasteFromClipboard()
             {
+#if !XB1
                 ClipboardText = Clipboard.GetText();
+#else
+                Debug.Assert(false, "Not Clipboard support on XB1!");
+#endif
+                
             }
 
             void CopyToClipboard()
             {
+#if !XB1
                 if (ClipboardText != "")
-                    Clipboard.SetText(ClipboardText);
+                    Clipboard.SetText(ClipboardText);          
+#else
+                Debug.Assert(false, "Not Clipboard support on XB1!");
+#endif
             }
 
         }

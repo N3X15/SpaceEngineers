@@ -4,12 +4,15 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Diagnostics;
+
+#if !UNSHARPER
 
 namespace System
 {
     public static class MethodInfoExtensions
     {
-        public static TDelegate CreateDelegate<TDelegate>(this MethodInfo method, Object instance)
+        public static TDelegate CreateDelegate<TDelegate>(this MethodInfo method, object instance)
             where TDelegate : class
         {
             return CreateDelegate<TDelegate>(method,
@@ -43,7 +46,7 @@ namespace System
             return Expression.Lambda<TDelegate>(call, parameterExpressions).Compile();
         }
 
-        private static ParameterExpression[] ExtractParameterExpressionsFrom<TDelegate>()
+        public static ParameterExpression[] ExtractParameterExpressionsFrom<TDelegate>()
         {
             return typeof(TDelegate)
                 .GetMethod("Invoke")
@@ -73,3 +76,5 @@ namespace System
         }
     }
 }
+
+#endif

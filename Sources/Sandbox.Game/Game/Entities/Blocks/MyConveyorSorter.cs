@@ -9,24 +9,32 @@ using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.GameSystems.Conveyors;
 using VRageMath;
 using System.Diagnostics;
-using VRageRender;
 using Sandbox.Game.Gui;
 using Sandbox.Game.Localization;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Definitions;
-using Sandbox.Common.ObjectBuilders.Definitions;
+using Sandbox.Game.EntityComponents;
 using Sandbox.Game.GameSystems.Electricity;
 using VRage;
 using Sandbox.Game.GameSystems;
 using VRage.Utils;
-using Sandbox.ModAPI.Ingame;
+using Sandbox.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.ModAPI;
+using Sandbox.ModAPI.Interfaces;
+using Sandbox.Engine.Utils;
+using Sandbox.Engine;
+using VRage.Game;
+using VRage.Game.Definitions;
+using VRage.Game.Entity;
+using VRage.Game.ModAPI.Ingame;
+using VRage.Network;
+using Sandbox.Engine.Multiplayer;
 
 namespace Sandbox.Game.Entities
 {
     [MyCubeBlockType(typeof(MyObjectBuilder_ConveyorSorter))]
-    class MyConveyorSorter : MyFunctionalBlock, IMyConveyorEndpointBlock, IMyPowerConsumer, IMyInventoryOwner, IMyConveyorSorter
+    public class MyConveyorSorter : MyFunctionalBlock, IMyConveyorEndpointBlock, IMyConveyorSorter, IMyInventoryOwner
     {
         public bool IsWhitelist
         {
@@ -36,7 +44,13 @@ namespace Sandbox.Game.Entities
             }
             private set
             {
-                m_inventoryConstraint.IsWhitelist = value;
+                if (m_inventoryConstraint.IsWhitelist != value)
+                {
+                    m_inventoryConstraint.IsWhitelist = value;
+
+                    // Recompute because of new sorter settings
+                    CubeGrid.GridSystems.ConveyorSystem.FlagForRecomputation();
+                }
             }
         }
 
@@ -44,7 +58,7 @@ namespace Sandbox.Game.Entities
 
         public bool IsAllowed(MyDefinitionId itemId)
         {
-            if (!Enabled || !IsFunctional || !IsWorking || !PowerReceiver.IsPowered)
+			if (!Enabled || !IsFunctional || !IsWorking || !ResourceSink.IsPowered)
                 return false;
 
             return m_inventoryConstraint.Check(itemId);
@@ -59,28 +73,29 @@ namespace Sandbox.Game.Entities
             }
         }
 
+        readonly Sync<bool> m_drainAll;
         public bool DrainAll
         {
-            get;
-            private set;
+            get
+            {
+                return m_drainAll;
+            }
+            private set
+            {
+                m_drainAll.Value = value;
+            }
         }
 
-        public MyPowerReceiver PowerReceiver
-        {
-            get;
-            private set;
-        }
-
-        MySyncConveyorSorter m_sync;
 
         private MyConveyorSorterDefinition m_conveyorSorterDefinition;
-        private MyInventory m_inventory;
 
         private int m_pushRequestFrameCounter;
 
         public MyConveyorSorter()
         {
-            m_sync = new MySyncConveyorSorter(this);
+            CreateTerminalControls();
+
+            m_drainAll.ValueChanged += x => DoChangeDrainAll();
         }
 
         public new MyConveyorSorterDefinition BlockDefinition
@@ -100,44 +115,6 @@ namespace Sandbox.Game.Entities
 
         static MyConveyorSorter()
         {
-            drainAll = new MyTerminalControlOnOffSwitch<MyConveyorSorter>("DrainAll", MySpaceTexts.Terminal_DrainAll);
-            drainAll.Getter = (block) => block.DrainAll;
-            drainAll.Setter = (block, val) => block.ChangeDrainAll(val);
-            drainAll.EnableToggleAction();
-            MyTerminalControlFactory.AddControl(drainAll);
-
-            MyTerminalControlFactory.AddControl(new MyTerminalControlSeparator<MyConveyorSorter>());
-            
-            blacklistWhitelist = new MyTerminalControlCombobox<MyConveyorSorter>("blacklistWhitelist", MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterMode, MySpaceTexts.Blank);
-            blacklistWhitelist.ComboBoxContent = (block) => FillBlWlCombo(block);
-            blacklistWhitelist.Getter = (block) => (long)(block.IsWhitelist ? 1 : 0);
-            blacklistWhitelist.Setter = (block, val) => block.ChangeBlWl(val == 1);
-            MyTerminalControlFactory.AddControl(blacklistWhitelist);
-
-            currentList = new MyTerminalControlListbox<MyConveyorSorter>("CurrentList", MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterItemsList, MySpaceTexts.Blank, true);
-            currentList.ListContent = (block, list1, list2) => block.FillCurrentList(list1, list2);
-            currentList.ItemSelected = (block, val) => block.SelectFromCurrentList(val);
-            MyTerminalControlFactory.AddControl(currentList);
-
-            removeFromSelectionButton = new MyTerminalControlButton<MyConveyorSorter>("removeFromSelectionButton",
-                MySpaceTexts.BlockPropertyTitle_ConveyorSorterRemove,
-                MySpaceTexts.Blank,
-                (block) => block.RemoveFromCurrentList());
-            removeFromSelectionButton.Enabled = (x) => x.m_selectedForDelete != null && x.m_selectedForDelete.Count > 0; ;
-            MyTerminalControlFactory.AddControl(removeFromSelectionButton);
-
-            candidates = new MyTerminalControlListbox<MyConveyorSorter>("candidatesList", MySpaceTexts.BlockPropertyTitle_ConveyorSorterCandidatesList, MySpaceTexts.Blank, true);
-            candidates.ListContent = (block, list1, list2) => block.FillCandidatesList(list1, list2);
-            candidates.ItemSelected = (block, val) => block.SelectCandidate(val);
-            MyTerminalControlFactory.AddControl(candidates);
-
-            addToSelectionButton = new MyTerminalControlButton<MyConveyorSorter>("addToSelectionButton",
-                MySpaceTexts.BlockPropertyTitle_ConveyorSorterAdd,
-                MySpaceTexts.Blank,
-                (x) => x.AddToCurrentList());
-            addToSelectionButton.Enabled = (x) => x.m_selectedForAdd != null && x.m_selectedForAdd.Count > 0;
-            MyTerminalControlFactory.AddControl(addToSelectionButton);
-
             byte index = 0;//warning: if you shuffle indexes, you will shuffle data in saved games
             CandidateTypes.Add(++index, new Tuple<MyObjectBuilderType, StringBuilder>(typeof(MyObjectBuilder_AmmoMagazine), MyTexts.Get(MySpaceTexts.DisplayName_ConvSorterTypes_Ammo)));
             CandidateTypes.Add(++index, new Tuple<MyObjectBuilderType, StringBuilder>(typeof(MyObjectBuilder_Component), MyTexts.Get(MySpaceTexts.DisplayName_ConvSorterTypes_Component)));
@@ -150,16 +127,66 @@ namespace Sandbox.Game.Entities
             }
         }
 
+        static void CreateTerminalControls()
+        {
+            if (MyTerminalControlFactory.AreControlsCreated<MyConveyorSorter>())
+                return;
+
+            drainAll = new MyTerminalControlOnOffSwitch<MyConveyorSorter>("DrainAll", MySpaceTexts.Terminal_DrainAll);
+            drainAll.Getter = (block) => block.DrainAll;
+            drainAll.Setter = (block, val) => block.DrainAll = val;
+            drainAll.EnableToggleAction();
+            MyTerminalControlFactory.AddControl(drainAll);
+
+            MyTerminalControlFactory.AddControl(new MyTerminalControlSeparator<MyConveyorSorter>());
+
+            blacklistWhitelist = new MyTerminalControlCombobox<MyConveyorSorter>("blacklistWhitelist", MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterMode, MySpaceTexts.Blank);
+            blacklistWhitelist.ComboBoxContent = (block) => FillBlWlCombo(block);
+            blacklistWhitelist.Getter = (block) => (long)(block.IsWhitelist ? 1 : 0);
+            blacklistWhitelist.Setter = (block, val) => block.ChangeBlWl(val == 1);
+            blacklistWhitelist.SetSerializerBit();
+            blacklistWhitelist.SupportsMultipleBlocks = false;
+            MyTerminalControlFactory.AddControl(blacklistWhitelist);
+
+            currentList = new MyTerminalControlListbox<MyConveyorSorter>("CurrentList", MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterItemsList, MySpaceTexts.Blank, true);
+            currentList.ListContent = (block, list1, list2) => block.FillCurrentList(list1, list2);
+            currentList.ItemSelected = (block, val) => block.SelectFromCurrentList(val);
+            currentList.SupportsMultipleBlocks = false;
+            MyTerminalControlFactory.AddControl(currentList);
+
+            removeFromSelectionButton = new MyTerminalControlButton<MyConveyorSorter>("removeFromSelectionButton",
+                MySpaceTexts.BlockPropertyTitle_ConveyorSorterRemove,
+                MySpaceTexts.Blank,
+                (block) => block.RemoveFromCurrentList());
+            removeFromSelectionButton.Enabled = (x) => x.m_selectedForDelete != null && x.m_selectedForDelete.Count > 0; ;
+            removeFromSelectionButton.SupportsMultipleBlocks = false;
+            MyTerminalControlFactory.AddControl(removeFromSelectionButton);
+
+            candidates = new MyTerminalControlListbox<MyConveyorSorter>("candidatesList", MySpaceTexts.BlockPropertyTitle_ConveyorSorterCandidatesList, MySpaceTexts.Blank, true);
+            candidates.ListContent = (block, list1, list2) => block.FillCandidatesList(list1, list2);
+            candidates.ItemSelected = (block, val) => block.SelectCandidate(val);
+            candidates.SupportsMultipleBlocks = false;
+            MyTerminalControlFactory.AddControl(candidates);
+
+            addToSelectionButton = new MyTerminalControlButton<MyConveyorSorter>("addToSelectionButton",
+                MySpaceTexts.BlockPropertyTitle_ConveyorSorterAdd,
+                MySpaceTexts.Blank,
+                (x) => x.AddToCurrentList());
+            addToSelectionButton.SupportsMultipleBlocks = false;
+            addToSelectionButton.Enabled = (x) => x.m_selectedForAdd != null && x.m_selectedForAdd.Count > 0;
+            MyTerminalControlFactory.AddControl(addToSelectionButton);
+        }
+
         //candidates:
         static readonly Dictionary<byte, Tuple<MyObjectBuilderType, StringBuilder>> CandidateTypes = new Dictionary<byte, Tuple<MyObjectBuilderType, StringBuilder>>();
         static readonly Dictionary<MyObjectBuilderType, byte> CandidateTypesToId = new Dictionary<MyObjectBuilderType, byte>();
         bool m_allowCurrentListUpdate = true;
 
         //BL/WL:
-        private static void FillBlWlCombo(List<TerminalComboBoxItem> list)
+        private static void FillBlWlCombo(List<MyTerminalControlComboBoxItem> list)
         {
-            list.Add(new TerminalComboBoxItem() { Key = 0, Value = MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterModeBlacklist });
-            list.Add(new TerminalComboBoxItem() { Key = 1, Value = MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterModeWhitelist });
+            list.Add(new MyTerminalControlComboBoxItem() { Key = 0, Value = MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterModeBlacklist });
+            list.Add(new MyTerminalControlComboBoxItem() { Key = 1, Value = MySpaceTexts.BlockPropertyTitle_ConveyorSorterFilterModeWhitelist });
         }
 
         //current list:
@@ -204,7 +231,7 @@ namespace Sandbox.Game.Entities
             removeFromSelectionButton.UpdateVisual();
         }
 
-        private void modifyCurrentList(ref List<MyGuiControlListbox.Item> list, bool Add)
+        private void ModifyCurrentList(ref List<MyGuiControlListbox.Item> list, bool Add)
         {
             Debug.Assert(list != null, "Adding NULL from list");
             m_allowCurrentListUpdate = false;
@@ -237,7 +264,7 @@ namespace Sandbox.Game.Entities
         //remove button:
         private void RemoveFromCurrentList()
         {
-            modifyCurrentList(ref m_selectedForDelete, false);
+            ModifyCurrentList(ref m_selectedForDelete, false);
         }
 
         List<MyGuiControlListbox.Item> m_selectedForAdd;
@@ -255,7 +282,7 @@ namespace Sandbox.Game.Entities
                 if (!definition.Public)
                     continue;
                 var physicalItemDef = definition as MyPhysicalItemDefinition;
-                if (physicalItemDef == null)
+                if (physicalItemDef == null || definition.Public == false || physicalItemDef.CanSpawnFromScreen == false)
                     continue;
                 m_helperSB.Clear().Append(definition.DisplayNameText);
                 var item = new MyGuiControlListbox.Item(text: m_helperSB, userData: physicalItemDef.Id);
@@ -281,17 +308,17 @@ namespace Sandbox.Game.Entities
         //add button:
         private void AddToCurrentList()
         {
-            modifyCurrentList(ref m_selectedForAdd, true);
+            ModifyCurrentList(ref m_selectedForAdd, true);
         }
 
         private void UpdateText()
         {
             DetailedInfo.Clear();
-            DetailedInfo.AppendStringBuilder(MyTexts.Get(MySpaceTexts.BlockPropertiesText_Type));
+            DetailedInfo.AppendStringBuilder(MyTexts.Get(MyCommonTexts.BlockPropertiesText_Type));
             DetailedInfo.Append(BlockDefinition.DisplayNameText);
             DetailedInfo.Append("\n");
             DetailedInfo.AppendStringBuilder(MyTexts.Get(MySpaceTexts.BlockPropertyProperties_CurrentInput));
-            MyValueFormatter.AppendWorkInBestUnit(PowerReceiver.IsPowered ? PowerReceiver.RequiredInput : 0, DetailedInfo);
+			MyValueFormatter.AppendWorkInBestUnit(ResourceSink.IsPowered ? ResourceSink.RequiredInput : 0, DetailedInfo);
             DetailedInfo.Append("\n");
             RaisePropertiesChanged();
         }
@@ -300,74 +327,57 @@ namespace Sandbox.Game.Entities
 
         #region sync
 
-        public void ChangeDrainAll(bool cAll)
+        internal void DoChangeDrainAll()
         {
-            if (cAll == DrainAll)
-                return;
-            if (!Sync.MultiplayerActive)
-                DoChangeDrainAll(cAll);
-            else
-                m_sync.ChangeDrainAll(cAll);
-        }
-
-        internal bool DoChangeDrainAll(bool cAll)
-        {
-            DrainAll = cAll;
+            DrainAll = m_drainAll;
             drainAll.UpdateVisual();
-            return true;
         }
 
         public void ChangeBlWl(bool IsWl)
         {
-            if (IsWl == IsWhitelist)
-                return;
-            if (!Sync.MultiplayerActive)
-                DoChangeBlWl(IsWl);
-            else
-                m_sync.ChangeBlWl(IsWl);
+            MyMultiplayer.RaiseEvent(this, x => x.DoChangeBlWl, IsWl);
         }
 
-        internal bool DoChangeBlWl(bool isWl)
+        [Event, Reliable, Server, Broadcast] 
+        void DoChangeBlWl(bool IsWl)
         {
-            IsWhitelist = isWl;
+            IsWhitelist = IsWl;
             blacklistWhitelist.UpdateVisual();
-            return true;
         }
 
         void ChangeListId(SerializableDefinitionId id, bool wasAdded)
         {
-            if (!Sync.MultiplayerActive)
-                DoChangeListId(id, wasAdded);
-            else
-                m_sync.ChangeListId(id, wasAdded);
+            MyMultiplayer.RaiseEvent(this, x => x.DoChangeListId, id, wasAdded);
         }
 
-        internal bool DoChangeListId(SerializableDefinitionId id, bool add)
+        [Event,Reliable,Server,Broadcast] 
+        void DoChangeListId(SerializableDefinitionId id, bool add)
         {
             if (add)
                 m_inventoryConstraint.Add(id);
             else
                 m_inventoryConstraint.Remove(id);
+
+            // Recompute because of new sorter settings
+            CubeGrid.GridSystems.ConveyorSystem.FlagForRecomputation();
+
             if (m_allowCurrentListUpdate)
                 currentList.UpdateVisual();
-            return true;
         }
 
         void ChangeListType(byte type, bool wasAdded)
         {
-            if (!Sync.MultiplayerActive)
-                DoChangeListType(type, wasAdded);
-            else
-                m_sync.ChangeListType(type, wasAdded);
+            MyMultiplayer.RaiseEvent(this, x => x.DoChangeListType, type, wasAdded);
         }
 
-        internal bool DoChangeListType(byte type, bool add)
+        [Event, Reliable, Server, Broadcast] 
+        void DoChangeListType(byte type, bool add)
         {
             Tuple<MyObjectBuilderType, StringBuilder> tuple;
             if (!CandidateTypes.TryGetValue(type, out tuple))
             {
                 Debug.Assert(false, "type not in dictionary");
-                return false;
+                return;
             }
             if (add)
             {
@@ -375,9 +385,12 @@ namespace Sandbox.Game.Entities
             }
             else
                 m_inventoryConstraint.RemoveObjectBuilderType(tuple.Item1);
+
+            // Recompute because of new sorter settings
+            CubeGrid.GridSystems.ConveyorSystem.FlagForRecomputation();
+
             if (m_allowCurrentListUpdate)
                 currentList.UpdateVisual();
-            return true;
         }
 
         #endregion
@@ -386,11 +399,22 @@ namespace Sandbox.Game.Entities
 
         public override void Init(MyObjectBuilder_CubeBlock objectBuilder, MyCubeGrid cubeGrid)
         {
+            m_conveyorSorterDefinition = (MyConveyorSorterDefinition)MyDefinitionManager.Static.GetCubeBlockDefinition(objectBuilder.GetId());
+
+            var sinkComp = new MyResourceSinkComponent();
+            sinkComp.Init(
+                m_conveyorSorterDefinition.ResourceSinkGroup,
+                BlockDefinition.PowerInput,
+                UpdatePowerInput);
+            sinkComp.IsPoweredChanged += IsPoweredChanged;
+            ResourceSink = sinkComp;
+
             base.Init(objectBuilder, cubeGrid);
 
             MyObjectBuilder_ConveyorSorter ob = (MyObjectBuilder_ConveyorSorter)objectBuilder;
             DrainAll = ob.DrainAll;
             IsWhitelist = ob.IsWhiteList;
+
             foreach (var id in ob.DefinitionIds)
                 m_inventoryConstraint.Add(id);
             foreach (byte b in ob.DefinitionTypes)
@@ -404,21 +428,26 @@ namespace Sandbox.Game.Entities
                 m_inventoryConstraint.AddObjectBuilderType(tuple.Item1);
             }
 
-            m_conveyorSorterDefinition = (MyConveyorSorterDefinition)MyDefinitionManager.Static.GetCubeBlockDefinition(objectBuilder.GetId());
-            m_inventory = new MyInventory(m_conveyorSorterDefinition.InventorySize.Volume, m_conveyorSorterDefinition.InventorySize, MyInventoryFlags.CanSend, this);
-            m_inventory.Init(ob.Inventory);
+            if (MyFakes.ENABLE_INVENTORY_FIX)
+            {
+                FixSingleInventory();
+            }
+
+            
+            if (this.GetInventory() == null)
+            {
+                MyInventory inventory = new MyInventory(m_conveyorSorterDefinition.InventorySize.Volume, m_conveyorSorterDefinition.InventorySize, MyInventoryFlags.CanSend);
+                Components.Add<MyInventoryBase>(inventory);
+                inventory.Init(ob.Inventory);
+            }
+            Debug.Assert(this.GetInventory().Owner == this, "Ownership was not set!");
 
             SlimBlock.ComponentStack.IsFunctionalChanged += ComponentStack_IsFunctionalChanged;
 
             NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME | MyEntityUpdateEnum.EACH_10TH_FRAME;
 
-            PowerReceiver = new MyPowerReceiver(
-                MyConsumerGroupEnum.Conveyors,
-                false,
-                BlockDefinition.PowerInput,
-                UpdatePowerInput);
-            PowerReceiver.IsPoweredChanged += IsPoweredChanged;
-            PowerReceiver.Update();
+			
+			ResourceSink.Update();
             UpdateText();
         }
 
@@ -427,7 +456,7 @@ namespace Sandbox.Game.Entities
             MyObjectBuilder_ConveyorSorter objectBuilder = (MyObjectBuilder_ConveyorSorter)base.GetObjectBuilderCubeBlock(copy);
             objectBuilder.DrainAll = DrainAll;
             objectBuilder.IsWhiteList = IsWhitelist;
-            objectBuilder.Inventory = m_inventory.GetObjectBuilder();
+            objectBuilder.Inventory = this.GetInventory().GetObjectBuilder();
             foreach (var id in m_inventoryConstraint.ConstrainedIds)
                 objectBuilder.DefinitionIds.Add(id);
             foreach (var type in m_inventoryConstraint.ConstrainedTypes)
@@ -453,14 +482,14 @@ namespace Sandbox.Game.Entities
         }
         protected override void OnEnabledChanged()
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
             UpdateText();
             UpdateEmissivity();
             base.OnEnabledChanged();
         }
         void IsPoweredChanged()
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
             UpdateText();
             UpdateEmissivity();
         }
@@ -469,51 +498,47 @@ namespace Sandbox.Game.Entities
 
         #region Inventory
 
-        public int InventoryCount { get { return 1; } }
-
-        public MyInventory GetInventory(int index = 0)
+        protected override void OnInventoryComponentAdded(MyInventoryBase inventory)
         {
-            Debug.Assert(index == 0);
-            return m_inventory;
+            base.OnInventoryComponentAdded(inventory);
+            Debug.Assert(this.GetInventory() != null, "Added inventory to collector, but different type than MyInventory?! Check this.");
+            if (this.GetInventory() != null)
+            {
+                if (MyPerGameSettings.InventoryMass)
+                {
+                    this.GetInventory().ContentsChanged += Inventory_ContentsChanged;
+                }
+            }
         }
 
-        String IMyInventoryOwner.DisplayNameText
+        protected override void OnInventoryComponentRemoved(MyInventoryBase inventory)
         {
-            get { return CustomName.ToString(); }
+            base.OnInventoryComponentRemoved(inventory);
+            var removedInventory = inventory as MyInventory;
+            Debug.Assert(removedInventory != null, "Removed inventory is not MyInventory type? Check this.");
+            if (removedInventory != null)
+            {
+                if (MyPerGameSettings.InventoryMass)
+                {
+                    removedInventory.ContentsChanged -= Inventory_ContentsChanged;
+                }
+            }
         }
 
-        public MyInventoryOwnerTypeEnum InventoryOwnerType
-        {
-            get { return MyInventoryOwnerTypeEnum.Storage; }
-        }
+		void Inventory_ContentsChanged(MyInventoryBase obj)
+		{
+			CubeGrid.SetInventoryMassDirty();
+		}
 
-        bool IMyInventoryOwner.UseConveyorSystem
+        bool UseConveyorSystem
         {
             get
             {
                 return true;
             }
             set
-            {
-                throw new NotImplementedException();
+            {                
             }
-        }
-
-        bool ModAPI.Interfaces.IMyInventoryOwner.UseConveyorSystem
-        {
-            get
-            {
-                return (this as IMyInventoryOwner).UseConveyorSystem;
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        Sandbox.ModAPI.Interfaces.IMyInventory Sandbox.ModAPI.Interfaces.IMyInventoryOwner.GetInventory(int index)
-        {
-            return GetInventory(index);
         }
 
         #endregion
@@ -521,19 +546,19 @@ namespace Sandbox.Game.Entities
         public override void UpdateBeforeSimulation100()
         {
             base.UpdateBeforeSimulation100();
-            if (!Sync.IsServer || !DrainAll || !Enabled || !IsFunctional || !IsWorking || !PowerReceiver.IsPowered)
+			if (!Sync.IsServer || !DrainAll || !Enabled || !IsFunctional || !IsWorking || !ResourceSink.IsPowered)
                 return;
 
-            if (!m_inventory.IsFull)
+            if (!this.GetInventory().IsFull)
             {
-                MyGridConveyorSystem.PullAllRequest(this, m_inventory, OwnerId, m_inventoryConstraint);
+                MyGridConveyorSystem.PullAllRequest(this, this.GetInventory(), OwnerId, m_inventoryConstraint);
             }
         }
 
         public override void UpdateBeforeSimulation10()
         {
             base.UpdateBeforeSimulation10();
-            if (!Sync.IsServer || !DrainAll || !Enabled || !IsFunctional || !IsWorking || !PowerReceiver.IsPowered)
+			if (!Sync.IsServer || !DrainAll || !Enabled || !IsFunctional || !IsWorking || !ResourceSink.IsPowered)
                 return;
 
             m_pushRequestFrameCounter++;
@@ -541,22 +566,22 @@ namespace Sandbox.Game.Entities
             {
                 m_pushRequestFrameCounter = 0;
 
-                if (m_inventory.GetItems().Count > 0)
+                if (this.GetInventory().GetItems().Count > 0)
                 {
-                    MyGridConveyorSystem.PushAnyRequest(this, m_inventory, OwnerId);
+                    MyGridConveyorSystem.PushAnyRequest(this, this.GetInventory(), OwnerId);
                 }
             }
         }
 
         public override void OnRemovedByCubeBuilder()
         {
-            ReleaseInventory(m_inventory);
+            ReleaseInventory(this.GetInventory());
             base.OnRemovedByCubeBuilder();
         }
 
         public override void OnDestroy()
         {
-            ReleaseInventory(m_inventory, true);
+            ReleaseInventory(this.GetInventory(), true);
             base.OnDestroy();
         }
 
@@ -568,7 +593,7 @@ namespace Sandbox.Game.Entities
 
         void ComponentStack_IsFunctionalChanged()
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
             UpdateText();
             UpdateEmissivity();
         }
@@ -597,8 +622,66 @@ namespace Sandbox.Game.Entities
             if (!InScene)
                 return;
 
-            Color newColor = Enabled && IsFunctional && IsWorking && PowerReceiver.IsPowered ? Color.GreenYellow : Color.DarkRed;
+			Color newColor = Enabled && IsFunctional && IsWorking && ResourceSink.IsPowered ? Color.GreenYellow : Color.DarkRed;
             MyCubeBlock.UpdateEmissiveParts(Render.RenderObjectIDs[0], 1.0f, newColor, Color.White);
         }
+
+        #region IMyInventoryOwner
+
+        int IMyInventoryOwner.InventoryCount
+        {
+            get { return InventoryCount; }
+        }
+
+        long IMyInventoryOwner.EntityId
+        {
+            get { return EntityId; }
+        }
+
+        bool IMyInventoryOwner.HasInventory
+        {
+            get { return HasInventory; }
+        }
+
+        bool IMyInventoryOwner.UseConveyorSystem
+        {
+            get
+            {
+                return UseConveyorSystem;
+            }
+            set
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        IMyInventory IMyInventoryOwner.GetInventory(int index)
+        {
+            return this.GetInventory(index);
+        }
+
+        #endregion
+
+        #region IMyConveyorEndpointBlock implementation
+
+        public Sandbox.Game.GameSystems.Conveyors.PullInformation GetPullInformation()
+        {
+            Sandbox.Game.GameSystems.Conveyors.PullInformation pullInformation = new PullInformation();
+            pullInformation.Inventory = this.GetInventory(0);
+            pullInformation.OwnerID = OwnerId;
+            pullInformation.Constraint = m_inventoryConstraint;
+            return pullInformation;
+        }
+
+        public Sandbox.Game.GameSystems.Conveyors.PullInformation GetPushInformation()
+        {
+            Sandbox.Game.GameSystems.Conveyors.PullInformation pushInformation = new PullInformation();
+            pushInformation.Inventory = this.GetInventory(0);
+            pushInformation.OwnerID = OwnerId;
+            pushInformation.Constraint = new MyInventoryConstraint("Empty constraint");
+            return pushInformation;
+        }
+
+        #endregion
     }
 }

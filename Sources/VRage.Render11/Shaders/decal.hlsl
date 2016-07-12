@@ -1,24 +1,31 @@
+// @define USE_COLORMAP_DECAL, USE_NORMALMAP_DECAL, USE_EXTENSIONS_TEXTURE, RENDER_TO_TRANSPARENT
+
+#define OIT
+
 #include <common.h>
 #include <frame.h>
+#include <Transparency/Globals.h>
+#include <vertex_transformations.h>
+#include <pixel_utils.h>
+
+#define AO_BUMP_POW 4
+#define NORMAL_DOT_FACTOR 4
 
 #ifndef MS_SAMPLE_COUNT
 Texture2D<float>	DepthBuffer	: register( t0 );
-Texture2D<float4>	Gbuffer1	: register( t1 );
-Texture2D<uint2>	Stencil		: register( t2);
+Texture2D<float4>	Gbuffer1Copy	: register( t1 );
 #else
 Texture2DMS<float, MS_SAMPLE_COUNT>		DepthBuffer	: register( t0 );
-Texture2DMS<float4, MS_SAMPLE_COUNT>	Gbuffer1	: register( t1 );
-Texture2DMS<uint2, MS_SAMPLE_COUNT>		Stencil		: register( t2 );
+Texture2DMS<float4, MS_SAMPLE_COUNT>	Gbuffer1Copy	: register(t1);
 #endif
 
-#include <gbuffer_write.h>
-
-struct DecalConstants {
-	float4 WorldMatrix_row0;
-	float4 WorldMatrix_row1;
-	float4 WorldMatrix_row2;
-	//matrix WorldMatrix; //  unit box to decal volume
-	float4 DecalData;
+struct DecalConstants
+{
+    float4 WorldMatrixRow0;
+    float4 WorldMatrixRow1;
+    float4 WorldMatrixRow2;
+    float FadeAlpha;
+    float _p1, _p2, _p3;
 	matrix InvWorldMatrix;
 };
 
@@ -28,10 +35,10 @@ cbuffer DecalConstants : register ( b2 )
 };
 
 // textures
-
 Texture2D<float> DecalAlpha : register( t3 );
 Texture2D<float4> DecalColor : register( t4 );
 Texture2D<float4> DecalNormalmap : register( t5 );
+Texture2D<float4> DecalExtensions : register(t6);
 
 struct VsOut
 {
@@ -40,7 +47,7 @@ struct VsOut
 	uint id : DECALID;
 };
 
-VsOut vs(uint vertex_id : SV_VertexID)
+VsOut __vertex_shader(uint vertex_id : SV_VertexID)
 {
 	uint vId = vertex_id % 8;
 	uint decalId = vertex_id / 8;
@@ -50,12 +57,11 @@ VsOut vs(uint vertex_id : SV_VertexID)
 	vertexPosition.y = -0.5f + (quadId == 0 || quadId == 3);
 	vertexPosition.z = -0.5f + (vId / 4);
 
-	matrix worldMatrix = transpose(matrix(
-		Decals[decalId].WorldMatrix_row0,
-		Decals[decalId].WorldMatrix_row1,
-		Decals[decalId].WorldMatrix_row2, 
-		float4(0,0,0,1)));
-
+    matrix worldMatrix = transpose(matrix(
+        Decals[decalId].WorldMatrixRow0,
+        Decals[decalId].WorldMatrixRow1,
+        Decals[decalId].WorldMatrixRow2,
+        float4(0, 0, 0, 1)));
 	float4 wposition = mul(float4(vertexPosition.xyz, 1), worldMatrix);
 
 	VsOut result;
@@ -65,88 +71,109 @@ VsOut vs(uint vertex_id : SV_VertexID)
 	return result;
 }
 
-float3x3 pixel_tangent_space(float3 N, float3 pos, float2 uv) {
-	float3 dp1 =  ddx(pos);
-	float3 dp2 =  ddy(pos);
-	float2 duv1 =  ddx(uv);
-	float2 duv2 =  ddy(uv);
-	float3 dp2perp = cross( dp2, N );
-    float3 dp1perp = cross( N, dp1 );
-
-    float3 T = dp2perp * duv1.x + dp1perp * duv2.x;
-    float3 B = dp2perp * duv1.y + dp1perp * duv2.y;
-
-    float invmax = rsqrt( max( dot(T,T), dot(B,B) ) );
-    return float3x3( T * invmax, B * invmax, N );
-}
-
-// copy of gbuffer normals? (resolved for msaa...)
-void ps(VsOut vertex, out float4 out_gbuffer0 : SV_TARGET0, out float4 out_gbuffer1 : SV_TARGET1, out float4 out_gbuffer2 : SV_TARGET2)
+#ifdef RENDER_TO_TRANSPARENT
+void __pixel_shader(VsOut vertex, out float4 accumTarget : SV_TARGET0, out float4 coverageTarget : SV_TARGET1)
 {
-	float2 screencoord = vertex.position.xy;
+#else
+void __pixel_shader(VsOut vertex, out float4 out_gbuffer2 : SV_TARGET2
 
+#ifdef USE_COLORMAP_DECAL
+    , out float4 out_gbuffer0 : SV_TARGET0
+#endif
+
+#ifdef USE_NORMALMAP_DECAL
+    , out float4 out_gbuffer1 : SV_TARGET1
+#endif
+    )
+{
+#endif
 	float hw_depth;
 	float4 gbuffer1;
 
+	float2 screencoord = vertex.position.xy;
 #ifndef MS_SAMPLE_COUNT
 	hw_depth = DepthBuffer[screencoord].r;
-	gbuffer1 = Gbuffer1[screencoord];
+	gbuffer1 = Gbuffer1Copy[screencoord];
 #else
 	hw_depth = DepthBuffer.Load(screencoord, 0).r;
-	gbuffer1 = Gbuffer1.Load(screencoord, 0);
+	gbuffer1 = Gbuffer1Copy.Load(screencoord, 0);
 #endif
+	screencoord -= frame_.offset_in_gbuffer;
 
-	float2 uv = screen_to_uv(screencoord);
-	const float ray_x = 1./frame_.projection_matrix._11;
-	const float ray_y = 1./frame_.projection_matrix._22;
-	float3 screen_ray = float3(lerp( -ray_x, ray_x, uv.x ), -lerp( -ray_y, ray_y, uv.y ), -1.);
+	float2 uv = (screencoord) / frame_.resolution;
 
-	float3 V = mul(screen_ray, transpose((float3x3)frame_.view_matrix));
-	float depth = -linearize_depth(hw_depth, frame_.projection_matrix);
-	float3 position = get_camera_position() + depth * V;
+    float3 screen_ray = compute_screen_ray(uv);
+    float3 Vinv = view_to_world(screen_ray);
+    float depth = compute_depth(hw_depth);
+    float3 position = Vinv * depth - frame_.eye_offset_in_world;
 
 	float4 decalPos = mul(float4(position, 1), Decals[vertex.id].InvWorldMatrix);
 	decalPos /= decalPos.w;
 
-	float3 gbufferN = normalize(gbuffer1.xyz * 2 - 1);
-	float gbufferG = gbuffer1.w;
+    float3 gbufferNView = unpack_normals2(gbuffer1.xy);
+    float3 gbufferN = view_to_world(gbufferNView);
+    float3 projN = normalize(vertex.normal);
+
+    float fadeAlpha = Decals[vertex.id].FadeAlpha;
+
 	float2 texcoord = decalPos.xy * -1 + 0.5;
-	float3x3 tangent_to_world = pixel_tangent_space(gbufferN, position, texcoord);
+    float decalAlpha = DecalAlpha.Sample(TextureSampler, texcoord);
 
-	float3 blendedN = gbufferN;
-	out_gbuffer0 = 0;
+	if (any(abs(decalPos.xyz) > 0.5))
+		discard;
 
-	float3 projN = normalize(vertex.normal);
-	float aoBump = 0;
+	if (abs(dot(projN, gbufferN)) < 0.33)
+		discard;
 
-	if(Decals[vertex.id].DecalData.x)
-	{
-		// normalmap decal
-		if(any(abs(decalPos.xyz) > 0.5) || dot(projN, gbufferN) < 0.33)
-		{
-			discard;
-		}
+    float metal = 0;
+    float gloss = 0;
+    float emissive = 0;
 
-		float3 decalNm = DecalNormalmap.Sample(TextureSampler, texcoord).xyz * 2 - 1;
-		blendedN = normalize(mul(decalNm, tangent_to_world));	
+#ifdef USE_EXTENSIONS_TEXTURE
+    float4 extensions = DecalExtensions.Sample(TextureSampler, texcoord);
+    emissive = extensions.g;
+#endif
 
-		out_gbuffer1 = float4(decalNm * 0.5 + 0.5, 1);
-		aoBump = pow(dot(blendedN, gbufferN), 4);
-	}
-	else
-	{
-		// overlay decal
-		float4 decalCm = DecalColor.Sample(TextureSampler, texcoord);
-		float decalAlpha = DecalAlpha.Sample(TextureSampler, texcoord);
+#ifdef USE_COLORMAP_DECAL
+    float4 decalCm = DecalColor.Sample(TextureSampler, texcoord);
+    float4 decalCmRGBA = float4(decalCm.rgb, decalAlpha) * fadeAlpha;
+#ifdef RENDER_TO_TRANSPARENT
+    TransparentColorOutput(decalCmRGBA, depth, vertex.position.z, 1.0f, accumTarget, coverageTarget);
+#else
+    metal = decalCm.a;
+    out_gbuffer0 = decalCmRGBA;
+#endif
+#endif
 
-		if(any(abs(decalPos.xyz) > 0.5) || decalAlpha < 0.5f || dot(projN, gbufferN) < 0.33)
-		{
-			discard;
-		}	
+#ifdef USE_NORMALMAP_DECAL
+    float4 decalNmSample = DecalNormalmap.Sample(TextureSampler, texcoord);
+    float3 decalNm = normalize(decalNmSample.xyz * 2 - 1); // Source may be filtered
+    
+    adjust_normalmap_no_precomputed_tangents(decalNm);
 
-		out_gbuffer0 = decalCm;
-	}
+    // Find distance from basic normal and multiply by a grow factor
+    float alpha1 = saturate((1 - dot(decalNm, float3(0, 0, 1))) * NORMAL_DOT_FACTOR);
+    float normalAlpha = max(decalAlpha, alpha1);
 
-	out_gbuffer1 = float4(blendedN * 0.5 + 0.5, gbuffer1.w);
-	out_gbuffer2 = aoBump;
+    float3x3 tangent_to_world = PixelTangentSpace(gbufferN, position, texcoord);
+    float3 blendedN = normalize(mul(decalNm, tangent_to_world));
+
+#ifdef USE_EXTENSIONS_TEXTURE
+    float aoBump = extensions.r;
+#else
+    float aoBump = pow(dot(blendedN, gbufferN), AO_BUMP_POW);
+#endif
+
+    gloss = decalNmSample.a;
+
+    float3 blendedNView = world_to_view(blendedN);
+    float2 enc = pack_normals2(blendedNView);
+
+    // Don't multiply normals and ao because they are already multiplied by the blendstate
+    out_gbuffer1 = float4(enc, aoBump, normalAlpha * fadeAlpha);
+#endif
+
+#ifndef RENDER_TO_TRANSPARENT
+    out_gbuffer2 = float4(metal, gloss, emissive, decalAlpha) * fadeAlpha;
+#endif
 }

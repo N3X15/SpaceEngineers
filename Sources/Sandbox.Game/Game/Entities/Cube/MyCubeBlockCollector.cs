@@ -15,6 +15,7 @@ using Sandbox.Graphics;
 using VRage;
 using Sandbox.Common;
 using VRage;
+using VRage.Game;
 
 namespace Sandbox.Game.Entities.Cube
 {
@@ -167,6 +168,9 @@ namespace Sandbox.Game.Entities.Cube
 
         public void CollectMassElements(MyCubeGrid grid, IDictionary<Vector3I, HkMassElement> massResults)
         {
+            if (massResults == null)
+                return;
+
             foreach (var block in grid.GetBlocks())
             {
                 if (block.FatBlock is MyCompoundCubeBlock)
@@ -270,7 +274,7 @@ namespace Sandbox.Game.Entities.Cube
 
         void CollectBlock(MySlimBlock block, MyPhysicsOption physicsOption, IDictionary<Vector3I, HkMassElement> massResults, bool allowSegmentation = true)
         {
-            if (!block.HasPhysics)
+            if (!block.HasPhysics || block.CubeGrid == null)
                 return;
 
             if (massResults != null)
@@ -304,7 +308,11 @@ namespace Sandbox.Game.Entities.Cube
             {
                 if (physicsOption != MyPhysicsOption.None)
                 {
-                    var havokShapes = block.FatBlock.ModelCollision.HavokCollisionShapes;
+                    HkShape[] havokShapes = null;
+                    if (block.FatBlock != null)
+                    {
+                        havokShapes = block.FatBlock.ModelCollision.HavokCollisionShapes;
+                    }
 
                     if ((havokShapes != null && havokShapes.Length > 0) && !MyFakes.ENABLE_SIMPLE_GRID_PHYSICS)
                     {
@@ -322,6 +330,8 @@ namespace Sandbox.Game.Entities.Cube
                         Quaternion blockOrientation;
                         block.Orientation.GetQuaternion(out blockOrientation);
 
+                        Vector3 scale = Vector3.One * block.FatBlock.ModelCollision.ScaleFactor;
+
                         if (shapes.Length == 1 && shapes[0].ShapeType == HkShapeType.List)
                         {
                             HkListShape list = (HkListShape)shapes[0];
@@ -329,7 +339,7 @@ namespace Sandbox.Game.Entities.Cube
                             {
                                 HkShape child = list.GetChildByIndex(i);
                                 System.Diagnostics.Debug.Assert(child.IsConvex, "Children in the list must be convex!");
-                                Shapes.Add(new HkConvexTransformShape((HkConvexShape)child, ref blockPos, ref blockOrientation, ref Vector3.One, HkReferencePolicy.None));
+                                Shapes.Add(new HkConvexTransformShape((HkConvexShape)child, ref blockPos, ref blockOrientation, ref scale, HkReferencePolicy.None));
                             }
                         }
                         else
@@ -340,14 +350,14 @@ namespace Sandbox.Game.Entities.Cube
                                 {
                                     HkShape child = list.ShapeCollection.GetShape((uint)i, null);
                                     System.Diagnostics.Debug.Assert(child.IsConvex, "Children in the list must be convex!");
-                                    Shapes.Add(new HkConvexTransformShape((HkConvexShape)child, ref blockPos, ref blockOrientation, ref Vector3.One, HkReferencePolicy.None));
+                                    Shapes.Add(new HkConvexTransformShape((HkConvexShape)child, ref blockPos, ref blockOrientation, ref scale, HkReferencePolicy.None));
                                 }
                             }
                             else
 
                             for (int i = 0; i < shapes.Length; i++)
                             {
-                                Shapes.Add(new HkConvexTransformShape((HkConvexShape)shapes[i], ref blockPos, ref blockOrientation, ref Vector3.One, HkReferencePolicy.None));
+                                Shapes.Add(new HkConvexTransformShape((HkConvexShape)shapes[i], ref blockPos, ref blockOrientation, ref scale, HkReferencePolicy.None));
                             }
                         ShapeInfos.Add(new ShapeInfo() { Count = shapes.Length, Min = block.Min, Max = block.Max });
                     }
@@ -388,7 +398,7 @@ namespace Sandbox.Game.Entities.Cube
 
         void AddMass(MySlimBlock block, IDictionary<Vector3I, HkMassElement> massResults)
         {
-            float mass = block.GetMass();
+            float mass = block.BlockDefinition.Mass;
             if (MyFakes.ENABLE_COMPOUND_BLOCKS && block.FatBlock is MyCompoundCubeBlock)
             {
                 mass = 0f;

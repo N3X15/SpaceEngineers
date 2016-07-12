@@ -22,6 +22,11 @@ namespace VRage.Collections
         private static Predicate<K> m_keyEquals = KeyEquals;
         private static Predicate<KeyValuePair<K, V>> m_keyValueEquals = KeyValueEquals;
 
+        public DictionaryReader<K, V> Reader
+        {
+            get { return m_dictionary; }
+        }
+
         public V this[K key]
         {
             get
@@ -93,6 +98,11 @@ namespace VRage.Collections
             m_dictionary.Clear();
             m_additionsAndModifications.Clear();
             m_removals.Clear();
+        }
+
+        public bool HasChanges()
+        {
+            return (m_additionsAndModifications.Count > 0 || m_removals.Count > 0);
         }
 
         public void ApplyChanges()

@@ -16,12 +16,14 @@ using Sandbox.Definitions;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
 using Sandbox.Engine.Multiplayer;
+using VRage.Game;
 using VRage.ModAPI;
+using Sandbox.ModAPI;
 
 namespace Sandbox.Game.Entities
 {
     [MyCubeBlockType(typeof(MyObjectBuilder_ConveyorConnector))]
-    class MyConveyorConnector : MyCubeBlock, IMyConveyorSegmentBlock
+    public class MyConveyorConnector : MyCubeBlock, IMyConveyorSegmentBlock, IMyConveyorTube
     {
         private MyConveyorSegment m_segment = new MyConveyorSegment();
         private bool m_working;

@@ -44,7 +44,11 @@ namespace VRageRender.Effects
         readonly EffectHandle m_diffuseColor;
         
         readonly EffectHandle m_worldMatrix;
-        readonly EffectHandle m_enablePerVertexAmbient;
+
+        readonly EffectHandle m_enableVoxelAo;
+        readonly EffectHandle m_voxelAoMin;
+        readonly EffectHandle m_voxelAoMax;
+        readonly EffectHandle m_voxelAoOffset;
 
         readonly EffectHandle m_sunColorAndIntensity;
         readonly EffectHandle m_sunDirection;
@@ -66,7 +70,12 @@ namespace VRageRender.Effects
             m_diffuseColor = m_D3DEffect.GetParameter(null, "DiffuseColor");
 
             m_worldMatrix = m_D3DEffect.GetParameter(null, "WorldMatrix");
-            m_enablePerVertexAmbient = m_D3DEffect.GetParameter(null, "EnablePerVertexAmbient");
+
+            m_enableVoxelAo = m_D3DEffect.GetParameter(null, "EnableVoxelAo");
+            m_voxelAoMin = m_D3DEffect.GetParameter(null, "VoxelAoMin");
+            m_voxelAoMax = m_D3DEffect.GetParameter(null, "VoxelAoMax");
+            m_voxelAoOffset = m_D3DEffect.GetParameter(null, "VoxelAoOffset");
+
             m_sunDirection = m_D3DEffect.GetParameter(null, "LightDirection");
             m_sunColorAndIntensity = m_D3DEffect.GetParameter(null, "LightColorAndIntensity");
             m_backlightColorAndIntensity = m_D3DEffect.GetParameter(null, "BacklightColorAndIntensity");
@@ -81,9 +90,12 @@ namespace VRageRender.Effects
             VoxelVertex = new MyEffectComponentVoxelVertex(m_D3DEffect);
         }
 
-        public void EnablePerVertexAmbient(bool bEnable)
+        public void EnablePerVertexAmbient(bool bEnable, float min, float max, float offset)
         {
-            m_D3DEffect.SetValue(m_enablePerVertexAmbient, bEnable ? 1 : 0);
+            m_D3DEffect.SetValue(m_enableVoxelAo, bEnable ? 1 : 0);
+            m_D3DEffect.SetValue(m_voxelAoMin, min);
+            m_D3DEffect.SetValue(m_voxelAoMax, max);
+            m_D3DEffect.SetValue(m_voxelAoOffset, offset);
         }
 
         public override void SetViewMatrix(ref Matrix matrix)

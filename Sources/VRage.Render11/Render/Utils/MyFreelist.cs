@@ -8,27 +8,35 @@ namespace VRageRender
 {
     class MyFreelist<T> where T : struct
     {
-        internal T[] m_entities;
-        internal int[] m_next;
-        internal int m_sizeLimit;
-        internal int m_nextFree;
+        private T[] m_entities;
+        private int[] m_next;
+        private int m_sizeLimit;
+        private int m_nextFree;
+        private int m_holesCount;
 
-        internal int Size { get; private set; }
-        internal int Capacity { get { return m_sizeLimit; } }
+        private T m_defaultValue;
+
+        public int Size { get; private set; }
+        public int Capacity { get { return m_sizeLimit; } }
+
+        public int FilledSize { get { return Size + m_holesCount; } }
 
         public void Clear()
         {
             for (int i = 0; i < m_sizeLimit; i++)
             {
+                m_entities[i] = m_defaultValue;
                 m_next[i] = i + 1;
             }
 
             m_nextFree = 0;
+            m_holesCount = 0;
             Size = 0;
         }
 
-        public MyFreelist(int sizeLimit)
+        public MyFreelist(int sizeLimit, T defaultValue = default(T))
         {
+            m_defaultValue = defaultValue;
             m_sizeLimit = sizeLimit;
 
             m_next = new int[sizeLimit];
@@ -58,6 +66,8 @@ namespace VRageRender
 
             m_nextFree = m_next[free];
             m_next[free] = -1;
+            if (free < FilledSize - 1)
+                m_holesCount--;
 
             Size++;
 
@@ -69,6 +79,12 @@ namespace VRageRender
             Debug.Assert(Size > 0);
             m_next[index] = m_nextFree;
             m_nextFree = index;
+            m_entities[index] = m_defaultValue;
+            if (Size == 1)
+                m_holesCount = 0;
+            else if (index < FilledSize - 1)
+                m_holesCount++;
+
             Size--;
         }
     }

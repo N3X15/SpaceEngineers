@@ -1,12 +1,13 @@
-﻿using Sandbox.Common;
-using Sandbox.Common.ObjectBuilders.Gui;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
+#if !XB1
 using System.Windows.Forms;
+#endif
+using VRage.Game;
 using VRage.Input;
 using VRage.Utils;
 using VRageMath;
@@ -503,7 +504,7 @@ namespace Sandbox.Graphics.GUI
                         if (Type == MyGuiControlTextboxType.DigitsOnly && m_formattedAlready == false && m_text.Length != 0)
                         {
                             var number = MyValueFormatter.GetDecimalFromString(Text, 1);
-                            int decimalDigits = (number - (int)number > 0) ? 1 : 0;
+                            int decimalDigits = (number - Decimal.Truncate(number) > 0) ? 1 : 0;
                             m_text.Clear().Append(MyValueFormatter.GetFormatedFloat((float)number, decimalDigits, ""));
                             CarriagePositionIndex = m_text.Length;
                             m_formattedAlready = true;
@@ -518,31 +519,30 @@ namespace Sandbox.Graphics.GUI
             m_hadFocusLastTime = HasFocus;
             return ret;
         }
-
+        public bool IsSkipCharacter(MyKeys character)
+        {
+            if (SkipCombinations != null)
+                foreach (var skipCombination in SkipCombinations)
+                {
+                    if (skipCombination.Alt == MyInput.Static.IsAnyAltKeyPressed() &&
+                        skipCombination.Ctrl == MyInput.Static.IsAnyCtrlKeyPressed() &&
+                        skipCombination.Shift == MyInput.Static.IsAnyShiftKeyPressed() &&
+                        (skipCombination.Keys == null ||
+                        skipCombination.Keys.Contains((MyKeys)character)))
+                    {
+                        return true;
+                    }
+                }
+            return false;
+        }
         private void HandleTextInputBuffered(ref MyGuiControlBase ret)
         {
             const char BACKSPACE = '\b';
             bool textChanged = false;
             foreach (var character in MyInput.Static.TextInput)
             {
-                bool skipCharacter = false;
-                if (SkipCombinations != null)
-                    foreach (var skipCombination in SkipCombinations)
-                    {
-                        if (skipCombination.Alt == MyInput.Static.IsAnyAltKeyPressed() &&
-                            skipCombination.Ctrl == MyInput.Static.IsAnyCtrlKeyPressed() &&
-                            skipCombination.Shift == MyInput.Static.IsAnyShiftKeyPressed() &&
-                            (skipCombination.Keys == null ||
-                            skipCombination.Keys.Contains((MyKeys)character)))
-                        {
-                            skipCharacter = true;
-                            break; //forbiden character combination is being pressed
-                        }
-                    }
-
-                if (skipCharacter)
+                if (IsSkipCharacter((MyKeys)character))
                     continue;
-
                 if (Char.IsControl(character))
                 {
                     if (character == BACKSPACE)
@@ -620,6 +620,26 @@ namespace Sandbox.Graphics.GUI
             base.OnSizeChanged();
             RefreshTextArea();
             RefreshSlidingWindow();
+        }
+
+        internal override void OnFocusChanged(bool focus)
+        {
+            if (focus)
+            {
+                if (MyInput.Static.IsNewKeyPressed(MyKeys.Tab))     // If we got here by Tab key
+                {
+                    // Highlight the text in the text box when tabbed to
+                    MoveCarriageToEnd();
+                    m_selection.SelectAll(this);
+                }
+            }
+            else
+            {
+                // Clear the selection when leaving
+                m_selection.Reset(this);
+            }
+
+            base.OnFocusChanged(focus);
         }
 
         public void MoveCarriageToEnd()
@@ -793,27 +813,35 @@ namespace Sandbox.Graphics.GUI
             {
                 ClipboardText = sender.Text.Substring(Start, Length);
 
-                Thread myth;
-                myth = new Thread(new System.Threading.ThreadStart(CopyToClipboard));
-                myth.ApartmentState = ApartmentState.STA;
-                myth.Start();
+                if (!string.IsNullOrEmpty(ClipboardText))
+                {
+                    Thread thread = new Thread(() => System.Windows.Forms.Clipboard.SetText(ClipboardText));
+                    thread.SetApartmentState(ApartmentState.STA);
+                    thread.Start();
+                    thread.Join();
+                }
             }
 
             void CopyToClipboard()
             {
+#if !XB1
                 if(ClipboardText != "")
                     Clipboard.SetText(ClipboardText);
+#else
+                Debug.Assert(false, "Not Clipboard support on XB1!");
+#endif
             }
 
             public void PasteText(MyGuiControlTextbox sender)
             {
+#if !XB1
                 //First we erase the selection
                 EraseText(sender);
+                
                 var prefix = sender.Text.Substring(0, sender.CarriagePositionIndex);
                 var suffix = sender.Text.Substring(sender.CarriagePositionIndex);
-                Thread myth;
                 
-                myth = new Thread(new System.Threading.ThreadStart(PasteFromClipboard));
+                Thread myth = new Thread(new System.Threading.ThreadStart(PasteFromClipboard));
                 myth.ApartmentState = ApartmentState.STA;
                 myth.Start();
                 
@@ -823,11 +851,18 @@ namespace Sandbox.Graphics.GUI
                 sender.Text = new StringBuilder(prefix).Append(ClipboardText).Append(suffix).ToString();
                 sender.CarriagePositionIndex = prefix.Length + ClipboardText.Length;
                 Reset(sender);
+#else
+                Debug.Assert(false, "Not Clipboard support on XB1!");
+#endif
             }
 
             void PasteFromClipboard()
             {
+#if !XB1
                 ClipboardText = Clipboard.GetText();
+#else
+                Debug.Assert(false, "Not Clipboard support on XB1!");
+#endif
             }
         }
 

@@ -1,6 +1,5 @@
 ﻿using Sandbox.Common;
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Voxels;
 using Sandbox.Definitions;
 using Sandbox.Engine.Physics;
 using Sandbox.Engine.Voxels;
@@ -13,13 +12,21 @@ using System.Threading;
 using VRage;
 using VRageMath;
 using VRageRender;
-using Sandbox.Common.Components;
+
 using Sandbox.Engine.Utils;
 using VRage.Voxels;
 using VRage.Utils;
 using System;
 using VRage.ObjectBuilders;
-using VRage.Components;
+using VRage.Game.Components;
+using VRage.Network;
+using VRage.Library.Collections;
+using System.Collections.Generic;
+using Sandbox.Engine.Multiplayer;
+using Sandbox.Game.Replication;
+using VRage.Game;
+using VRage.Game.Entity;
+
 
 namespace Sandbox.Game.Entities
 {
@@ -40,18 +47,34 @@ namespace Sandbox.Game.Entities
     }
 
     [MyEntityType(typeof(MyObjectBuilder_VoxelMap))]
-    public partial class MyVoxelMap : MyVoxelBase 
+    public partial class MyVoxelMap : MyVoxelBase
     {
-        /// <summary>
-        /// Backward compatibility. Helper when generating new name when loaded voxel map had immutable storage (instanced).
-        /// </summary>
+        public override IMyStorage Storage
+        {
+            get { return m_storage; }
+            set
+            {
+                if (m_storage != null)
+                {
+                    m_storage.RangeChanged -= storage_RangeChanged;
+                }
+
+                m_storage = value;
+                m_storage.RangeChanged += storage_RangeChanged;
+                m_storageMax = m_storage.Size;
+
+                //m_storage.Reset();
+            }
+        }
         private static int m_immutableStorageNameSalt = 0;
-   
+
         internal new MyVoxelPhysicsBody Physics
         {
             get { return base.Physics as MyVoxelPhysicsBody; }
             set { base.Physics = value; }
         }
+
+        public override MyVoxelBase RootVoxel { get { return this; } }
 
         public MyVoxelMap()
         {
@@ -62,13 +85,41 @@ namespace Sandbox.Game.Entities
 
         public override void Init(MyObjectBuilder_EntityBase builder)
         {
+            var ob = (MyObjectBuilder_VoxelMap)builder;
+            if (ob == null)
+            {
+                return;
+            }
+
+            m_storage = MyStorageBase.Load(ob.StorageName);
+            
+            //By Gregory: Added for compatibility with old saves
+            if(m_storage == null)
+            {
+                return;
+            }
+
+            Init(builder, m_storage);
+
+            if (ob.ContentChanged.HasValue)
+            {
+                ContentChanged = ob.ContentChanged.Value;
+            }
+            else
+            {
+                ContentChanged = true;
+            }
+        }
+
+        public override void Init(MyObjectBuilder_EntityBase builder, IMyStorage storage)
+        {
             ProfilerShort.Begin("base init");
 
             SyncFlag = true;
 
             base.Init(builder);
             base.Init(null, null, null, null, null);
-            
+
             ProfilerShort.BeginNextBlock("Load file");
 
             var ob = (MyObjectBuilder_VoxelMap)builder;
@@ -82,16 +133,21 @@ namespace Sandbox.Game.Entities
             }
             else
             {
-                StorageName = string.Format("{0}-{1}", ob.StorageName, m_immutableStorageNameSalt++);
+                StorageName = GetNewStorageName(ob.StorageName);
             }
 
-            m_storage = MyStorageBase.Load(ob.StorageName);
+            m_storage = storage;
             m_storage.RangeChanged += storage_RangeChanged;
             m_storageMax = m_storage.Size;
 
-            InitVoxelMap(ob.PositionAndOrientation.Value.Position, m_storage.Size);
+            InitVoxelMap(MatrixD.CreateWorld((Vector3D)ob.PositionAndOrientation.Value.Position + Vector3D.TransformNormal((Vector3D)m_storage.Size / 2, WorldMatrix), WorldMatrix.Forward, WorldMatrix.Up), m_storage.Size);
 
             ProfilerShort.End();
+        }
+
+        public static string GetNewStorageName(string storageName)
+        {
+            return string.Format("{0}-{1}", storageName, m_immutableStorageNameSalt++);
         }
 
         public override void UpdateOnceBeforeFrame()
@@ -99,10 +155,17 @@ namespace Sandbox.Game.Entities
             PositionComp.UpdateAABBHr();
             base.UpdateOnceBeforeFrame();
         }
-        
-       
+
         public override bool IsOverlapOverThreshold(BoundingBoxD worldAabb, float thresholdPercentage)
         {
+            if(m_storage == null) {
+                if (MyEntities.GetEntityByIdOrDefault(this.EntityId) != this)
+                    MyDebug.FailRelease("Voxel map was deleted!");
+                else
+                    MyDebug.FailRelease("Voxel map is still in world but has null storage!");
+                return false;
+            }
+
             //Debug.Assert(
             //    worldAabb.Size.X > MyVoxelConstants.VOXEL_SIZE_IN_METRES &&
             //    worldAabb.Size.Y > MyVoxelConstants.VOXEL_SIZE_IN_METRES &&
@@ -118,8 +181,8 @@ namespace Sandbox.Game.Entities
 
             Storage.ClampVoxelCoord(ref minCorner);
             Storage.ClampVoxelCoord(ref maxCorner);
-            m_storageCache.Resize(minCorner, maxCorner);
-            Storage.ReadRange(m_storageCache, MyStorageDataTypeFlags.Content, 0, ref minCorner, ref maxCorner);
+            m_tempStorage.Resize(minCorner, maxCorner);
+            Storage.ReadRange(m_tempStorage, MyStorageDataTypeFlags.Content, 0, ref minCorner, ref maxCorner);
             BoundingBoxD voxelBox;
 
             //MyRenderProxy.DebugDrawAABB(worldAabb, Color.White, 1f, 1f, true);
@@ -142,7 +205,7 @@ namespace Sandbox.Game.Entities
                             MyVoxelCoordSystems.VoxelCoordToWorldAABB(PositionLeftBottomCorner, ref coord, out voxelBox);
                             if (worldAabb.Intersects(voxelBox))
                             {
-                                var contentVolume = m_storageCache.Content(ref cache) * invFullVoxel * voxelVolume;
+                                var contentVolume = m_tempStorage.Content(ref cache) * invFullVoxel * voxelVolume;
                                 var overlapVolume = worldAabb.Intersect(voxelBox).Volume;
                                 overlapContentVolume += contentVolume * overlapVolume;
 
@@ -179,15 +242,6 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        private void UpdateWorldVolume()
-        {
-            this.PositionLeftBottomCorner = (Vector3)(this.WorldMatrix.Translation - this.SizeInMetresHalf);
-            PositionComp.WorldAABB = new BoundingBoxD((Vector3D)PositionLeftBottomCorner, (Vector3D)PositionLeftBottomCorner + (Vector3D)SizeInMetres); 
-            PositionComp.WorldVolume = BoundingSphereD.CreateFromBoundingBox(PositionComp.WorldAABB);
-
-            Render.InvalidateRenderObjects();
-        }
-
         public override void UpdateBeforeSimulation10()
         {
             base.UpdateBeforeSimulation10();
@@ -199,6 +253,7 @@ namespace Sandbox.Game.Entities
 
         public override void UpdateAfterSimulation10()
         {
+            //Debug.Assert(MyExternalReplicable.FindByObject(this) != null, "Voxel map replicable not found, but it should be there");
             base.UpdateAfterSimulation10();
             if (Physics != null)
             {
@@ -206,7 +261,7 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        
+
         //  This method must be called when this object dies or is removed
         //  E.g. it removes lights, sounds, etc
         protected override void BeforeDelete()
@@ -240,15 +295,17 @@ namespace Sandbox.Game.Entities
             {
                 (Render as MyRenderComponentVoxelMap).InvalidateRange(minChanged, maxChanged);
             }
-
+            OnRangeChanged(minChanged, maxChanged, dataChanged);
+            ContentChanged = true;
             ProfilerShort.End();
+
         }
 
         public override string GetFriendlyName()
         {
             return "MyVoxelMap";
         }
-      
+
         public override bool IsVolumetric
         {
             get { return true; }
@@ -260,37 +317,41 @@ namespace Sandbox.Game.Entities
         }
 
 
-        public override void Init(string storageName, IMyStorage storage, Vector3D positionMinCorner)
+        public override void Init(string storageName, IMyStorage storage, MatrixD worldMatrix)
         {
+            ProfilerShort.Begin("MyVoxelMap::Init");
+
             m_storageMax = storage.Size;
-            base.Init(storageName, storage, positionMinCorner);
+            base.Init(storageName, storage, worldMatrix);
 
             m_storage.RangeChanged += storage_RangeChanged;
 
+            ProfilerShort.End();
         }
 
-        public MyVoxelRangeType GetVoxelRangeTypeInBoundingBox(BoundingBoxD worldAabb)
+
+        protected override void InitVoxelMap(MatrixD worldMatrix, Vector3I size, bool useOffset = true)
         {
-            Debug.Assert(Thread.CurrentThread == MySandboxGame.Static.UpdateThread);
+            base.InitVoxelMap(worldMatrix, size, useOffset);
 
-            Vector3I minCorner, maxCorner;
-            MyVoxelCoordSystems.WorldPositionToVoxelCoord(PositionLeftBottomCorner, ref worldAabb.Min, out minCorner);
-            MyVoxelCoordSystems.WorldPositionToVoxelCoord(PositionLeftBottomCorner, ref worldAabb.Max, out maxCorner);
-            minCorner += StorageMin;
-            maxCorner += StorageMin;
+            ((MyStorageBase)Storage).InitWriteCache(8);
 
-            Storage.ClampVoxelCoord(ref minCorner);
-            Storage.ClampVoxelCoord(ref maxCorner);
-
-            return MyVoxelRangeType.MIXED;
+            ProfilerShort.Begin("new MyVoxelPhysicsBody");
+            Physics = new MyVoxelPhysicsBody(this, 3.0f, lazyPhysics: DelayRigidBodyCreation);
+            Physics.Enabled = !MyFakes.DISABLE_VOXEL_PHYSICS;
+            ProfilerShort.End();
         }
 
-        protected override void InitVoxelMap(Vector3D positionMinCorner, Vector3I size, bool useOffset = true)
+        public bool IsStaticForCluster
         {
-            base.InitVoxelMap(positionMinCorner, size, useOffset);
-            Physics = new MyVoxelPhysicsBody(this,3.0f);
-            Physics.Enabled = true;
+            get { return Physics.IsStaticForCluster; }
+            set { Physics.IsStaticForCluster = value; }
         }
-     
+
+        public override int GetOrePriority()
+        {
+            return 1;
+        }
+
     }
 }

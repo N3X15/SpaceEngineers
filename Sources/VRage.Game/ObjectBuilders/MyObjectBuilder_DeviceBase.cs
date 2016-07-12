@@ -1,16 +1,14 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using VRage.Serialization;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_DeviceBase : MyObjectBuilder_Base
     {
+        [ProtoMember]
+        public uint? InventoryItemId = null;
+        public bool ShouldSerializeInventoryItemId() { return InventoryItemId.HasValue; }
     }
 }

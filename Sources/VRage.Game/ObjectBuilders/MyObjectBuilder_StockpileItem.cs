@@ -1,7 +1,8 @@
 ﻿using ProtoBuf;
 using VRage.ObjectBuilders;
+using VRage.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -11,6 +12,8 @@ namespace Sandbox.Common.ObjectBuilders
         public int Amount;
 
         [ProtoMember]
+        [DynamicObjectBuilder]
+        [Nullable]
         public MyObjectBuilder_PhysicalObject PhysicalContent;
     }
 }

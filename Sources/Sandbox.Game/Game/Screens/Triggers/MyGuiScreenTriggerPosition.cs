@@ -1,5 +1,4 @@
-﻿using Sandbox.Common.ObjectBuilders.Gui;
-using Sandbox.Game.Localization;
+﻿using Sandbox.Game.Localization;
 using Sandbox.Game.World;
 using Sandbox.Game.World.Triggers;
 using Sandbox.Graphics.GUI;
@@ -10,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using VRage;
+using VRage.Game;
 using VRage.Library.Utils;
 using VRage.Utils;
 using VRageMath;
@@ -30,7 +30,7 @@ namespace Sandbox.Game.Screens.Triggers
         const float WINSIZEX = 0.4f, WINSIZEY=0.37f;
         const float spacingH = 0.01f;
         public MyGuiScreenTriggerPosition(MyTrigger trg)
-            : base(trg, new Vector2(WINSIZEX+0.1f, WINSIZEY))
+            : base(trg, new Vector2(WINSIZEX + 0.1f, WINSIZEY + 0.05f))
         {
             float left = MIDDLE_PART_ORIGIN.X-WINSIZEX/2;
             float top = -WINSIZEY / 2f + MIDDLE_PART_ORIGIN.Y;
@@ -86,7 +86,7 @@ namespace Sandbox.Game.Screens.Triggers
             m_zCoord.Enabled = false;
 
             left = MIDDLE_PART_ORIGIN.X - WINSIZEX / 2;
-            top += m_zCoord.Size.Y + VERTICAL_OFFSET;
+            top += m_zCoord.Size.Y + 2*VERTICAL_OFFSET;
             m_labelRadius = new MyGuiControlLabel(
                 originAlign: MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP,
                 position: new Vector2(left, top),

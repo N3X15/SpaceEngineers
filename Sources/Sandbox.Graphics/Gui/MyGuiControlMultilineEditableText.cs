@@ -1,8 +1,7 @@
-﻿using Sandbox.Common;
-using Sandbox.Common.ObjectBuilders.Gui;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using VRage.Game;
 using VRage.Input;
 using VRage.Utils;
 using VRageMath;
@@ -40,8 +39,10 @@ namespace Sandbox.Graphics.GUI
             MyGuiDrawAlignEnum textAlign = MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP,
             StringBuilder contents = null,
             bool drawScrollbar = true,
-            MyGuiDrawAlignEnum textBoxAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER)
-            : base(position, size, backgroundColor, font, textScale, textAlign, contents, drawScrollbar, textBoxAlign, true)
+            MyGuiDrawAlignEnum textBoxAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
+            int? visibleLinesCount = null
+        )
+            : base(position, size, backgroundColor, font, textScale, textAlign, contents, drawScrollbar, textBoxAlign, visibleLinesCount, true)
         {
             m_fontHeight = MyGuiManager.GetFontHeight(Font, TextScaleWithLanguage);
             this.AllowFocusingElements = false;
@@ -410,7 +411,7 @@ namespace Sandbox.Graphics.GUI
             m_undoCache.Add(text);
             if (m_undoCache.Count > MAX_UNDO_HISTORY)
             {
-                m_undoCache.RemoveAt(MAX_UNDO_HISTORY);
+                m_undoCache.RemoveAt(0);
             }
         }
 
@@ -449,6 +450,10 @@ namespace Sandbox.Graphics.GUI
         {
             int currentIndex = array.Count - 1;
             int comparison = GetFirstDiffIndex(array[currentIndex], m_text.ToString());
+            if (array[currentIndex].Length < m_text.Length)
+                comparison--;//undo deletes character
+            if (array[currentIndex].Length > m_text.Length)
+                comparison++;
             CarriagePositionIndex = comparison == -1 ? array[currentIndex].Length : comparison;
             return currentIndex;
         }

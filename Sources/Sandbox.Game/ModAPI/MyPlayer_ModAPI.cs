@@ -3,7 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using IMyControllableEntity = Sandbox.ModAPI.Interfaces.IMyControllableEntity;
+using VRage.Game.ModAPI;
+using IMyControllableEntity = VRage.Game.ModAPI.Interfaces.IMyControllableEntity;
 using IMyGameControllableEntity = Sandbox.Game.Entities.IMyControllableEntity;
 
 namespace Sandbox.Game.World
@@ -15,7 +16,7 @@ namespace Sandbox.Game.World
             get { return Client; }
         }
 
-        Common.MyRelationsBetweenPlayerAndBlock IMyPlayer.GetRelationTo(long playerId)
+        VRage.Game.MyRelationsBetweenPlayerAndBlock IMyPlayer.GetRelationTo(long playerId)
         {
             return GetRelationTo(playerId);
         }
@@ -52,7 +53,7 @@ namespace Sandbox.Game.World
         }
 
 
-        VRageMath.Vector3 IMyPlayer.GetPosition()
+        VRageMath.Vector3D IMyPlayer.GetPosition()
         {
             return GetPosition();
         }
@@ -66,6 +67,16 @@ namespace Sandbox.Game.World
         long IMyPlayer.IdentityId
         {
             get { return Identity.IdentityId; }
+        }
+
+        bool IMyPlayer.IsAdmin
+        {
+            get { return IsAdmin; }
+        }
+
+        bool IMyPlayer.IsPromoted
+        {
+            get { return IsPromoted; }
         }
     }
 }

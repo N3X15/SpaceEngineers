@@ -1,15 +1,13 @@
 ﻿using ProtoBuf;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using VRageMath;
 using System.Xml.Serialization;
 using VRage.Data;
 using VRage.ObjectBuilders;
 using System.ComponentModel;
+using VRageMath;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     public class MyJetpackThrustDefinition
@@ -18,19 +16,34 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public string ThrustBone;
 
         [ProtoMember]
-        public Vector4 ThrustColor = new Vector4(Color.CornflowerBlue.ToVector3() * 0.7f, 0.75f);
-
-        [ProtoMember]
-        public float ThrustGlareSize = 5.585f;
-
-        [ProtoMember]
-        public string ThrustMaterial = "EngineThrustMiddle";
-
-        [ProtoMember]
         public float SideFlameOffset = 0.12f;
 
         [ProtoMember]
         public float FrontFlameOffset = 0.04f;
+    }
+
+    [ProtoContract]
+    public class MyObjectBuilder_JetpackDefinition
+    {
+        [ProtoMember]
+        [XmlArrayItem("Thrust")]
+        public List<MyJetpackThrustDefinition> Thrusts;
+
+        [ProtoMember]
+        public MyObjectBuilder_ThrustDefinition ThrustProperties;
+    }
+
+    [ProtoContract]
+    public class SuitResourceDefinition
+    {
+        [ProtoMember]
+        public SerializableDefinitionId Id;
+
+        [ProtoMember]
+        public float MaxCapacity;
+
+        [ProtoMember]
+        public float Throughput;
     }
 
     [ProtoContract]
@@ -41,6 +54,13 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public string Bones;
+    }
+
+    [ProtoContract]
+    public class MyRagdollBoneSetDefinition: MyBoneSetDefinition
+    {
+        [ProtoMember]
+        public float CollisionRadius = 0;
     }
 
     [ProtoContract]
@@ -84,11 +104,25 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public float AnkleHeight;
     }
 
+    [ProtoContract]
+    public class MyObjectBuilder_DeadBodyShape
+    {
+        [ProtoMember]
+        public SerializableVector3 BoxShapeScale;            // scaling factor of the dead body physics shape (aabb)
+        [ProtoMember]
+        public SerializableVector3 RelativeCenterOfMass;     // center of mass relative to size of box [1 == half extent]
+        [ProtoMember]
+        public SerializableVector3 RelativeShapeTranslation; // translation of dead body physics shape, relative to size of box [1 == half extent]
+        [ProtoMember]
+        public float Friction;                               // friction factor
+    }
 
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_CharacterDefinition : MyObjectBuilder_DefinitionBase
     {
+        static readonly Vector3 DefaultLightOffset = new Vector3(0.0f, 0.0f, -0.5f);
+
         [ProtoMember]
         public string Name;
 
@@ -113,22 +147,26 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public float LightGlareSize = 0.02f;
 
         [ProtoMember]
-        public bool JetpackAvailable = false;
+        public MyObjectBuilder_JetpackDefinition Jetpack;
 
         [ProtoMember]
-        public float JetpackSlowdown = 0.975f;
-
-        [ProtoMember, XmlArrayItem("Thrust")]
-        public MyJetpackThrustDefinition[] Thrusts;
+        [XmlArrayItem("Resource")]
+        public List<SuitResourceDefinition> SuitResourceStorage;
 
         [ProtoMember, XmlArrayItem("BoneSet")]
         public MyBoneSetDefinition[] BoneSets;
+
+        [ProtoMember, XmlArrayItem("BoneSet")]
+        public MyBoneSetDefinition[] BoneLODs;
 
         [ProtoMember]
         public string LeftLightBone = null;
 
         [ProtoMember]
         public string RightLightBone = null;
+
+        [ProtoMember]
+        public Vector3 LightOffset = DefaultLightOffset;
 
         [ProtoMember]
         public string HeadBone = null;
@@ -182,14 +220,8 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         [ProtoMember, XmlArrayItem("Mapping")]
         public MyMovementAnimationMapping[] AnimationMappings;
 
-		[ProtoMember]
-		public string Stats;
-
         [ProtoMember]
         public float Mass = 100f;
-
-        [ProtoMember]
-        public float MaxHealth = 100f;
 
         [ProtoMember]
         public string ModelRootBoneName;
@@ -222,16 +254,22 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public string RightHandItemBone;
 
         [ProtoMember]
+        public bool UsesAtmosphereDetector = false;
+
+        [ProtoMember]
         public bool NeedsOxygen = false;
 
         [ProtoMember]
         public string RagdollDataFile;
 
         [ProtoMember, XmlArrayItem("BoneSet")]
-        public MyBoneSetDefinition[] RagdollBonesMappings;
+        public MyRagdollBoneSetDefinition[] RagdollBonesMappings;
 
         [ProtoMember, XmlArrayItem("BoneSet")]
         public MyBoneSetDefinition[] RagdollPartialSimulations;
+
+        [ProtoMember]
+        public float OxygenConsumptionMultiplier = 1f;
 
         [ProtoMember]
         public float OxygenConsumption = 10f;
@@ -241,9 +279,6 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public float DamageAmountAtZeroPressure = 7f;
-
-        [ProtoMember]
-        public float OxygenCapacity = 6000f;
 
         //Character control
         [ProtoMember]
@@ -283,28 +318,110 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public float CharacterHeadHeight = 0.25f;
         [ProtoMember]
         public float CharacterCollisionScale = 1.0f;
+        [ProtoMember]
+        public float CharacterCollisionWidth = 1.0f;
+        [ProtoMember]
+        public float CharacterCollisionHeight = 1.8f;
+        [ProtoMember]
+        public float CharacterCollisionCrouchHeight = 1.25f;
+
+        // new astronaut does not use this variable
+        //[ProtoMember]
+        //public string HelmetVariation;
+        
+        [ProtoMember]
+        public string JumpSoundName = "";
+        [ProtoMember]
+        public float JumpForce = 2.5f;
 
         [ProtoMember]
-        public string HelmetVariation;
+        public string JetpackIdleSoundName = "";
+        [ProtoMember]
+        public string JetpackRunSoundName = "";
 
+        [ProtoMember]
+        public string CrouchDownSoundName = "";
+        [ProtoMember]
+        public string CrouchUpSoundName = "";
+
+        [ProtoMember]
+        public string PainSoundName = "";
+        [ProtoMember]
+        public string SuffocateSoundName = "";
         [ProtoMember]
         public string DeathSoundName = "";
+        [ProtoMember]
+        public string DeathBySuffocationSoundName = "";
+
+        [ProtoMember]
+        public string IronsightActSoundName = "";
+        [ProtoMember]
+        public string IronsightDeactSoundName = "";
+        [ProtoMember]
+        public string FastFlySoundName = "";
+
+        [ProtoMember]
+        public string HelmetOxygenNormalSoundName = "";
+        [ProtoMember]
+        public string HelmetOxygenLowSoundName = "";
+        [ProtoMember]
+        public string HelmetOxygenCriticalSoundName = "";
+        [ProtoMember]
+        public string HelmetOxygenNoneSoundName = "";
+
+        [ProtoMember]
+        public bool LoopingFootsteps = false;
 
         [ProtoMember]
         public bool VisibleOnHud = true;
 
         [ProtoMember]
+        public bool UsableByPlayer = true;
+
+        [ProtoMember]
         public string RagdollRootBody = String.Empty;
 
-        [ProtoMember]
-        public float CharacterWidth = 1.0f;
-        [ProtoMember]
-        public float CharacterHeight = 1.8f;
-        [ProtoMember]
-        public float CharacterLength = 1.0f;
-
         [ProtoMember, DefaultValue(null)]
-        public MyObjectBuilder_InventoryDefinition Inventory; 
+        public MyObjectBuilder_InventoryDefinition Inventory;
 
+        [ProtoMember]
+        public string EnabledComponents;
+
+        [ProtoMember]
+        public bool EnableSpawnInventoryAsContainer = false;
+        
+        [ProtoMember, DefaultValue(null)]
+        public SerializableDefinitionId? InventorySpawnContainerId;
+
+        [ProtoMember]
+        public bool SpawnInventoryOnBodyRemoval = false;
+
+        [ProtoMember]
+        public float LootingTime = 5 * 60f; // default from SE
+
+        [ProtoMember]
+        public string InitialAnimation = "Idle";
+
+        [ProtoMember]
+        public float ImpulseLimit = float.PositiveInfinity;
+
+        /// <summary>
+        /// Physical material of the character.
+        /// </summary>
+        [ProtoMember]
+        public string PhysicalMaterial = "Character";
+
+        /// <summary>
+        /// Physics shape used after character's death.
+        /// </summary>
+        [ProtoMember]
+        public MyObjectBuilder_DeadBodyShape DeadBodyShape = null;
+
+        /// <summary>
+        /// Name of used animation controller.
+        /// </summary>
+        public string AnimationController = null;
+
+        public float? MaxForce = null;
     }
 }

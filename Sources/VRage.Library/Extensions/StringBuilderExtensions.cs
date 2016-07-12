@@ -6,11 +6,12 @@ using VRage;
 
 namespace System.Text
 {
-    public static partial class StringBuilderExtensions
+	[Unsharper.UnsharperDisableReflection()]
+	public static class StringBuilderExtensions_2
     {
         static private NumberFormatInfo m_numberFormatInfoHelper;
 
-        static StringBuilderExtensions()
+        static StringBuilderExtensions_2()
         {
             if (m_numberFormatInfoHelper == null)
             {
@@ -279,7 +280,7 @@ namespace System.Text
         public static StringBuilder TrimTrailingWhitespace(this StringBuilder sb)
         {
             int i = sb.Length;
-            while (i > 0 && sb[i - 1] == ' ' || sb[i - 1] == '\r' || sb[i - 1] == '\n')
+            while (i > 0 && (sb[i - 1] == ' ' || sb[i - 1] == '\r' || sb[i - 1] == '\n'))
                 i--;
             sb.Length = i;
             return sb;

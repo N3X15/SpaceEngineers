@@ -9,7 +9,6 @@ using ParallelTasks;
 using Sandbox.Common;
 
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Gui;
 using Sandbox.Graphics.GUI;
 using Sandbox.Engine.Networking;
 using Sandbox.Engine.Utils;
@@ -21,6 +20,7 @@ using VRage;
 using VRage.Utils;
 using SteamSDK;
 using Sandbox.Game.Localization;
+using VRage.Game;
 using VRage.Library.Utils;
 
 namespace Sandbox.Game.Gui
@@ -57,7 +57,7 @@ namespace Sandbox.Game.Gui
         {
             base.RecreateControls(constructor);
 
-            AddCaption(MySpaceTexts.ScreenCaptionLoadWorld);
+            AddCaption(MyCommonTexts.ScreenCaptionLoadWorld);
 
             var origin = new Vector2(-0.4375f, -0.3f);
             Vector2 buttonSize = MyGuiControlButton.GetVisualStyle(MyGuiControlButtonStyleEnum.Default).NormalTexture.MinSizeGui;
@@ -84,14 +84,14 @@ namespace Sandbox.Game.Gui
             // Edit
             // Save
             // Delete
-            Controls.Add(m_continueLastSave = MakeButton(buttonOrigin + buttonDelta * 0, MySpaceTexts.LoadScreenButtonContinueLastGame, OnContinueLastGameClick));
-            Controls.Add(m_loadButton = MakeButton(buttonOrigin + buttonDelta * 1, MySpaceTexts.LoadScreenButtonLoad, OnLoadClick));
-            Controls.Add(m_editButton = MakeButton(buttonOrigin + buttonDelta * 2, MySpaceTexts.LoadScreenButtonEditSettings, OnEditClick));
-            Controls.Add(m_saveButton = MakeButton(buttonOrigin + buttonDelta * 3, MySpaceTexts.LoadScreenButtonSaveAs, OnSaveAsClick));
-            Controls.Add(m_deleteButton = MakeButton(buttonOrigin + buttonDelta * 4, MySpaceTexts.LoadScreenButtonDelete, OnDeleteClick));
-            Controls.Add(m_publishButton = MakeButton(buttonOrigin + buttonDelta * 6, MySpaceTexts.LoadScreenButtonPublish, OnPublishClick));
+            Controls.Add(m_continueLastSave = MakeButton(buttonOrigin + buttonDelta * 0, MyCommonTexts.LoadScreenButtonContinueLastGame, OnContinueLastGameClick));
+            Controls.Add(m_loadButton = MakeButton(buttonOrigin + buttonDelta * 1, MyCommonTexts.LoadScreenButtonLoad, OnLoadClick));
+            Controls.Add(m_editButton = MakeButton(buttonOrigin + buttonDelta * 2, MyCommonTexts.LoadScreenButtonEditSettings, OnEditClick));
+            Controls.Add(m_saveButton = MakeButton(buttonOrigin + buttonDelta * 3, MyCommonTexts.LoadScreenButtonSaveAs, OnSaveAsClick));
+            Controls.Add(m_deleteButton = MakeButton(buttonOrigin + buttonDelta * 4, MyCommonTexts.LoadScreenButtonDelete, OnDeleteClick));
+            Controls.Add(m_publishButton = MakeButton(buttonOrigin + buttonDelta * 6, MyCommonTexts.LoadScreenButtonPublish, OnPublishClick));
 
-            m_publishButton.SetToolTip(MyTexts.GetString(MySpaceTexts.LoadScreenButtonTooltipPublish));
+            m_publishButton.SetToolTip(MyTexts.GetString(MyCommonTexts.LoadScreenButtonTooltipPublish));
 
             m_continueLastSave.Enabled = false;
             m_continueLastSave.DrawCrossTextureWhenDisabled = false;
@@ -168,8 +168,8 @@ namespace Sandbox.Game.Gui
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                     buttonType: MyMessageBoxButtonsType.YES_NO,
-                    messageText: new StringBuilder().AppendFormat(MySpaceTexts.MessageBoxTextAreYouSureYouWantToDeleteSave, save.Item2.SessionName),
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionPleaseConfirm),
+                    messageText: new StringBuilder().AppendFormat(MyCommonTexts.MessageBoxTextAreYouSureYouWantToDeleteSave, save.Item2.SessionName),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionPleaseConfirm),
                     callback: OnDeleteConfirm));
             }
         }
@@ -195,7 +195,7 @@ namespace Sandbox.Game.Gui
                     {
                         MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                             buttonType: MyMessageBoxButtonsType.OK,
-                            messageText: MyTexts.Get(MySpaceTexts.SessionDeleteFailed)));
+                            messageText: MyTexts.Get(MyCommonTexts.SessionDeleteFailed)));
                     }
                 }
             }
@@ -232,20 +232,20 @@ namespace Sandbox.Game.Gui
         {
             if (MyFakes.XBOX_PREVIEW)
             {
-                MyGuiSandbox.Show(MySpaceTexts.MessageBoxTextErrorFeatureNotAvailableYet, MySpaceTexts.MessageBoxCaptionError);
+                MyGuiSandbox.Show(MyCommonTexts.MessageBoxTextErrorFeatureNotAvailableYet, MyCommonTexts.MessageBoxCaptionError);
                 return;
             }
 
             MyStringId textQuestion, captionQuestion;
             if (worlInfo.WorkshopId.HasValue)
             {
-                textQuestion = MySpaceTexts.MessageBoxTextDoYouWishToUpdateWorld;
-                captionQuestion = MySpaceTexts.MessageBoxCaptionDoYouWishToUpdateWorld;
+                textQuestion = MyCommonTexts.MessageBoxTextDoYouWishToUpdateWorld;
+                captionQuestion = MyCommonTexts.MessageBoxCaptionDoYouWishToUpdateWorld;
             }
             else
             {
-                textQuestion = MySpaceTexts.MessageBoxTextDoYouWishToPublishWorld;
-                captionQuestion = MySpaceTexts.MessageBoxCaptionDoYouWishToPublishWorld;
+                textQuestion = MyCommonTexts.MessageBoxTextDoYouWishToPublishWorld;
+                captionQuestion = MyCommonTexts.MessageBoxCaptionDoYouWishToPublishWorld;
             }
 
             MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
@@ -273,8 +273,8 @@ namespace Sandbox.Game.Gui
                                             MyLocalCache.SaveCheckpoint(checkpoint, sessionPath);
                                             MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                                                 styleEnum: MyMessageBoxStyleEnum.Info,
-                                                messageText: MyTexts.Get(MySpaceTexts.MessageBoxTextWorldPublished),
-                                                messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionWorldPublished),
+                                                messageText: MyTexts.Get(MyCommonTexts.MessageBoxTextWorldPublished),
+                                                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionWorldPublished),
                                                 callback: (a) =>
                                                 {
                                                     MySteam.API.OpenOverlayUrl(string.Format("http://steamcommunity.com/sharedfiles/filedetails/?id={0}", publishedFileId));
@@ -286,16 +286,16 @@ namespace Sandbox.Game.Gui
                                             switch (result)
                                             {
                                                 case Result.AccessDenied:
-                                                    error = MySpaceTexts.MessageBoxTextPublishFailed_AccessDenied;
+                                                    error = MyCommonTexts.MessageBoxTextPublishFailed_AccessDenied;
                                                     break;
                                                 default:
-                                                    error = MySpaceTexts.MessageBoxTextWorldPublishFailed;
+                                                    error = MyCommonTexts.MessageBoxTextWorldPublishFailed;
                                                     break;
                                             }
 
                                             MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                                                 messageText: MyTexts.Get(error),
-                                                messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionWorldPublishFailed)));
+                                                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionWorldPublishFailed)));
                                         }
                                     });
                             }
@@ -349,38 +349,63 @@ namespace Sandbox.Game.Gui
             if (!MySteamWorkshop.CheckLocalModsAllowed(world.Checkpoint.Mods, false))
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                    messageText: MyTexts.Get(MySpaceTexts.DialogTextLocalModsDisabledInMultiplayer),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                    messageText: MyTexts.Get(MyCommonTexts.DialogTextLocalModsDisabledInMultiplayer),
                     buttonType: MyMessageBoxButtonsType.OK));
                 MyLog.Default.WriteLine("LoadSession() - End");
                 return;
             }
 
             MySteamWorkshop.DownloadModsAsync(world.Checkpoint.Mods,
-                onFinishedCallback: delegate(bool success)
-                {
+                onFinishedCallback: 
+                delegate(bool success,string mismatchMods)
+                {                       
                     if (success)
                     {
-                        //Sandbox.Audio.MyAudio.Static.Mute = true;
-
-                        MyScreenManager.CloseAllScreensNowExcept(null);
-                        MyGuiSandbox.Update(MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
-
-                        // May be called from gameplay, so we must make sure we unload the current game
-                        if (MySession.Static != null)
+                        CheckMismatchmods(mismatchMods, delegate(VRage.Game.ModAPI.ResultEnum val)
                         {
-                            MySession.Static.Unload();
-                            MySession.Static = null;
-                        }
+                            if (val == VRage.Game.ModAPI.ResultEnum.OK)
+                            {
+                                //Sandbox.Audio.MyAudio.Static.Mute = true;
+                                MyScreenManager.CloseAllScreensNowExcept(null);
+                                MyGuiSandbox.Update(VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
 
-                        MyGuiScreenGamePlay.StartLoading(delegate { MySession.LoadMultiplayer(world, multiplayerSession); });
+                                // May be called from gameplay, so we must make sure we unload the current game
+                                if (MySession.Static != null)
+                                {
+                                    MySession.Static.Unload();
+                                    MySession.Static = null;
+                                }
+
+                                MyGuiScreenGamePlay.StartLoading(delegate { MySession.LoadMultiplayer(world, multiplayerSession); });
+                            }
+                            else
+                            {
+                                MyGuiScreenMainMenu.UnloadAndExitToMenu();
+                            }
+                        });
                     }
                     else
                     {
-                        MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                            messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                            messageText: MyTexts.Get(MySpaceTexts.DialogTextDownloadModsFailed),
-                            buttonType: MyMessageBoxButtonsType.OK));
+                        if (MyMultiplayer.Static != null)
+                        {
+                            MyMultiplayer.Static.Dispose();
+                        }
+
+                        if (MySteam.IsOnline)
+                        {
+                            MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
+                                messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                                messageText: MyTexts.Get(MyCommonTexts.DialogTextDownloadModsFailed),
+                                buttonType: MyMessageBoxButtonsType.OK));
+                        }
+                        else
+                        {
+                            MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
+                                                          messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                                                          messageText: MyTexts.Get(MyCommonTexts.DialogTextDownloadModsFailedSteamOffline),
+                                                          buttonType: MyMessageBoxButtonsType.OK));
+                        }
                     }
                     MyLog.Default.WriteLine("LoadSession() - End");
                 },
@@ -390,17 +415,39 @@ namespace Sandbox.Game.Gui
                 });
         }
 
+        public static void CheckMismatchmods(string mismatchMods, Action<VRage.Game.ModAPI.ResultEnum> callback)
+        {
+            if (String.IsNullOrEmpty(mismatchMods) == false && String.IsNullOrWhiteSpace(mismatchMods) == false)
+            {
+                MyGuiSandbox.AddScreen(new MyGuiScreenText(
+                    windowSize:new Vector2(0.73f, 0.7f),
+                    descSize: new Vector2(0.62f,0.44f),
+                    missionTitle: MyTexts.GetString(MyCommonTexts.MessageBoxCaptionWarning),
+                    currentObjectivePrefix:"",
+                    currentObjective: MyTexts.GetString(MyCommonTexts.MessageBoxModsMismatch),
+                    description: mismatchMods,
+                    resultCallback: callback));
+            }
+            else if(callback != null)
+            {
+                callback(VRage.Game.ModAPI.ResultEnum.OK);
+            }
+        }
+
         public static void LoadMultiplayerScenarioWorld(MyObjectBuilder_World world, MyMultiplayerBase multiplayerSession)
         {
             Debug.Assert(MySession.Static != null);
 
             MyLog.Default.WriteLine("LoadMultiplayerScenarioWorld() - Start");
 
+            if (world.Checkpoint.BriefingVideo != null && world.Checkpoint.BriefingVideo.Length > 0)
+                MyGuiSandbox.OpenUrlWithFallback(world.Checkpoint.BriefingVideo, "Scenario briefing video", true);
+
             if (!MySteamWorkshop.CheckLocalModsAllowed(world.Checkpoint.Mods, false))
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                    messageText: MyTexts.Get(MySpaceTexts.DialogTextLocalModsDisabledInMultiplayer),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                    messageText: MyTexts.Get(MyCommonTexts.DialogTextLocalModsDisabledInMultiplayer),
                     buttonType: MyMessageBoxButtonsType.OK,
                     callback: delegate(MyGuiScreenMessageBox.ResultEnum result) { MyGuiScreenMainMenu.ReturnToMainMenu(); }));
                 MyLog.Default.WriteLine("LoadMultiplayerScenarioWorld() - End");
@@ -408,25 +455,28 @@ namespace Sandbox.Game.Gui
             }
 
             MySteamWorkshop.DownloadModsAsync(world.Checkpoint.Mods,
-                onFinishedCallback: delegate(bool success)
+                onFinishedCallback: delegate(bool success,string mismatchMods)
                 {
                     if (success)
                     {
-                        MyScreenManager.CloseAllScreensNowExcept(null);
-                        MyGuiSandbox.Update(MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
-
-                        MyGuiScreenGamePlay.StartLoading(delegate
+                        CheckMismatchmods(mismatchMods, callback: delegate(VRage.Game.ModAPI.ResultEnum val)
                         {
-                            MySession.Static.LoadMultiplayerWorld(world, multiplayerSession);
-                            if (ScenarioWorldLoaded != null)
-                                ScenarioWorldLoaded();
+                            MyScreenManager.CloseAllScreensNowExcept(null);
+                            MyGuiSandbox.Update(VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
+
+                            MyGuiScreenGamePlay.StartLoading(delegate
+                            {
+                                MySession.Static.LoadMultiplayerWorld(world, multiplayerSession);
+                                if (ScenarioWorldLoaded != null)
+                                    ScenarioWorldLoaded();
+                            });
                         });
                     }
                     else
                     {
                         MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                            messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                            messageText: MyTexts.Get(MySpaceTexts.DialogTextDownloadModsFailed),
+                            messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                            messageText: MyTexts.Get(MyCommonTexts.DialogTextDownloadModsFailed),
                             buttonType: MyMessageBoxButtonsType.OK,
                             callback: delegate(MyGuiScreenMessageBox.ResultEnum result) { MyGuiScreenMainMenu.ReturnToMainMenu(); }));
                     }
@@ -442,18 +492,11 @@ namespace Sandbox.Game.Gui
         {
             MyLog.Default.WriteLine("LoadMultiplayerBattleWorld() - Start");
 
-            Debug.Assert(MySession.Static != null);
-            if (MySession.Static == null)
-            {
-                MyGuiScreenMainMenu.UnloadAndExitToMenu();
-                return;
-            }
-
             if (!MySteamWorkshop.CheckLocalModsAllowed(world.Checkpoint.Mods, false))
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                    messageText: MyTexts.Get(MySpaceTexts.DialogTextLocalModsDisabledInMultiplayer),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                    messageText: MyTexts.Get(MyCommonTexts.DialogTextLocalModsDisabledInMultiplayer),
                     buttonType: MyMessageBoxButtonsType.OK,
                     callback: delegate(MyGuiScreenMessageBox.ResultEnum result) { MyGuiScreenMainMenu.ReturnToMainMenu(); }));
                 MyLog.Default.WriteLine("LoadMultiplayerBattleWorld() - End");
@@ -461,26 +504,34 @@ namespace Sandbox.Game.Gui
             }
 
             MySteamWorkshop.DownloadModsAsync(world.Checkpoint.Mods,
-                onFinishedCallback: delegate(bool success)
+                onFinishedCallback: delegate(bool success,string mismatchMods)
                 {
                     if (success)
                     {
                         MyScreenManager.CloseAllScreensNowExcept(null);
-                        MyGuiSandbox.Update(MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
-
-                        MyGuiScreenGamePlay.StartLoading(delegate 
+                        MyGuiSandbox.Update(VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
+                        CheckMismatchmods(mismatchMods, callback: delegate(VRage.Game.ModAPI.ResultEnum val)
                         {
-                            MySession.Static.LoadMultiplayerWorld(world, multiplayerSession);
-                            Debug.Assert(MySession.Static.Battle);
-                            if (BattleWorldLoaded != null)
-                                BattleWorldLoaded();
+                            MyGuiScreenGamePlay.StartLoading(delegate
+                            {
+                                if (MySession.Static == null)
+                                {
+                                    MySession.CreateWithEmptyWorld(multiplayerSession);
+                                    MySession.Static.Settings.Battle = true;
+                                }
+
+                                MySession.Static.LoadMultiplayerWorld(world, multiplayerSession);
+                                Debug.Assert(MySession.Static.Battle);
+                                if (BattleWorldLoaded != null)
+                                    BattleWorldLoaded();
+                            });
                         });
                     }
                     else
                     {
                         MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                            messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                            messageText: MyTexts.Get(MySpaceTexts.DialogTextDownloadModsFailed),
+                            messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                            messageText: MyTexts.Get(MyCommonTexts.DialogTextDownloadModsFailed),
                             buttonType: MyMessageBoxButtonsType.OK,
                             callback: delegate(MyGuiScreenMessageBox.ResultEnum result) { MyGuiScreenMainMenu.ReturnToMainMenu(); }));
                     }
@@ -492,6 +543,18 @@ namespace Sandbox.Game.Gui
                 });
         }
 
+        private static void CheckDx11AndLoad(MyObjectBuilder_Checkpoint checkpoint, string sessionPath, ulong checkpointSizeInBytes)
+        {
+            bool needsDx11 = checkpoint.RequiresDX >= 11;
+            if (!needsDx11 || MySandboxGame.IsDirectX11)
+            {
+                LoadSingleplayerSession(checkpoint, sessionPath, checkpointSizeInBytes);
+            }
+            else
+            {
+                MyJoinGameHelper.HandleDx11Needed();
+            }
+        }
 
         public static void LoadSingleplayerSession(string sessionPath)
         {
@@ -500,13 +563,16 @@ namespace Sandbox.Game.Gui
 
             ulong checkpointSizeInBytes;
             var checkpoint = MyLocalCache.LoadCheckpoint(sessionPath, out checkpointSizeInBytes);
-
+            CheckDx11AndLoad(checkpoint, sessionPath, checkpointSizeInBytes);
+        }
+        public static void LoadSingleplayerSession(MyObjectBuilder_Checkpoint checkpoint, string sessionPath, ulong checkpointSizeInBytes)
+        {
             if (!MySession.IsCompatibleVersion(checkpoint))
             {
-                MyLog.Default.WriteLine(MyTexts.Get(MySpaceTexts.DialogTextIncompatibleWorldVersion).ToString());
+                MyLog.Default.WriteLine(MyTexts.Get(MyCommonTexts.DialogTextIncompatibleWorldVersion).ToString());
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                    messageText: MyTexts.Get(MySpaceTexts.DialogTextIncompatibleWorldVersion),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                    messageText: MyTexts.Get(MyCommonTexts.DialogTextIncompatibleWorldVersion),
                     buttonType: MyMessageBoxButtonsType.OK));
                 MyLog.Default.WriteLine("LoadSession() - End");
                 return;
@@ -514,44 +580,68 @@ namespace Sandbox.Game.Gui
 
             if (!MySteamWorkshop.CheckLocalModsAllowed(checkpoint.Mods, checkpoint.Settings.OnlineMode == MyOnlineModeEnum.OFFLINE))
             {
-                MyLog.Default.WriteLine(MyTexts.Get(MySpaceTexts.DialogTextLocalModsDisabledInMultiplayer).ToString());
+                MyLog.Default.WriteLine(MyTexts.Get(MyCommonTexts.DialogTextLocalModsDisabledInMultiplayer).ToString());
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                    messageText: MyTexts.Get(MySpaceTexts.DialogTextLocalModsDisabledInMultiplayer),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                    messageText: MyTexts.Get(MyCommonTexts.DialogTextLocalModsDisabledInMultiplayer),
                     buttonType: MyMessageBoxButtonsType.OK));
                 MyLog.Default.WriteLine("LoadSession() - End");
                 return;
             }
 
 
-            MySteamWorkshop.DownloadModsAsync(checkpoint.Mods, delegate(bool success)
+            MySteamWorkshop.DownloadModsAsync(checkpoint.Mods, delegate(bool success,string mismatchMods)
             {
                 if (success || (checkpoint.Settings.OnlineMode == MyOnlineModeEnum.OFFLINE) && MySteamWorkshop.CanRunOffline(checkpoint.Mods))
                 {
-                    //Sandbox.Audio.MyAudio.Static.Mute = true;
-
+                    //Sandbox.Audio.MyAudio.Static.Mute = true;           
                     MyScreenManager.CloseAllScreensNowExcept(null);
-                    MyGuiSandbox.Update(MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
-
-                    // May be called from gameplay, so we must make sure we unload the current game
-                    if (MySession.Static != null)
-                    {
-                        MySession.Static.Unload();
-                        MySession.Static = null;
-                    }
-                    MyGuiScreenGamePlay.StartLoading(delegate { MySession.Load(sessionPath, checkpoint, checkpointSizeInBytes); });
+                    MyGuiSandbox.Update(VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS);
+                    CheckMismatchmods(mismatchMods, callback: delegate(VRage.Game.ModAPI.ResultEnum val)
+                        {
+                            if (val == VRage.Game.ModAPI.ResultEnum.OK)
+                            {
+                                // May be called from gameplay, so we must make sure we unload the current game
+                                if (MySession.Static != null)
+                                {
+                                    MySession.Static.Unload();
+                                    MySession.Static = null;
+                                }
+                                MyGuiScreenGamePlay.StartLoading(delegate
+                                {
+                                    MyAnalyticsHelper.SetEntry(MyGameEntryEnum.Load);
+                                    MySession.Load(sessionPath, checkpoint, checkpointSizeInBytes);
+                                });
+                            }
+                            else
+                            {
+                                MyGuiScreenMainMenu.ReturnToMainMenu();
+                            }
+                        });                      
                 }
                 else
                 {
-                    MyLog.Default.WriteLine(MyTexts.Get(MySpaceTexts.DialogTextDownloadModsFailed).ToString());
-                    MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-                        messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError),
-                        messageText: MyTexts.Get(MySpaceTexts.DialogTextDownloadModsFailed),
+                    MyLog.Default.WriteLine(MyTexts.Get(MyCommonTexts.DialogTextDownloadModsFailed).ToString());
+
+                    if (MySteam.IsOnline)
+                    {
+                        MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
+                        messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                        messageText: MyTexts.Get(MyCommonTexts.DialogTextDownloadModsFailed),
                         buttonType: MyMessageBoxButtonsType.OK, callback: delegate(MyGuiScreenMessageBox.ResultEnum result)
                         {
                             if (MyFakes.QUICK_LAUNCH != null)
                                 MyGuiScreenMainMenu.ReturnToMainMenu();
                         }));
+                    }
+                    else
+                    {
+                        MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
+                                                      messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError),
+                                                      messageText: MyTexts.Get(MyCommonTexts.DialogTextDownloadModsFailedSteamOffline),
+                                                      buttonType: MyMessageBoxButtonsType.OK));
+                    }
+                   
                 }
                 MyLog.Default.WriteLine("LoadSession() - End");
             });
@@ -605,13 +695,13 @@ namespace Sandbox.Game.Gui
         void FillList()
         {
             m_state = StateEnum.ListLoading;
-            MyGuiSandbox.AddScreen(new MyGuiScreenProgressAsync(MySpaceTexts.LoadingPleaseWait, null, beginAction, endAction));
+            MyGuiSandbox.AddScreen(new MyGuiScreenProgressAsync(MyCommonTexts.LoadingPleaseWait, null, beginAction, endAction));
         }
 
         private void AddHeaders()
         {
-            m_sessionsTable.SetColumnName(0, MyTexts.Get(MySpaceTexts.Name));
-            m_sessionsTable.SetColumnName(1, MyTexts.Get(MySpaceTexts.Loaded));
+            m_sessionsTable.SetColumnName(0, MyTexts.Get(MyCommonTexts.Name));
+            m_sessionsTable.SetColumnName(1, MyTexts.Get(MyCommonTexts.Loaded));
         }
 
         private void RefreshGameList()
@@ -647,9 +737,22 @@ namespace Sandbox.Game.Gui
             m_sessionsTable.ScrollToSelection();
         }
 
+        public void SelectSteamWorld(string sessionPath)
+        {
+            int i;
+            for (i = 0; i < m_availableSaves.Count; i++)
+                if (sessionPath.Equals(m_availableSaves[i].Item1))
+                    break;
+
+            Debug.Assert(i >= m_availableSaves.Count, "table row out of range!!!");
+
+            m_sessionsTable.SelectedRowIndex = i;
+            m_sessionsTable.ScrollToSelection();
+        }
+
         private IMyAsyncResult beginAction()
         {
-            return new MyLoadListResult();
+            return new MyLoadWorldInfoListResult();
         }
 
         private void endAction(IMyAsyncResult result, MyGuiScreenProgressAsync screen)
@@ -660,8 +763,8 @@ namespace Sandbox.Game.Gui
             if (loadListRes.ContainsCorruptedWorlds)
             {
                 var messageBox = MyGuiSandbox.CreateMessageBox(
-                    messageText: MyTexts.Get(MySpaceTexts.SomeWorldFilesCouldNotBeLoaded),
-                    messageCaption: MyTexts.Get(MySpaceTexts.MessageBoxCaptionError));
+                    messageText: MyTexts.Get(MyCommonTexts.SomeWorldFilesCouldNotBeLoaded),
+                    messageCaption: MyTexts.Get(MyCommonTexts.MessageBoxCaptionError));
                 MyGuiSandbox.AddScreen(messageBox);
             }
 
@@ -674,7 +777,7 @@ namespace Sandbox.Game.Gui
             {
                 m_continueLastSave.Enabled = false;
                 CloseScreenNow(); // close right away to avoid seeing the screen at all
-                MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(messageText: MyTexts.Get(MySpaceTexts.MessageBoxTextNoSavedWorlds)));
+                MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(messageText: MyTexts.Get(MyCommonTexts.MessageBoxTextNoSavedWorlds)));
             }
             screen.CloseScreen();
             m_state = StateEnum.ListLoaded;

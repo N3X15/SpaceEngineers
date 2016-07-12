@@ -7,24 +7,19 @@ using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
 using SteamSDK;
 using VRage.Utils;
+using Sandbox.Engine.Networking;
+using VRage.Network;
+using VRage;
 
 namespace Sandbox.Engine.Multiplayer
 {
     public class MyMultiplayerBattleData
     {
-        [ProtoBuf.ProtoContract]
-        [MessageId(13971, P2PMessageEnum.Reliable)]
-        public struct KeyValueDataMsg
-        {
-            [ProtoBuf.ProtoMember]
-            public MyStringHash Key;
-
-            [ProtoBuf.ProtoMember]
-            public string Value;
-        }
+        private readonly MyMultiplayerBase m_multiplayer;
 
         private readonly Dictionary<MyStringHash, string> m_mapKeyToValue = new Dictionary<MyStringHash, string>(MyStringHash.Comparer);
 
+        private static readonly MyStringHash BattleRemainingTimeTagHash = MyStringHash.GetOrCompute(MyMultiplayer.BattleRemainingTimeTag);
         private static readonly MyStringHash BattleCanBeJoinedTagHash = MyStringHash.GetOrCompute(MyMultiplayer.BattleCanBeJoinedTag);
         private static readonly MyStringHash BattleWorldWorkshopIdTagHash = MyStringHash.GetOrCompute(MyMultiplayer.BattleWorldWorkshopIdTag);
         private static readonly MyStringHash BattleFaction1MaxBlueprintPointsTagHash = MyStringHash.GetOrCompute(MyMultiplayer.BattleFaction1MaxBlueprintPointsTag);
@@ -39,6 +34,12 @@ namespace Sandbox.Engine.Multiplayer
         private static readonly MyStringHash BattleFaction1ReadyTagHash = MyStringHash.GetOrCompute(MyMultiplayer.BattleFaction1ReadyTag);
         private static readonly MyStringHash BattleFaction2ReadyTagHash = MyStringHash.GetOrCompute(MyMultiplayer.BattleFaction2ReadyTag);
         private static readonly MyStringHash BattleTimeLimitTagHash = MyStringHash.GetOrCompute(MyMultiplayer.BattleTimeLimitTag);
+
+        public float BattleRemainingTime
+        {
+            get { return GetFloatValue(BattleRemainingTimeTagHash, 0); }
+            set { KeyValueChangedRequest(BattleRemainingTimeTagHash, value.ToString(CultureInfo.InvariantCulture)); }
+        }
 
         public bool BattleCanBeJoined
         {
@@ -124,24 +125,27 @@ namespace Sandbox.Engine.Multiplayer
             set { KeyValueChangedRequest(BattleTimeLimitTagHash, value.ToString()); }
         }
 
-        public MyMultiplayerBattleData()
+        public MyMultiplayerBattleData(MyMultiplayerBase multiplayer)
         {
-            //RKTODO - commented out, use MyMultiplayerBase.RegisterControlMessage instead
-            //MySyncLayer.RegisterMessage<KeyValueDataMsg>(OnKeyValueChanged, MyMessagePermissions.Any, MyTransportMessageEnum.Request);
+            m_multiplayer = multiplayer;
+            if (Sync.IsServer == false)
+            {
+                multiplayer.SyncLayer.TransportLayer.Register(MyMessageId.WORLD_BATTLE_DATA, OnValueChanged);
+            }
         }
 
-        private static void KeyValueChangedRequest(MyStringHash key, string value)
+        private void KeyValueChangedRequest(MyStringHash key, string value)
         {
-            //var msg = new KeyValueDataMsg();
-            //msg.Key = key;
-            //msg.Value = value;
+            var msg = new KeyValueDataMsg();
+            msg.Key = key;
+            msg.Value = value;
 
-            //Sync.Layer.SendMessageToAllAndSelf(ref msg);
+            OnKeyValueChanged(ref msg);
         }
 
-        private void OnKeyValueChanged(ref KeyValueDataMsg msg, MyNetworkClient sender)
+        private void OnKeyValueChanged(ref KeyValueDataMsg msg)
         {
-            //m_mapKeyToValue[msg.Key] = msg.Value;
+            m_mapKeyToValue[msg.Key] = msg.Value;
         }
 
         private float GetFloatValue(MyStringHash key, float defValue)
@@ -224,6 +228,9 @@ namespace Sandbox.Engine.Multiplayer
 
         public void LoadData(List<KeyValueDataMsg> keyValueList)
         {
+            if (keyValueList == null)
+                return;
+
             foreach (var keyValue in keyValueList)
             {
                 m_mapKeyToValue[keyValue.Key] = keyValue.Value;
@@ -242,6 +249,11 @@ namespace Sandbox.Engine.Multiplayer
             }
 
             return keyValueList;
+        }
+
+        void OnValueChanged(MyPacket packet)
+        {
+
         }
 
     }

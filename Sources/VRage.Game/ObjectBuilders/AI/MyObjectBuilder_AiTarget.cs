@@ -3,18 +3,19 @@ using System.Collections.Generic;
 using VRage.ObjectBuilders;
 using VRageMath;
 
-namespace Sandbox.Common.ObjectBuilders.AI
+namespace VRage.Game
 {
     public enum MyAiTargetEnum
     {
         NO_TARGET,
         GRID,
         CUBE,
+        COMPOUND_BLOCK,
         CHARACTER,
         POSITION,
         ENTITY,
-		ENVIRONMENT_ITEM,
-		VOXEL,
+        ENVIRONMENT_ITEM,
+        VOXEL,
     }
 
     [ProtoContract]
@@ -36,6 +37,9 @@ namespace Sandbox.Common.ObjectBuilders.AI
 
         [ProtoMember]
         public long? EntityId = null;
+
+        [ProtoMember]
+        public ushort? CompoundId = null;
 
         [ProtoMember]
         public Vector3I TargetCube = Vector3I.Zero;

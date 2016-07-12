@@ -2,11 +2,12 @@
 
 namespace VRageRender
 {    
-    public class MyRenderMessagePreloadModel : IMyRenderMessage
+    public class MyRenderMessagePreloadModel : MyRenderMessageBase
     {
         public string Name;
+        public float Rescale = 1.0f;
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.PreloadModel; } }
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.PreloadModel; } }
     }
 }

@@ -14,6 +14,7 @@ namespace VRage.Audio
         Dictionary<MyCueId, MySoundData>.ValueCollection CueDefinitions { get; }
         List<MyStringId> GetCategories();
         MySoundData GetCue(MyCueId cue);
+        Dictionary<MyStringId, List<MyCueId>> GetAllMusicCues();
 
         //IMyCueBank CueBank { get; }
         MySoundData SoloCue
@@ -61,6 +62,12 @@ namespace VRage.Audio
             set;
         }
 
+        float VolumeVoiceChat
+        {
+            get;
+            set;
+        }
+
         void Pause();
         void Resume();
         void PauseGameSounds();
@@ -89,13 +96,30 @@ namespace VRage.Audio
             set;
         }
 
+        bool UseVolumeLimiter
+        {
+            get;
+            set;
+        }
+
+        bool UseSameSoundLimiter
+        {
+            get;
+            set;
+        }
+        void SetSameSoundLimiter();
+        void EnableMasterLimiter(bool enable);
+
         event Action<bool> VoiceChatEnabled;
 
-        void PlayMusic(MyMusicTrack? track = null);
+        void PlayMusic(MyMusicTrack? track = null, int priorityForRandom = 0);
+        IMySourceVoice PlayMusicCue(MyCueId musicCue, bool overrideMusicAllowed);
         void StopMusic();
         void MuteHud(bool mute);
         
         bool HasAnyTransition();
+
+        bool IsValidTransitionCategory(MyStringId transitionCategory, MyStringId musicCategory);
 
         void LoadData(MyAudioInitParams initParams, ListReader<MySoundData> cues, ListReader<MyAudioEffect> effects);
         void UnloadData();
@@ -120,7 +144,7 @@ namespace VRage.Audio
         int GetSoundInstancesTotal3D();
         
         void StopUpdatingAll3DCues();
-        bool SourceIsCloseEnoughToPlaySound(IMy3DSoundEmitter source, MyCueId cueId);
+        bool SourceIsCloseEnoughToPlaySound(Vector3 position, MyCueId cueId, float? customMaxDistance = 0);
         bool IsLoopable(MyCueId cueId);
 
         object CalculateDspSettingsDebug(IMy3DSoundEmitter source);

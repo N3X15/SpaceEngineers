@@ -15,9 +15,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using Sandbox.Game.GameSystems;
 using VRage;
+using VRage.Game;
 using VRage.Trace;
 using VRageMath;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.Gui
 {
@@ -34,6 +37,10 @@ namespace Sandbox.Game.Gui
             var convertBtn = (MyGuiControlButton)m_infoPage.Controls.GetControlByName("ConvertBtn");
             if (convertBtn != null)
                 convertBtn.ButtonClicked -= convertBtn_ButtonClicked;
+
+            var convertToStationBtn = (MyGuiControlButton)m_infoPage.Controls.GetControlByName("ConvertToStationBtn");
+            if (convertToStationBtn != null)
+                convertToStationBtn.ButtonClicked -= convertToStationBtn_ButtonClicked;
 
             m_grid.OnBlockAdded -= grid_OnBlockAdded;
             m_grid.OnBlockRemoved -= grid_OnBlockRemoved;
@@ -71,6 +78,10 @@ namespace Sandbox.Game.Gui
             {
                 convertBtn.ButtonClicked += convertBtn_ButtonClicked;
             }
+
+            var convertToStationBtn = (MyGuiControlButton)m_infoPage.Controls.GetControlByName("ConvertToStationBtn");
+            if (convertToStationBtn != null)
+                convertToStationBtn.ButtonClicked += convertToStationBtn_ButtonClicked;
         }
 
         private void RecreateControls()
@@ -131,25 +142,43 @@ namespace Sandbox.Game.Gui
             }
 
             var convertBtn = (MyGuiControlButton)m_infoPage.Controls.GetControlByName("ConvertBtn");
+            var convertToStationBtn = (MyGuiControlButton)m_infoPage.Controls.GetControlByName("ConvertToStationBtn");
             MyGuiControlList list = (MyGuiControlList)m_infoPage.Controls.GetControlByName("InfoList");
             list.Controls.Clear();
+            var setDestructibleBlocks = (MyGuiControlCheckbox)m_infoPage.Controls.GetControlByName("SetDestructibleBlocks");
+            setDestructibleBlocks.Visible = MySession.Static.Settings.ScenarioEditMode || MySession.Static.IsScenario;
+            setDestructibleBlocks.Enabled = MySession.Static.Settings.ScenarioEditMode;
 
             if (m_grid == null || m_grid.Physics == null)
             {
                 convertBtn.Enabled = false;
-                MyGuiControlLabel noShip = new MyGuiControlLabel(text: MyTexts.GetString(MySpaceTexts.ScreenTerminalError_ShipNotConnected), font: Common.MyFontEnum.Red);
+                convertToStationBtn.Enabled = false;
+                MyGuiControlLabel noShip = new MyGuiControlLabel(text: MyTexts.GetString(MySpaceTexts.ScreenTerminalError_ShipNotConnected), font: MyFontEnum.Red);
                 list.Controls.Add(noShip);
                 return;
             }
 
-            if (!m_grid.IsStatic || m_grid.MarkedForClose)
+            if (!m_grid.IsStatic)
+            {
                 convertBtn.Enabled = false;
+                convertToStationBtn.Enabled = true;
+            }
+            else
+            {
+                convertBtn.Enabled = true;
+                convertToStationBtn.Enabled = false;
+            }
 
-            var setDestructibleBlocks = (MyGuiControlCheckbox)m_infoPage.Controls.GetControlByName("SetDestructibleBlocks");
+            if (m_grid.GridSizeEnum == MyCubeSize.Small)
+                convertToStationBtn.Enabled = false;
+
+            if (!m_grid.BigOwners.Contains(MySession.Static.LocalPlayerId))
+            {
+                convertBtn.Enabled = false;
+                convertToStationBtn.Enabled = false;
+            }
+
             setDestructibleBlocks.IsChecked = m_grid.DestructibleBlocks;
-            setDestructibleBlocks.Visible = MySession.Static.Settings.ScenarioEditMode || MySession.Static.IsScenario;
-            setDestructibleBlocks.Enabled = MySession.Static.Settings.ScenarioEditMode;
-            setDestructibleBlocks.IsCheckedChanged = setDestructibleBlocksBtn_IsCheckedChanged;
 
             int gravityCounter = 0;
             if (m_grid.BlocksCounters.ContainsKey(typeof(MyObjectBuilder_GravityGenerator)))
@@ -183,27 +212,35 @@ namespace Sandbox.Game.Gui
                 }
             }
 
+	        int thrustCount = 0;
+	        var thrustComp = m_grid.Components.Get<MyEntityThrustComponent>();
+	        if (thrustComp != null)
+		        thrustCount = thrustComp.ThrustCount;
+	        MyGuiControlLabel thrustCountLabel = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Thrusters)).AppendInt32(thrustCount).ToString());
+
             MyGuiControlLabel polygonCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Triangles)).AppendInt32(polygonCounter).ToString());
             polygonCount.SetToolTip(MySpaceTexts.TerminalTab_Info_TrianglesTooltip);
             MyGuiControlLabel cubeCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Blocks)).AppendInt32(m_grid.GetBlocks().Count).ToString());
             cubeCount.SetToolTip(MySpaceTexts.TerminalTab_Info_BlocksTooltip);
             MyGuiControlLabel blockCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_NonArmor)).AppendInt32(m_grid.Hierarchy.Children.Count).ToString());
-            MyGuiControlLabel thrustCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Thrusters)).AppendInt32(m_grid.GridSystems.ThrustSystem.ThrustCount).ToString());
             MyGuiControlLabel lightCount = new MyGuiControlLabel(text: new StringBuilder().Clear().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Lights)).AppendInt32(lightCounter).ToString());
             MyGuiControlLabel reflectorCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Reflectors)).AppendInt32(m_grid.GridSystems.ReflectorLightSystem.ReflectorCount).ToString());
             //MyGuiControlLabel wheelCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Rotors)).AppendInt32(m_grid.WheelSystem.WheelCount));
             MyGuiControlLabel gravityCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_GravGens)).AppendInt32(gravityCounter).ToString());
             MyGuiControlLabel massCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_VirtualMass)).AppendInt32(massCounter).ToString());
             MyGuiControlLabel conveyorCount = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_Conveyors)).AppendInt32(conveyorCounter).ToString());
-            list.InitControls(new MyGuiControlBase[] { cubeCount, blockCount, conveyorCount, thrustCount, lightCount, reflectorCount, gravityCount, massCount, polygonCount });
-
-
+			var mainCockpit = m_grid.MainCockpit as MyShipController;
+			MyCharacter pilot = null;
+			if (mainCockpit != null)
+				pilot = mainCockpit.Pilot;
+			MyGuiControlLabel gridMass = new MyGuiControlLabel(text: new StringBuilder().AppendStringBuilder(MyTexts.Get(MySpaceTexts.TerminalTab_Info_GridMass)).AppendInt32(m_grid.GetCurrentMass(pilot)).ToString());
+			list.InitControls(new MyGuiControlBase[] { cubeCount, blockCount, conveyorCount, thrustCountLabel, lightCount, reflectorCount, gravityCount, massCount, polygonCount, gridMass });
         }
 
         //Rule: Count the player who has the most number of FUNCTIONAL blocks: only he can rename the ship
         private bool IsPlayerOwner(MyCubeGrid grid)
         {
-            return grid != null && grid.BigOwners.Contains(MySession.LocalPlayerId);            
+            return grid != null && grid.BigOwners.Contains(MySession.Static.LocalPlayerId);            
         }
 
         void showAntenaGizmos_IsCheckedChanged(MyGuiControlCheckbox obj)
@@ -226,20 +263,26 @@ namespace Sandbox.Game.Gui
         {
             MyCubeGrid.ShowGridPivot = obj.IsChecked;
         }
+
         void setDestructibleBlocksBtn_IsCheckedChanged(MyGuiControlCheckbox obj)
         {
-            m_grid.SyncObject.SetDestructibleBlocks(obj.IsChecked);
+            m_grid.DestructibleBlocks = obj.IsChecked;
         }
 
         void convertBtn_ButtonClicked(MyGuiControlButton obj)
         {
-            m_grid.SyncObject.RequestConversionToShip();
+            m_grid.RequestConversionToShip();
+        }
+
+        private void convertToStationBtn_ButtonClicked(MyGuiControlButton obj)
+        {
+            m_grid.RequestConversionToStation();
         }
 
         void renameBtn_ButtonClicked(MyGuiControlButton obj)
         {
             var textForm = (MyGuiControlTextbox)m_infoPage.Controls.GetControlByName("RenameShipText");
-            m_grid.SyncObject.ChangeDisplayNameRequest(m_grid, textForm.Text);
+            m_grid.ChangeDisplayNameRequest(textForm.Text);
             
         }
 

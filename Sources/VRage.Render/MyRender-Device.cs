@@ -143,7 +143,7 @@ namespace VRageRender
                         BackBufferWidth = displayMode.Width,
                         BackBufferHeight = displayMode.Height,
                         RefreshRate = displayMode.RefreshRate,
-                        VSync = false,
+                        VSync = true,
                         WindowMode = MyWindowModeEnum.Window, // initially create windowed, we change it to fullscreen afterwards
                     };
                     try
@@ -171,7 +171,7 @@ namespace VRageRender
                     BackBufferHeight = 480,
                     BackBufferWidth = 640,
                     WindowMode = MyWindowModeEnum.Window,
-                    VSync = false,
+                    VSync = true,
                 };
                 try
                 {
@@ -398,7 +398,8 @@ namespace VRageRender
 
             if (canReset)
             {
-                Reset();
+                if (!Reset())
+                    Recreate();
             }
             else
             {
@@ -417,9 +418,10 @@ namespace VRageRender
                 Device.Viewport = new SharpDX.Viewport(0, 0, Parameters.BackBufferWidth, Parameters.BackBufferHeight);
                 Device.Clear(ClearFlags.Target, new SharpDX.ColorBGRA(0, 0, 0, 1), 1.0f, 0);
             }
-            catch (SharpDXException e)
+            catch (SharpDXException)
             {
                 Debug.Fail("Device reset failed, probably unreleased resources");
+                return false;
             }
             return true;
         }

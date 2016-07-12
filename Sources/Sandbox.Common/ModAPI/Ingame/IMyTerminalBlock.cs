@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using VRage.Collections;
-
+using VRage.Game.Entity;
+using VRage.Game.ModAPI.Ingame;
+using IMyInventoryOwner = VRage.Game.ModAPI.Ingame.IMyInventoryOwner;
 namespace Sandbox.ModAPI.Ingame
 {
     public interface IMyTerminalBlock : IMyCubeBlock
@@ -14,7 +16,6 @@ namespace Sandbox.ModAPI.Ingame
         string CustomInfo { get; }
         bool HasLocalPlayerAccess();
         bool HasPlayerAccess(long playerId);
-        void RequestShowOnHUD(bool enable);
         void SetCustomName(string text);
         void SetCustomName(StringBuilder text);
         bool ShowOnHUD { get; }
@@ -30,61 +31,75 @@ namespace Sandbox.ModAPI.Ingame
     */
     public static class TerminalBlockExtentions
     {
+        public static long GetId(this IMyTerminalBlock block)
+        {
+            return block.EntityId;
+        }
+
         public static void ApplyAction(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block, string actionName)
         {
             block.GetActionWithName(actionName).Apply(block);
         }
+
         public static void ApplyAction(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block, string actionName, List<TerminalActionParameter> parameters)
         {
             block.GetActionWithName(actionName).Apply(block, parameters);
         }
         
-        public static bool HasAction(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block, string Action)
+        public static bool HasAction(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block, string actionName)
         {
-            return !(block.GetActionWithName(Action) == null);
+            return block.GetActionWithName(actionName) != null;
         }
+
         public static bool HasInventory(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block)
         {
-            return block is Sandbox.ModAPI.Interfaces.IMyInventoryOwner;
+            var entity = block as MyEntity;
+            if (entity == null)
+                return false;
+
+            return entity.HasInventory;
         }
-        public static Sandbox.ModAPI.Interfaces.IMyInventory GetInventory(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block, int index)
+
+        public static VRage.Game.ModAPI.Ingame.IMyInventory GetInventory(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block, int index)
         {
-            if (block.HasInventory())
-            {
-                return ((Sandbox.ModAPI.Interfaces.IMyInventoryOwner)block).GetInventory(index);
-            }
-            else
-            {
+            var entity = block as MyEntity;
+            if (entity == null)
                 return null;
-            }
+
+            if (!entity.HasInventory)
+                return null;
+
+            return entity.GetInventoryBase(index) as IMyInventory;
         }
+
         public static int GetInventoryCount(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block)
         {
-            if (block.HasInventory())
-            {
-                return ((Sandbox.ModAPI.Interfaces.IMyInventoryOwner)block).InventoryCount;
-            }
-            else
-            {
+            var entity = block as MyEntity;
+            if (entity == null)
                 return 0;
-            }
+
+            return entity.InventoryCount;
         }
+
+        [Obsolete("Use the blocks themselves, this method is no longer reliable")]
         public static bool GetUseConveyorSystem(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block)
         {
-            if (block.HasInventory())
+            if (block is IMyInventoryOwner)
             {
-                return ((Sandbox.ModAPI.Interfaces.IMyInventoryOwner)block).UseConveyorSystem;
+                return ((IMyInventoryOwner)block).UseConveyorSystem;
             }
             else
             {
                 return false;
             }
         }
+
+        [Obsolete("Use the blocks themselves, this method is no longer reliable")]
         public static void SetUseConveyorSystem(this Sandbox.ModAPI.Ingame.IMyTerminalBlock block, bool use)
         {
-            if (block.HasInventory())
+            if (block is IMyInventoryOwner)
             {
-                ((Sandbox.ModAPI.Interfaces.IMyInventoryOwner)block).UseConveyorSystem = use;
+                ((IMyInventoryOwner)block).UseConveyorSystem = use;
             }
         }
     }

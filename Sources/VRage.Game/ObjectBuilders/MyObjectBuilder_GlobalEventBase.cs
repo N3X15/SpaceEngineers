@@ -1,15 +1,16 @@
 ﻿using ProtoBuf;
-using Sandbox.Common.ObjectBuilders.Definitions;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_GlobalEventBase : MyObjectBuilder_Base
     {
+        // Obsolete!
         [ProtoMember]
-        public SerializableDefinitionId DefinitionId;
+        public SerializableDefinitionId? DefinitionId = null;
+        public bool ShouldSerializeDefinitionId() { return false; }
 
         //[ProtoMember]
         //public bool WriteToLog;

@@ -5,7 +5,8 @@ using System.Text;
 using System.Xml.Serialization;
 using ProtoBuf;
 using Sandbox.Common.ObjectBuilders.Definitions;
-
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRageMath;
 using VRage.Utils;
 
@@ -18,13 +19,16 @@ namespace Sandbox.Definitions
         {
             public MyDefinitionId Id;
 
-            public Vector3I Position;
+            public Vector3I Min;
+            public Vector3I Max;
             public Base6Directions.Direction Forward;
             public Base6Directions.Direction Up;
         }
 
         public MyMultiBlockPartDefinition[] BlockDefinitions;
 
+        public Vector3I Min;
+        public Vector3I Max;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -42,26 +46,11 @@ namespace Sandbox.Definitions
 
                     var obBlockDef = ob.BlockDefinitions[i];
                     BlockDefinitions[i].Id = obBlockDef.Id;
-                    BlockDefinitions[i].Position = obBlockDef.Position;
+                    BlockDefinitions[i].Min = obBlockDef.Position;
                     BlockDefinitions[i].Forward = obBlockDef.Orientation.Forward;
                     BlockDefinitions[i].Up = obBlockDef.Orientation.Up;
                 }
             }
         }
-
-        /// <summary>
-        /// Returns main block definition. Main block is block within multiblock which is used for positioning of whole multiblock (grid).
-        /// </summary>
-        public MyMultiBlockPartDefinition GetMainBlockDefinition()
-        {
-            foreach (var definition in BlockDefinitions)
-            {
-                if (definition.Position == Vector3I.Zero)
-                    return definition;
-            }
-
-            return null;
-        }
-
     }
 }

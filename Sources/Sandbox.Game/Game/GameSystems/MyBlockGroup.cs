@@ -6,13 +6,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using VRage.Game;
 
 namespace Sandbox.Game.GameSystems
 {
     public partial class MyBlockGroup
     {
-
-        internal StringBuilder Name = new StringBuilder();
+        public StringBuilder Name = new StringBuilder();
         internal List<MyTerminalBlock> Blocks = new List<MyTerminalBlock>();
         private MyCubeGrid m_grid;
 

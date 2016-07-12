@@ -1,17 +1,12 @@
 ﻿using ProtoBuf;
-using Sandbox.Common.ObjectBuilders.Conveyors;
-using Sandbox.Common.ObjectBuilders.VRageData;
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
 using System.Xml.Serialization;
 using VRageMath;
 using VRage.ObjectBuilders;
-using VRage;
+using VRage.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {    
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -54,6 +49,7 @@ namespace Sandbox.Common.ObjectBuilders
 
         [ProtoMember, DefaultValue(null)]
         [XmlArrayItem("Section")]
+        [Serialize(MyObjectFlags.Nullable)]
         public List<SerializableLineSectionInformation> Sections = null;
         public bool ShouldSerializeSections() { return Sections != null; }
 

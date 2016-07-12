@@ -7,12 +7,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using VRage;
+using VRage.Game;
+using VRage.Game.Entity;
 using VRageMath;
 
 namespace Sandbox.Game.GameSystems.Conveyors
 {
     [MyEntityType(typeof(MyObjectBuilder_ConveyorPacket))]
-    class MyConveyorPacket : MyEntity
+    public class MyConveyorPacket : MyEntity
     {
         public MyPhysicalInventoryItem Item;
         public int LinePosition;

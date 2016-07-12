@@ -12,10 +12,12 @@ using Sandbox.Definitions;
 using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Common;
 using System;
-using Sandbox.Common.Components;
+
 using VRage.ModAPI;
-using VRage.Components;
+using VRage.Game.Components;
 using VRage;
+using VRage.Game.Entity;
+using VRage.Game;
 
 
 namespace Sandbox.Game.Weapons
@@ -53,6 +55,12 @@ namespace Sandbox.Game.Weapons
         /// </summary>
         public int? TimeToActivate { get; set; }
 
+        public new MyPhysicsBody Physics
+        {
+            get { return base.Physics as MyPhysicsBody; }
+            set { base.Physics = value; }
+        }
+
         [Flags]
         public enum MyAmmoBaseFlags
         {
@@ -81,20 +89,20 @@ namespace Sandbox.Game.Weapons
             {
                 this.InitSpherePhysics(MyMaterialType.AMMO, Model, 100,
                                   MyPerGameSettings.DefaultLinearDamping,
-                                  MyPerGameSettings.DefaultAngularDamping, MyPhysics.AmmoLayer,
+                                  MyPerGameSettings.DefaultAngularDamping, MyPhysics.CollisionLayers.AmmoLayer,
                                   bulletType ? RigidBodyFlag.RBF_BULLET : RigidBodyFlag.RBF_DEFAULT);
             }
             if (capsulePhysics)
             {
                 this.InitCapsulePhysics(MyMaterialType.AMMO, new Vector3(0, 0, -Model.BoundingBox.HalfExtents.Z * 0.8f),
-                    new Vector3(0, 0, Model.BoundingBox.HalfExtents.Z * 0.8f), 0.1f, 10, 0, 0, MyPhysics.AmmoLayer,
+                    new Vector3(0, 0, Model.BoundingBox.HalfExtents.Z * 0.8f), 0.1f, 10, 0, 0, MyPhysics.CollisionLayers.AmmoLayer,
                     bulletType ? RigidBodyFlag.RBF_BULLET : RigidBodyFlag.RBF_DEFAULT);
                 m_ammoOffsetSize = Model.BoundingBox.HalfExtents.Z * 0.8f + 0.1f;
             }
             else
             {
                 this.InitBoxPhysics(MyMaterialType.AMMO, Model, 1,
-                               MyPerGameSettings.DefaultAngularDamping, MyPhysics.AmmoLayer,
+                               MyPerGameSettings.DefaultAngularDamping, MyPhysics.CollisionLayers.AmmoLayer,
                                bulletType ? RigidBodyFlag.RBF_BULLET : RigidBodyFlag.RBF_DEFAULT);
             }  
 
@@ -156,7 +164,7 @@ namespace Sandbox.Game.Weapons
         {
             base.UpdateBeforeSimulation();
 
-            m_elapsedMiliseconds += MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS;
+            m_elapsedMiliseconds += VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS;
             m_previousPosition = this.PositionComp.WorldMatrix.Translation;
         }
 
@@ -192,14 +200,6 @@ namespace Sandbox.Game.Weapons
         protected override void Closing()
         {
             TimeToActivate = null;
-        }
-
-        protected IMyEntity GetOtherEntity(ref MyPhysics.MyContactPointEvent value)
-        {
-            if (value.ContactPointEvent.Base.BodyA.GetEntity() == this)
-                return value.ContactPointEvent.Base.BodyB.GetEntity();
-            else
-                return value.ContactPointEvent.Base.BodyA.GetEntity();
         }
 
         void listener_ContactPointCallback(ref MyPhysics.MyContactPointEvent value)

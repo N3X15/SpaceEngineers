@@ -1,11 +1,8 @@
 ﻿using ProtoBuf;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using VRage.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     public struct MyObjectBuilder_FactionMember
@@ -27,15 +24,19 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public long FactionId;
 
         [ProtoMember]
+        [Serialize(MyObjectFlags.Nullable)] 
         public string Tag;
 
         [ProtoMember]
+        [Serialize(MyObjectFlags.Nullable)] 
         public string Name;
 
         [ProtoMember]
+        [Serialize(MyObjectFlags.Nullable)] 
         public string Description;
 
         [ProtoMember]
+        [Serialize(MyObjectFlags.Nullable)] 
         public string PrivateInfo;
 
         [ProtoMember]
@@ -49,5 +50,11 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public bool AutoAcceptPeace;
+
+        [ProtoMember]
+        public bool AcceptHumans = true;
+
+        [ProtoMember]
+        public bool EnableFriendlyFire = true;
     }
 }

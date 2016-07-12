@@ -1,42 +1,52 @@
 ﻿#region Using
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Text;
 
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Graphics.GUI;
+using Sandbox.Definitions;
+using Sandbox.Game.EntityComponents;
 using Sandbox.Game.GameSystems.Electricity;
-using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Gui;
 using VRageMath;
-using Sandbox.Engine.Utils;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
-
-using Sandbox.Game.Components;
-using Sandbox.ModAPI.Ingame;
+using Sandbox.ModAPI;
 using Sandbox.Game.Localization;
 using VRage;
+using VRage.Game;
+using VRage.Game.Components;
 using VRage.Utils;
 using VRage.ModAPI;
+using VRage.Game.Gui;
 
 #endregion
 
 namespace Sandbox.Game.Entities.Cube
 {
     [MyCubeBlockType(typeof(MyObjectBuilder_RadioAntenna))]
-    class MyRadioAntenna : MyFunctionalBlock, IMyPowerConsumer, IMyComponentOwner<MyDataBroadcaster>, IMyComponentOwner<MyDataReceiver>, IMyGizmoDrawableObject, IMyRadioAntenna
+    public class MyRadioAntenna : MyFunctionalBlock, IMyGizmoDrawableObject, IMyRadioAntenna
     {
-        protected Color m_gizmoColor = new Vector4(0.1f, 0.1f, 0.0f, 0.1f);
+        protected Color m_gizmoColor;
         protected const float m_maxGizmoDrawDistance = 10000.0f;
 
-        MyRadioBroadcaster m_radioBroadcaster;
-        MyRadioReceiver m_radioReceiver;
+        MyRadioBroadcaster RadioBroadcaster
+        {
+            get { return (MyRadioBroadcaster)Components.Get<MyDataBroadcaster>(); }
+            set { Components.Add<MyDataBroadcaster>(value); }
+        }
+        MyRadioReceiver RadioReceiver
+        {
+            get { return (MyRadioReceiver)Components.Get<MyDataReceiver>(); }
+            set { Components.Add<MyDataReceiver>(value); }
+        }
 
-        private bool m_showShipName;
+        readonly Sync<float> m_radius;
+        private bool onceUpdated = false;
+        readonly Sync<bool> m_enableBroadcasting;
+
+        private Sync<bool> m_showShipName;
         public bool ShowShipName
         {
             get
@@ -45,11 +55,7 @@ namespace Sandbox.Game.Entities.Cube
             }
             set
             {
-                if (m_showShipName != value)
-                {
-                    m_showShipName = value;
-                    RaisePropertiesChanged();
-                }
+                m_showShipName.Value = value;
             }
         }
 
@@ -80,7 +86,7 @@ namespace Sandbox.Game.Entities.Cube
 
         public float GetRadius()
         {
-            return m_radioBroadcaster.BroadcastRadius;
+            return RadioBroadcaster.BroadcastRadius;
         }
 
         public MatrixD GetWorldMatrix()
@@ -95,7 +101,7 @@ namespace Sandbox.Game.Entities.Cube
 
         public static bool IsRecievedByPlayer(MyCubeBlock cubeBlock)
         {
-            var player = MySession.LocalCharacter;
+            var player = MySession.Static.LocalCharacter;
             if (player == null)
             {
                 return false;
@@ -104,10 +110,10 @@ namespace Sandbox.Game.Entities.Cube
             var playerReciever = player.RadioReceiver;
             foreach (var broadcaster in playerReciever.RelayedBroadcasters)
             {
-                if (broadcaster.Parent is MyRadioAntenna)
+                if (broadcaster.Entity is MyRadioAntenna)
                 {
-                    MyRadioAntenna antenna = broadcaster.Parent as MyRadioAntenna;
-                    var ownerCubeGrid = (broadcaster.Parent as MyCubeBlock).CubeGrid;
+                    MyRadioAntenna antenna = broadcaster.Entity as MyRadioAntenna;
+                    var ownerCubeGrid = (broadcaster.Entity as MyCubeBlock).CubeGrid;
                     if(antenna.HasLocalPlayerAccess() && MyCubeGridGroups.Static.Physical.HasSameGroup(ownerCubeGrid, cubeBlock.CubeGrid))
                     {
                         return true;
@@ -118,23 +124,34 @@ namespace Sandbox.Game.Entities.Cube
             return false;
         }
 
-        static MyRadioAntenna()
+        public MyRadioAntenna()
         {
+            CreateTerminalControls();
+
+            m_radius.ValueChanged += (obj) => ChangeRadius();
+            m_enableBroadcasting.ValueChanged += (obj) => ChangeEnableBroadcast();
+        }
+
+        static void CreateTerminalControls()
+        {
+            if (MyTerminalControlFactory.AreControlsCreated<MyRadioAntenna>())
+                return;
+
             MyTerminalControlFactory.RemoveBaseClass<MyRadioAntenna, MyTerminalBlock>();
 
             var show = new MyTerminalControlOnOffSwitch<MyRadioAntenna>("ShowInTerminal", MySpaceTexts.Terminal_ShowInTerminal, MySpaceTexts.Terminal_ShowInTerminalToolTip);
             show.Getter = (x) => x.ShowInTerminal;
-            show.Setter = (x, v) => x.RequestShowInTerminal(v);
+            show.Setter = (x, v) => x.ShowInTerminal = v;
             MyTerminalControlFactory.AddControl(show);
 
             var showConfig = new MyTerminalControlOnOffSwitch<MyRadioAntenna>("ShowInToolbarConfig", MySpaceTexts.Terminal_ShowInToolbarConfig, MySpaceTexts.Terminal_ShowInToolbarConfigToolTip);
             showConfig.Getter = (x) => x.ShowInToolbarConfig;
-            showConfig.Setter = (x, v) => x.RequestShowInToolbarConfig(v);
+            showConfig.Setter = (x, v) => x.ShowInToolbarConfig = v;
             MyTerminalControlFactory.AddControl(showConfig);
 
-            var customName = new MyTerminalControlTextbox<MyRadioAntenna>("CustomName", MySpaceTexts.Name, MySpaceTexts.Blank);
+            var customName = new MyTerminalControlTextbox<MyRadioAntenna>("CustomName", MyCommonTexts.Name, MySpaceTexts.Blank);
             customName.Getter = (x) => x.CustomName;
-            customName.Setter = (x, v) => MySyncBlockHelpers.SendChangeNameRequest(x, v);
+            customName.Setter = (x, v) => x.SetCustomName(v);
             customName.SupportsMultipleBlocks = false;
             MyTerminalControlFactory.AddControl(customName);
             MyTerminalControlFactory.AddControl(new MyTerminalControlSeparator<MyRadioAntenna>());
@@ -143,7 +160,7 @@ namespace Sandbox.Game.Entities.Cube
             broadcastRadius.SetLogLimits((block) => 1, (block) => block.CubeGrid.GridSizeEnum == MyCubeSize.Large ? MyEnergyConstants.MAX_RADIO_POWER_RANGE : MyEnergyConstants.MAX_SMALL_RADIO_POWER_RANGE);
             broadcastRadius.DefaultValueGetter = (block) => block.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 10000 : 500;
             broadcastRadius.Getter = (x) => x.RadioBroadcaster.BroadcastRadius;
-            broadcastRadius.Setter = (x, v) => x.RadioBroadcaster.SyncObject.SendChangeRadioAntennaRequest(v, x.RadioBroadcaster.Enabled);
+            broadcastRadius.Setter = (x, v) => x.m_radius.Value = v;
             //broadcastRadius.Writer = (x, result) => result.Append(x.RadioBroadcaster.BroadcastRadius < MyEnergyConstants.MAX_RADIO_POWER_RANGE ? new StringBuilder().AppendDecimal(x.RadioBroadcaster.BroadcastRadius, 0).Append(" m") : MyTexts.Get(MySpaceTexts.ScreenTerminal_Infinite));
             broadcastRadius.Writer = (x, result) =>
             {
@@ -154,80 +171,139 @@ namespace Sandbox.Game.Entities.Cube
 
             var enableBroadcast = new MyTerminalControlCheckbox<MyRadioAntenna>("EnableBroadCast", MySpaceTexts.Antenna_EnableBroadcast, MySpaceTexts.Antenna_EnableBroadcast);
             enableBroadcast.Getter = (x) => x.RadioBroadcaster.Enabled;
-            enableBroadcast.Setter = (x, v) => x.RadioBroadcaster.SyncObject.SendChangeRadioAntennaRequest(x.RadioBroadcaster.BroadcastRadius, v);
+            enableBroadcast.Setter = (x, v) => x.m_enableBroadcasting.Value = v;
             enableBroadcast.EnableAction();
             MyTerminalControlFactory.AddControl(enableBroadcast);
 
             var showShipName = new MyTerminalControlCheckbox<MyRadioAntenna>("ShowShipName", MySpaceTexts.BlockPropertyTitle_ShowShipName, MySpaceTexts.BlockPropertyDescription_ShowShipName);
             showShipName.Getter = (x) => x.ShowShipName;
-            showShipName.Setter = (x, v) => x.RadioBroadcaster.SyncObject.SendChangeRadioAntennaDisplayName(v);
+            showShipName.Setter = (x, v) => x.ShowShipName = v;
             showShipName.EnableAction();
             MyTerminalControlFactory.AddControl(showShipName);
 
         }
 
-        public MyRadioAntenna()
+        void ChangeRadius()
         {
-            //((this as MyEntity).Position = 
+            RadioBroadcaster.BroadcastRadius = m_radius;
+        }
+
+        void ChangeEnableBroadcast()
+        {
+            RadioBroadcaster.Enabled = m_enableBroadcasting;
+            RaisePropertiesChanged();
         }
 
         public override void Init(MyObjectBuilder_CubeBlock objectBuilder, MyCubeGrid cubeGrid)
         {
+            RadioBroadcaster = new MyRadioBroadcaster();
+            RadioReceiver = new MyRadioReceiver();
+
+            var antennaDefinition = BlockDefinition as MyRadioAntennaDefinition;
+            Debug.Assert(antennaDefinition != null);
+
+            var sinkComp = new MyResourceSinkComponent();
+            sinkComp.Init(
+                antennaDefinition.ResourceSinkGroup,
+                MyEnergyConstants.MAX_REQUIRED_POWER_ANTENNA,
+                UpdatePowerInput);
+            sinkComp.IsPoweredChanged += Receiver_IsPoweredChanged;
+            ResourceSink = sinkComp;
+
             base.Init(objectBuilder, cubeGrid);
 
-            m_radioBroadcaster = new MyRadioBroadcaster(this);
             MyObjectBuilder_RadioAntenna antennaBuilder = (MyObjectBuilder_RadioAntenna)objectBuilder;
 
             if (antennaBuilder.BroadcastRadius != 0)
             {
-                m_radioBroadcaster.BroadcastRadius = antennaBuilder.BroadcastRadius;
+                RadioBroadcaster.BroadcastRadius = antennaBuilder.BroadcastRadius;
             }
             else
             {
-                m_radioBroadcaster.BroadcastRadius = CubeGrid.GridSizeEnum == MyCubeSize.Large ? 10000 : 500;
+                RadioBroadcaster.BroadcastRadius = CubeGrid.GridSizeEnum == MyCubeSize.Large ? 10000 : 500;
             }
+            ResourceSink.Update();
             RadioBroadcaster.WantsToBeEnabled = antennaBuilder.EnableBroadcasting;
 
-            m_showShipName = antennaBuilder.ShowShipName;
-            m_radioReceiver = new MyRadioReceiver(this);
+            m_showShipName.Value = antennaBuilder.ShowShipName;
 
-            m_radioBroadcaster.OnBroadcastRadiusChanged += OnBroadcastRadiusChanged;
-
-            PowerReceiver = new MyPowerReceiver(
-                MyConsumerGroupEnum.Utility,
-                false,
-                MyEnergyConstants.MAX_REQUIRED_POWER_ANTENNA,
-                UpdatePowerInput);
-            PowerReceiver.IsPoweredChanged += Receiver_IsPoweredChanged;
-            PowerReceiver.Update();
-
-            SlimBlock.ComponentStack.IsFunctionalChanged += ComponentStack_IsFunctionalChanged;
+            //if (Sync.IsServer)
+            //{
+            //    this.IsWorkingChanged += UpdatePirateAntenna;
+            //    this.CustomNameChanged += UpdatePirateAntenna;
+            //    this.OwnershipChanged += UpdatePirateAntenna;
+            //    UpdatePirateAntenna(this);
+            //}
 
             ShowOnHUD = false;
 
-            NeedsUpdate = MyEntityUpdateEnum.EACH_10TH_FRAME;
+            m_gizmoColor = MySandboxGame.IsDirectX11 ? new Vector4(0.2f, 0.2f, 0.0f, 0.5f) : new Vector4(0.1f, 0.1f, 0.0f, 0.1f);
+
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_10TH_FRAME | MyEntityUpdateEnum.BEFORE_NEXT_FRAME;
+        }
+
+        public override void OnAddedToScene(object source)
+        {
+            base.OnAddedToScene(source);
+
+            m_enableBroadcasting.Value = RadioBroadcaster.WantsToBeEnabled;
+            RadioBroadcaster.OnBroadcastRadiusChanged += OnBroadcastRadiusChanged;
+
+            SlimBlock.ComponentStack.IsFunctionalChanged += ComponentStack_IsFunctionalChanged;
+        }
+
+        public override void OnRemovedFromScene(object source)
+        {
+            base.OnRemovedFromScene(source);
+
+            RadioBroadcaster.OnBroadcastRadiusChanged -= OnBroadcastRadiusChanged;
+
+            SlimBlock.ComponentStack.IsFunctionalChanged -= ComponentStack_IsFunctionalChanged;
+        }
+
+        public override void UpdateOnceBeforeFrame()
+        {
+            base.UpdateOnceBeforeFrame();
+            onceUpdated = true;
+            if (Sync.IsServer)
+            {
+                this.IsWorkingChanged += UpdatePirateAntenna;
+                this.CustomNameChanged += UpdatePirateAntenna;
+                this.OwnershipChanged += UpdatePirateAntenna;
+                UpdatePirateAntenna(this);
+            }
+        }
+
+        protected override void Closing()
+        {
+            if (Sync.IsServer)
+            {
+                UpdatePirateAntenna(remove: true);
+            }
+
+            base.Closing();
         }
 
         public override MyObjectBuilder_CubeBlock GetObjectBuilderCubeBlock(bool copy = false)
         {
             MyObjectBuilder_RadioAntenna objectBuilder = (MyObjectBuilder_RadioAntenna)base.GetObjectBuilderCubeBlock(copy);
-            objectBuilder.BroadcastRadius = m_radioBroadcaster.BroadcastRadius;
+            objectBuilder.BroadcastRadius = RadioBroadcaster.BroadcastRadius;
             objectBuilder.ShowShipName = this.ShowShipName;
-            objectBuilder.EnableBroadcasting = m_radioBroadcaster.WantsToBeEnabled;
+            objectBuilder.EnableBroadcasting = RadioBroadcaster.Enabled;
             return objectBuilder;
         }
 
         public override void UpdateAfterSimulation10()
         {
             base.UpdateAfterSimulation10();
-            m_radioReceiver.UpdateBroadcastersInRange();
+            RadioReceiver.UpdateBroadcastersInRange();
         }
 
         protected override void WorldPositionChanged(object source)
         {
             base.WorldPositionChanged(source);
-            if (m_radioBroadcaster != null)
-                m_radioBroadcaster.MoveBroadcaster();
+            if (RadioBroadcaster != null)
+                RadioBroadcaster.MoveBroadcaster();
         }
 
         public override List<MyHudEntityParams> GetHudParams(bool allowBlink)
@@ -279,100 +355,93 @@ namespace Sandbox.Game.Entities.Cube
             return m_hudParams;
         }
 
-        public MyPowerReceiver PowerReceiver
+        #region Pirates
+
+        void UpdatePirateAntenna(MyCubeBlock obj)
         {
-            get;
-            private set;
+            UpdatePirateAntenna();
         }
+
+        public void UpdatePirateAntenna(bool remove = false)
+        {
+            bool isActive = IsWorking && Sync.Players.GetNPCIdentities().Contains(OwnerId);
+            MyPirateAntennas.UpdatePirateAntenna(this.EntityId, remove, isActive, this.CustomName);
+        }
+
+        #endregion
 
         protected override void OnEnabledChanged()
         {
-            PowerReceiver.Update();
-            m_radioReceiver.UpdateBroadcastersInRange();
+			ResourceSink.Update();
+            if (onceUpdated)
+                RadioReceiver.UpdateBroadcastersInRange();
             base.OnEnabledChanged();
         }
 
         protected override bool CheckIsWorking()
         {
-            return PowerReceiver.IsPowered && base.CheckIsWorking();
+			return ResourceSink.IsPowered && base.CheckIsWorking();
         }
 
         void Receiver_IsPoweredChanged()
         {
             UpdateIsWorking();
-            if (IsWorking)
-                m_radioBroadcaster.Enabled = m_radioBroadcaster.WantsToBeEnabled;
-            else
-                m_radioBroadcaster.Enabled = false;
 
-            m_radioReceiver.Enabled = IsWorking;
+            if (RadioBroadcaster != null)
+            {
+                if (IsWorking)
+                    RadioBroadcaster.Enabled = m_enableBroadcasting;
+                else
+                    RadioBroadcaster.Enabled = false;
+            }
+
+            if(RadioReceiver != null)
+                RadioReceiver.Enabled = IsWorking;
             UpdateText();
         }
 
         void ComponentStack_IsFunctionalChanged()
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
             UpdateText();
-        }
-
-        public MyRadioBroadcaster RadioBroadcaster
-        {
-            get { return m_radioBroadcaster; }
-        }
-
-        public MyRadioReceiver RadioReceiver
-        {
-            get { return m_radioReceiver; }
-        }
-
-        bool IMyComponentOwner<MyDataBroadcaster>.GetComponent(out MyDataBroadcaster component)
-        {
-            component = m_radioBroadcaster;
-            return m_radioBroadcaster != null;
         }
 
         void OnBroadcastRadiusChanged()
         {
-            PowerReceiver.Update();
+			ResourceSink.Update();
             RaisePropertiesChanged();
             UpdateText();
         }
 
         float UpdatePowerInput()
         {
-            float powerPer500m = m_radioBroadcaster.BroadcastRadius / 500f;
+            float powerPer500m = RadioBroadcaster.BroadcastRadius / 500f;
             UpdateText();
             return (Enabled && IsFunctional) ? powerPer500m * MyEnergyConstants.MAX_REQUIRED_POWER_ANTENNA : 0.0f;
-        }
-
-        bool IMyComponentOwner<MyDataReceiver>.GetComponent(out MyDataReceiver component)
-        {
-            component = m_radioReceiver;
-            return m_radioReceiver != null;
         }
 
         private void UpdateText()
         {
             DetailedInfo.Clear();
-            DetailedInfo.AppendStringBuilder(MyTexts.Get(MySpaceTexts.BlockPropertiesText_Type));
+            DetailedInfo.AppendStringBuilder(MyTexts.Get(MyCommonTexts.BlockPropertiesText_Type));
             DetailedInfo.Append(BlockDefinition.DisplayNameText);
             DetailedInfo.Append("\n");
             DetailedInfo.AppendStringBuilder(MyTexts.Get(MySpaceTexts.BlockPropertyProperties_CurrentInput));
-            MyValueFormatter.AppendWorkInBestUnit(PowerReceiver.IsPowered ? PowerReceiver.RequiredInput : 0, DetailedInfo);
+			MyValueFormatter.AppendWorkInBestUnit(ResourceSink.IsPowered ? ResourceSink.RequiredInput : 0, DetailedInfo);
             RaisePropertiesChanged();
         }
 
-        float IMyRadioAntenna.Radius
+        float ModAPI.Ingame.IMyRadioAntenna.Radius
         {
             get { return GetRadius(); }
         }
 
 		bool IsBroadcasting()
 		{
-			return (m_radioBroadcaster != null) ? m_radioBroadcaster.WantsToBeEnabled : false;
+			return (RadioBroadcaster != null) ? RadioBroadcaster.WantsToBeEnabled : false;
 		}
 
-		bool IMyRadioAntenna.IsBroadcasting
+        bool ModAPI.Ingame.IMyRadioAntenna.IsBroadcasting
 		{
 			get {  return IsBroadcasting(); }
 		}

@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Xml.Serialization;
+﻿using System.Xml.Serialization;
 using ProtoBuf;
 using VRageMath;
 
-namespace Sandbox.Common.ObjectBuilders.VRageData
+namespace VRage.Game
 {
     [ProtoContract]
     public struct SerializableBlockOrientation
@@ -46,6 +41,17 @@ namespace Sandbox.Common.ObjectBuilders.VRageData
         {
             return new SerializableBlockOrientation(v.Forward, v.Up);
         }
+
+        public static bool operator ==(SerializableBlockOrientation a, SerializableBlockOrientation b)
+        {
+            return a.Forward == b.Forward && a.Up == b.Up;
+        }
+
+        public static bool operator !=(SerializableBlockOrientation a, SerializableBlockOrientation b)
+        {
+            return a.Forward != b.Forward || a.Up != b.Up;
+        }
+
 
     }
 }

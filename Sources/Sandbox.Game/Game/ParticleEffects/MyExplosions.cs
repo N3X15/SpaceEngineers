@@ -6,14 +6,19 @@ using Sandbox.Game.Entities;
 using Sandbox.Game.Multiplayer;
 using VRage.Generics;
 using VRageMath;
+using VRage.Game.Components;
+using Sandbox.Engine.Multiplayer;
+using Sandbox.Game.World;
+using VRage.Network;
 
 
 #endregion
 
 namespace Sandbox.Game
 {
+    [StaticEventOwner]
     [MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
-    class MyExplosions : MySessionComponentBase
+    public class MyExplosions : MySessionComponentBase
     {
         static MyObjectsPool<MyExplosion> m_explosions = null;
 
@@ -22,8 +27,6 @@ namespace Sandbox.Game
 
         static List<MyExplosionInfo> m_explosionsRead = m_explosionBuffer1;
         static List<MyExplosionInfo> m_explosionsWrite = m_explosionBuffer2;
-
-        public static MySyncExplosions SyncObject = new MySyncExplosions();
 
         static MyExplosions()
         {
@@ -47,11 +50,14 @@ namespace Sandbox.Game
 
         protected override void UnloadData()
         {
-            if (m_explosions != null)
+            if (m_explosions != null && m_explosions.ActiveCount > 0)
             {
                 foreach (MyExplosion explosion in m_explosions.Active)
                 {
-                    explosion.Close();
+                    if (explosion != null)
+                    {
+                        explosion.Close();
+                    }
                 }
 
                 m_explosions.DeallocateAll();
@@ -69,13 +75,13 @@ namespace Sandbox.Game
 
             if (updateSync)
             {
-                SyncObject.RequestExplosion(
+                MyMultiplayer.RaiseStaticEvent(s => MyExplosions.ProxyExplosionRequest,
                     explosionInfo.ExplosionSphere.Center, 
                     (float)explosionInfo.ExplosionSphere.Radius, 
                     explosionInfo.ExplosionType,
                     explosionInfo.VoxelExplosionCenter,
                     explosionInfo.ParticleScale
-                    );
+                );
             }            
             
             m_explosionsWrite.Add(explosionInfo);            
@@ -110,6 +116,36 @@ namespace Sandbox.Game
 
             //  Deallocate/delete all lights that are turned off
             m_explosions.DeallocateAllMarked();
+        }
+
+        [Event, Reliable, Server,BroadcastExcept]
+        private static void ProxyExplosionRequest(Vector3D center, float radius, MyExplosionTypeEnum type, Vector3D voxelCenter, float particleScale)
+        {
+            //Dont create explosion particles if message is bufferred, it is useless to create hundred explosion after scene load
+            if (MySession.Static.Ready)
+            {
+                //  Create explosion
+                MyExplosionInfo info = new MyExplosionInfo()
+                {
+                    PlayerDamage = 0,
+                    //Damage = m_ammoProperties.Damage,
+                    Damage = 200,
+                    ExplosionType = type,
+                    ExplosionSphere = new BoundingSphere(center, radius),
+                    LifespanMiliseconds = MyExplosionsConstants.EXPLOSION_LIFESPAN,
+                    CascadeLevel = 0,
+                    HitEntity = null,
+                    ParticleScale = particleScale,
+                    OwnerEntity = null,
+                    Direction = Vector3.Forward,
+                    VoxelExplosionCenter = voxelCenter,
+                    ExplosionFlags = MyExplosionFlags.CREATE_DEBRIS | MyExplosionFlags.CREATE_DECALS | MyExplosionFlags.CREATE_PARTICLE_EFFECT | MyExplosionFlags.CREATE_SHRAPNELS,
+                    VoxelCutoutScale = 1.0f,
+                    PlaySound = true,
+                    ObjectsRemoveDelayInMiliseconds = 40
+                };
+                MyExplosions.AddExplosion(ref info, false);
+            }
         }
 
         void SwapBuffers()

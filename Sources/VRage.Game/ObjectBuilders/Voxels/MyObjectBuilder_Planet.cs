@@ -1,17 +1,32 @@
 ﻿using ProtoBuf;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Xml.Serialization;
 using VRage.ObjectBuilders;
+using VRage.Serialization;
 using VRageMath;
+using VRageRender;
 
-namespace Sandbox.Common.ObjectBuilders.Voxels
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_Planet : MyObjectBuilder_VoxelMap
     {
+        [ProtoContract]
+        public struct SavedSector
+        {
+            [ProtoMember]
+            public Vector3S IdPos;
+
+            [ProtoMember]
+            public Vector3B IdDir;
+
+            [ProtoMember]
+            [XmlElement("Item")]
+            [Nullable]
+            public HashSet<int> RemovedItems;
+        }
+
         [ProtoMember]
         public float Radius;
 
@@ -31,10 +46,9 @@ namespace Sandbox.Common.ObjectBuilders.Voxels
         public Vector3 AtmosphereWavelengths;
 
         [ProtoMember]
-        public float MaximumOxygen;
-
-        [ProtoMember]
-        public List<Vector3I> SavedEnviromentSectors;
+        [XmlArrayItem("Sector")]
+        [Nullable]
+        public SavedSector[] SavedEnviromentSectors;
 
         [ProtoMember]
         public float GravityFalloff;
@@ -42,5 +56,24 @@ namespace Sandbox.Common.ObjectBuilders.Voxels
         [ProtoMember]
         public bool MarkAreaEmpty;
 
+        [ProtoMember]
+        [Nullable]
+        public MyAtmosphereSettings? AtmosphereSettings;
+
+        [ProtoMember]
+        public float SurfaceGravity = 1.0f;
+
+        [ProtoMember]
+        public bool SpawnsFlora = false;
+
+        [ProtoMember]
+        public bool ShowGPS = false;
+
+        [ProtoMember]
+        public bool SpherizeWithDistance = true;
+
+        [ProtoMember]
+        [Nullable]
+        public string PlanetGenerator = "";
     }
 }

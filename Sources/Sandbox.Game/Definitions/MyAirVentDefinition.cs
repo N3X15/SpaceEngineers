@@ -1,7 +1,7 @@
-﻿using Sandbox.Common.ObjectBuilders;
-using Sandbox.Common.ObjectBuilders.Definitions;
-using Sandbox.Engine.Utils;
+﻿using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Game.Entities;
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRage.Utils;
 
 namespace Sandbox.Definitions
@@ -9,6 +9,8 @@ namespace Sandbox.Definitions
     [MyDefinitionType(typeof(MyObjectBuilder_AirVentDefinition))]
     public class MyAirVentDefinition : MyCubeBlockDefinition
     {
+	    public MyStringHash ResourceSinkGroup;
+        public MyStringHash ResourceSourceGroup;
         public float StandbyPowerConsumption;
         public float OperationalPowerConsumption;
         public float VentilationCapacityPerSecond;
@@ -23,7 +25,9 @@ namespace Sandbox.Definitions
 
             var airVent = builder as MyObjectBuilder_AirVentDefinition;
             MyDebug.AssertDebug(airVent != null, "Initializing air vent definition using wrong object builder.");
-            
+
+	        ResourceSinkGroup = MyStringHash.GetOrCompute(airVent.ResourceSinkGroup);
+            ResourceSourceGroup = MyStringHash.GetOrCompute(airVent.ResourceSourceGroup);
             StandbyPowerConsumption = airVent.StandbyPowerConsumption;
             OperationalPowerConsumption = airVent.OperationalPowerConsumption;
             VentilationCapacityPerSecond = airVent.VentilationCapacityPerSecond;

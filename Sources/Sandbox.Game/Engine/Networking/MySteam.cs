@@ -7,6 +7,8 @@ using Microsoft.Win32;
 
 using Sandbox;
 using SteamSDK;
+using System.Diagnostics;
+using VRage.Utils;
 
 namespace Sandbox.Engine.Networking
 {
@@ -16,14 +18,42 @@ namespace Sandbox.Engine.Networking
     public static class MySteam
     {
         public static SteamAPI API { get { return MySandboxGame.Services.SteamService.SteamAPI; } }
-        public static GameServer Server { get { return MySandboxGame.Services.SteamService.SteamServerAPI != null ?MySandboxGame.Services.SteamService.SteamServerAPI.GameServer : null; } }
+        public static GameServer Server
+        {
+            get
+            {
+                var services = MySandboxGame.Services;
+                if (services != null)
+                {
+                    var steamService = services.SteamService;
+                    if (steamService != null)
+                    {
+                        var serverAPI = steamService.SteamServerAPI;
+                        if (serverAPI != null)
+                        {
+                            return serverAPI.GameServer;
+                        }
+                    }             
+                }
+                return null;
+            }
+        }
 
         public static uint AppId { get { return MySandboxGame.Services.SteamService.AppId; } }
         public static bool IsActive
         {
             get
             {
-                return MySandboxGame.Services.SteamService == null ? false : MySandboxGame.Services.SteamService.IsActive;
+                var services = MySandboxGame.Services;
+                if (services != null)
+                {
+                    var steamService = services.SteamService;
+                    if (steamService != null)
+                    {
+                        return steamService.IsActive;
+                    }
+                }
+                return false;
             }
         }
 
@@ -35,13 +65,24 @@ namespace Sandbox.Engine.Networking
         {
             get
             {
-                return MySandboxGame.Services != null && MySandboxGame.Services.SteamService != null ? MySandboxGame.Services.SteamService.UserId : 0;
+                return MySandboxGame.Services != null && MySandboxGame.Services.SteamService != null ? MySandboxGame.Services.SteamService.UserId : ulong.MaxValue;
             }
         }
 
         public static string UserName { get { return MySandboxGame.Services.SteamService.UserName; } }
         public static Universe UserUniverse { get { return MySandboxGame.Services.SteamService.UserUniverse; } }
-        public static string BranchName { get { return MySandboxGame.Services.SteamService.BranchName; } }
+        public static string BranchName {
+            get
+            {
+                if (MySandboxGame.Services == null || MySandboxGame.Services.SteamService == null)
+                {
+                    Debug.Fail("MySandboxGame.Services.SteamService not running?");
+                    MyLog.Default.WriteLine("ERROR: branch name cannot be resolved, services=" + MySandboxGame.Services);
+                    return "ERROR";
+                }
+                return MySandboxGame.Services.SteamService.BranchName; 
+            } 
+        }
 
         public static void OpenOverlayUrl(string url)
         {

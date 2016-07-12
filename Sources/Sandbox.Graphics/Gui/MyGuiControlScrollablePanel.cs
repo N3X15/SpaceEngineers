@@ -22,6 +22,42 @@ namespace Sandbox.Graphics.GUI
         public float ScrollBarHScale = 1;
         public float ScrollBarVScale = 1;
 
+        public float ScrollbarHSizeX
+        {
+            get
+            {
+                if (m_scrollbarH == null) return 0f;
+                return m_scrollbarH.Size.X;
+            }
+        }
+
+        public float ScrollbarHSizeY
+        {
+            get
+            {
+                if (m_scrollbarH == null) return 0f;
+                return m_scrollbarH.Size.Y;
+            }
+        }
+
+        public float ScrollbarVSizeX
+        {
+            get
+            {
+                if (m_scrollbarV == null) return 0f;
+                return m_scrollbarV.Size.X;
+            }
+        }
+
+        public float ScrollbarVSizeY
+        {
+            get
+            {
+                if (m_scrollbarV == null) return 0f;
+                return m_scrollbarV.Size.Y;
+            }
+        }
+
         public bool ScrollbarHWheel
         {
             get { return m_scrollbarH != null && m_scrollbarH.EnableWheelScroll; }
@@ -136,10 +172,7 @@ namespace Sandbox.Graphics.GUI
 
             var scrolledArea = m_scrolledArea;
             scrolledArea.Position += GetPositionAbsoluteTopLeft();
-            bool oldVal = ScrolledControl.HandleMouse;
-            ScrolledControl.HandleMouse = scrolledArea.Contains(MyGuiManager.MouseCursorPosition);
             res = base.HandleInputElements();
-            ScrolledControl.HandleMouse = oldVal;
 
             if (m_scrollbarV != null)
             {

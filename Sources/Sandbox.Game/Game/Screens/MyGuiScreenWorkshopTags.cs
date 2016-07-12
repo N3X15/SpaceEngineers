@@ -7,10 +7,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using VRage;
-using VRage;
 using VRage.FileSystem;
 using VRage.Library.Utils;
-using VRage.Utils;
 using VRage.Utils;
 using VRageMath;
 
@@ -62,7 +60,7 @@ namespace Sandbox.Game.Gui
 
             
 
-            AddCaption(MySpaceTexts.ScreenCaptionWorkshopTags);
+            AddCaption(MyCommonTexts.ScreenCaptionWorkshopTags);
 
             Vector2 origin = new Vector2(0f, -0.025f * (m_activeTags.Count + 2));
             Vector2 offset = new Vector2(0f,  0.05f);
@@ -85,8 +83,8 @@ namespace Sandbox.Game.Gui
 
             origin += offset;
 
-            Controls.Add(m_okButton = MakeButton(origin += offset, MySpaceTexts.Ok, MySpaceTexts.Ok, OnOkClick, MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_CENTER));
-            Controls.Add(m_cancelButton = MakeButton(origin, MySpaceTexts.Cancel, MySpaceTexts.Cancel, OnCancelClick, MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER));
+            Controls.Add(m_okButton = MakeButton(origin += offset, MyCommonTexts.Ok, MyCommonTexts.Ok, OnOkClick, MyGuiDrawAlignEnum.HORISONTAL_RIGHT_AND_VERTICAL_CENTER));
+            Controls.Add(m_cancelButton = MakeButton(origin, MyCommonTexts.Cancel, MyCommonTexts.Cancel, OnCancelClick, MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER));
 
             CloseButtonEnabled = true;
         }

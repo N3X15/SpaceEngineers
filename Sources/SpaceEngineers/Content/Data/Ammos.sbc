@@ -11,6 +11,7 @@
         <SpeedVariance>0</SpeedVariance>
         <MaxTrajectory>800</MaxTrajectory>
         <BackkickForce>3.2</BackkickForce>
+        <PhysicalMaterial>RifleBullet</PhysicalMaterial>
       </BasicProperties>
       <ProjectileProperties>
         <ProjectileHitImpulse>3.2</ProjectileHitImpulse>
@@ -28,6 +29,7 @@
         <SpeedVariance>0</SpeedVariance>
         <MaxTrajectory>800</MaxTrajectory>
         <BackkickForce>50</BackkickForce>
+        <PhysicalMaterial>GunBullet</PhysicalMaterial>
       </BasicProperties>
       <ProjectileProperties>
         <ProjectileHitImpulse>185</ProjectileHitImpulse>
@@ -46,6 +48,7 @@
         <MaxTrajectory>800</MaxTrajectory>
         <IsExplosive>true</IsExplosive>
         <BackkickForce>700</BackkickForce>
+        <PhysicalMaterial>Missile</PhysicalMaterial>
       </BasicProperties>
       <MissileProperties>
         <MissileMass>45</MissileMass>

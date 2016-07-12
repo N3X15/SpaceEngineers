@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using ParallelTasks;
+using VRage.Collections;
+using VRage.Library.Collections;
 using VRage.Library.Utils;
 
 namespace VRageRender
@@ -14,6 +17,14 @@ namespace VRageRender
         public bool Processed;
         public MyTimeSpan UpdateTimestamp;
 
-        public readonly List<IMyRenderMessage> RenderInput = new List<IMyRenderMessage>(2048);
+        public readonly List<MyRenderMessageBase> RenderInput = new List<MyRenderMessageBase>(2048);
+
+        private readonly SpinLockRef m_lock = new SpinLockRef();
+
+        public void Enqueue(MyRenderMessageBase message)
+        {
+            using (m_lock.Acquire())
+                RenderInput.Add(message);
+        }
     }
 }

@@ -1,5 +1,7 @@
 ﻿using Sandbox.Common;
 using Sandbox.Engine.Utils;
+using Sandbox.Game.Audio;
+using Sandbox.Game.Replication;
 using Sandbox.Game.World;
 using Sandbox.Graphics;
 using Sandbox.Graphics.GUI;
@@ -7,8 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using VRage;
-using VRage;
 using VRage.Audio;
+using VRage.Game;
 using VRage.Input;
 using VRage.Utils;
 using VRage.Win32;
@@ -119,6 +121,11 @@ namespace Sandbox.Game.Gui
             m_texts.Add(StringBuilderCache.GetFormatedFloat("FPS: ", MyFpsManager.GetFps()));
             m_texts.Add(new StringBuilder("Renderer: ").Append(MyRenderProxy.RendererInterfaceName()));
 
+            if (MySector.MainCamera != null)
+            {
+                m_texts.Add(GetFormatedVector3(StringBuilderCache, "Camera pos: ", MySector.MainCamera.Position));
+            }
+
             m_texts.Add(MyScreenManager.GetGuiScreensForDebug());
             m_texts.Add(StringBuilderCache.GetFormatedBool("Paused: ", MySandboxGame.IsPaused));
             m_texts.Add(StringBuilderCache.GetFormatedDateTimeOffset("System Time: ", TimeUtil.LocalTime));
@@ -129,6 +136,12 @@ namespace Sandbox.Game.Gui
             m_texts.Add(StringBuilderCache.GetFormatedTimeSpan("Total Small Ship Time: ", MySession.Static == null ? new TimeSpan(0) : MySession.Static.TimeOnSmallShip));
             m_texts.Add(StringBuilderCache.GetFormatedTimeSpan("Total Big Ship Time: ", MySession.Static == null ? new TimeSpan(0) : MySession.Static.TimeOnBigShip));
             m_texts.Add(StringBuilderCache.GetFormatedTimeSpan("Total Time: ", TimeSpan.FromMilliseconds(MySandboxGame.TotalTimeInMilliseconds)));
+
+            if (MySession.Static != null && MySession.Static.LocalCharacter != null)
+            {
+                var physGroup = MyExternalReplicable.FindByObject(MySession.Static.LocalCharacter).FindStateGroup<MyCharacterPhysicsStateGroup>();
+                m_texts.Add(StringBuilderCache.GetFormatedBool("Character has support: ", physGroup != null && physGroup.DebugSupport != null));
+            }
             
             m_texts.Add(StringBuilderCache.GetFormatedLong("GC.GetTotalMemory: ", GC.GetTotalMemory(false), " bytes"));
 
@@ -156,41 +169,21 @@ namespace Sandbox.Game.Gui
             }
 #endif
 
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Sound Instances Total 2D: ", MyAudio.Static.GetSoundInstancesTotal2D()));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Sound Instances Total 3D: ", MyAudio.Static.GetSoundInstancesTotal3D()));
+            m_texts.Add(StringBuilderCache.GetFormatedInt("Sound Instances Total: ", MyAudio.Static.GetSoundInstancesTotal2D()).Append(" 2d / ").AppendInt32(MyAudio.Static.GetSoundInstancesTotal3D()).Append(" 3d"));
+            if(MyMusicController.Static != null)
+            {
+                if (MyMusicController.Static.CategoryPlaying.Equals(MyStringId.NullOrEmpty))
+                    m_texts.Add(StringBuilderCache.Append("No music playing, last category: " + MyMusicController.Static.CategoryLast.ToString() + ", next track in ")
+                        .AppendDecimal(Math.Max(0f,MyMusicController.Static.NextMusicTrackIn), 1).Append("s"));
+                else
+                    m_texts.Add(StringBuilderCache.Append("Playing music category: " + MyMusicController.Static.CategoryPlaying.ToString()));
+            }
 
             var tmp = StringBuilderCache;
             MyAudio.Static.WriteDebugInfo(tmp);
             m_texts.Add(tmp);
             for (int i = 0; i < 8; i++ )
                 m_texts.Add(StringBuilderCache.Clear());
-
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Updating 3D sounds count: ", MyAudio.Static.GetUpdating3DSoundsCount()));
-            m_texts.Add(StringBuilderCache.Clear());
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Textures 2D Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.Textures2DCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Textures 2D Size In Pixels: ", VRageRender.MyPerformanceCounter.PerAppLifetime.Textures2DSizeInPixels));
-            m_texts.Add(StringBuilderCache.AppendFormatedDecimal("Textures 2D Size In Mb: ", (float)VRageRender.MyPerformanceCounter.PerAppLifetime.Textures2DSizeInMb, 3));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Dxt Compressed Textures Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.DxtCompressedTexturesCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Non Dxt Compressed Textures Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.NonDxtCompressedTexturesCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Non Mip Mapped Textures Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.NonMipMappedTexturesCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Texture Cubes Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.TextureCubesCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Texture Cubes Size In Pixels: ", VRageRender.MyPerformanceCounter.PerAppLifetime.TextureCubesSizeInPixels));
-            m_texts.Add(StringBuilderCache.AppendFormatedDecimal("Texture Cubes Size In Mb: ", (float)VRageRender.MyPerformanceCounter.PerAppLifetime.TextureCubesSizeInMb, 3));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Non MyModels Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.ModelsCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("MyModels Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.MyModelsCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("MyModels Meshes Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.MyModelsMeshesCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("MyModels Vertexes Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.MyModelsVertexesCount));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("MyModels Triangles Count: ", VRageRender.MyPerformanceCounter.PerAppLifetime.MyModelsTrianglesCount));
-            m_texts.Add(StringBuilderCache.GetFormatedFloat("Size of Model Vertex Buffers in Mb: ", (float)VRageRender.MyPerformanceCounter.PerAppLifetime.ModelVertexBuffersSize / (1024 * 1024)));
-            m_texts.Add(StringBuilderCache.GetFormatedFloat("Size of Model Index Buffers in Mb: ", (float)VRageRender.MyPerformanceCounter.PerAppLifetime.ModelIndexBuffersSize / (1024 * 1024)));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Size of Voxel Vertex Buffers in Mb: ", VRageRender.MyPerformanceCounter.PerAppLifetime.VoxelVertexBuffersSize / 1024 / 1024));
-            m_texts.Add(StringBuilderCache.GetFormatedInt("Size of Voxel Index Buffers in Mb: ", VRageRender.MyPerformanceCounter.PerAppLifetime.VoxelIndexBuffersSize / 1024 / 1024));
-            m_texts.Add(StringBuilderCache.GetFormatedFloat("Size of loaded Model files in Mb: ", (float)VRageRender.MyPerformanceCounter.PerAppLifetime.MyModelsFilesSize / (1024 * 1024)));
-            m_texts.Add(StringBuilderCache.GetFormatedBool("Paused: ", MySandboxGame.IsPaused));
-            if (MySector.MainCamera != null)
-            {
-                m_texts.Add(GetFormatedVector3(StringBuilderCache, "Camera pos: ", MySector.MainCamera.Position));
-            }
 
             MyInput.Static.GetPressedKeys(m_pressedKeys);
             AddPressedKeys("Current keys              : ", m_pressedKeys);
@@ -216,6 +209,18 @@ namespace Sandbox.Game.Gui
 
             ClearFrameDebugText();
             AddPerformanceCountersToFrameDebugText();
+            
+#if DEBUG
+            //list of last played sounds
+            MyGuiManager.DrawString(MyFontEnum.White, new StringBuilder("Last played sounds:"), rightAlignedOrigin + new Vector2(-0.3f, 0.8f), textScale,
+                    Color.Yellow, MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
+            int colorIndex = (MyCueBank.lastSoundIndex > 0) ? (MyCueBank.lastSoundIndex - 1) : (MyCueBank.lastSounds.Count - 1);//index of last sound
+            for (int i = 0; i < MyCueBank.lastSounds.Count; i++)
+            {
+                MyGuiManager.DrawString(MyFontEnum.White, MyCueBank.lastSounds[i], rightAlignedOrigin + new Vector2(-0.275f, 0.8f + (1 + i) * rowDistance), textScale,
+                    (i == colorIndex ? Color.LightBlue : Color.Yellow), MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
+            }
+#endif
 
             return true;
         }

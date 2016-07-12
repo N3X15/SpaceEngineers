@@ -1,13 +1,10 @@
 ﻿using ProtoBuf;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using VRage.Serialization;
 using VRageMath;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders
+namespace VRage.Game
 {
     [ProtoContract]
     public struct MyEncounterId
@@ -61,7 +58,7 @@ namespace Sandbox.Common.ObjectBuilders
 
     [ProtoContract]
     [MyObjectBuilderDefinition]
-    public class MyObjectBuilder_Encounters : MyObjectBuilder_Base
+    public class MyObjectBuilder_Encounters : MyObjectBuilder_SessionComponent
     {
         [ProtoMember]
         public HashSet<MyEncounterId> SavedEcounters;

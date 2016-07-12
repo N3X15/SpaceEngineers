@@ -1,30 +1,44 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using VRage.ObjectBuilders;
 using VRage.Plugins;
 using VRage.Utils;
 
-namespace VRage.Components
+namespace VRage.Game.Components
 {
+    [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = true)]
+    public class MyComponentTypeAttribute : System.Attribute
+    {
+        public readonly Type ComponentType;
+
+        public MyComponentTypeAttribute(Type componentType)
+        {
+            ComponentType = componentType;
+        }
+    }
+
+
     [PreloadRequired]
     public static class MyComponentTypeFactory
     {
         private static Dictionary<MyStringId, Type> m_idToType;
         private static Dictionary<Type, MyStringId> m_typeToId;
 
+        // Dictionary from component type to type which the component is added to container.
+        private static Dictionary<Type, Type> m_typeToContainerComponentType;
+
         static MyComponentTypeFactory()
         {
             m_idToType = new Dictionary<MyStringId, Type>(MyStringId.Comparer);
             m_typeToId = new Dictionary<Type, MyStringId>();
+            m_typeToContainerComponentType = new Dictionary<Type, Type>();
 
             RegisterFromAssembly(Assembly.GetCallingAssembly());
+            RegisterFromAssembly(MyPlugins.SandboxAssembly);
             RegisterFromAssembly(MyPlugins.GameAssembly);
-            RegisterFromAssembly(MyPlugins.SandboxGameAssembly);
-            RegisterFromAssembly(MyPlugins.UserAssembly);
+            RegisterFromAssembly(MyPlugins.SandboxGameAssembly);            
+            RegisterFromAssembly(MyPlugins.UserAssembly);            
         }
 
         private static void RegisterFromAssembly(Assembly assembly)
@@ -39,8 +53,30 @@ namespace VRage.Components
                 if (baseType.IsAssignableFrom(type))
                 {
                     AddId(type, MyStringId.GetOrCompute(type.Name));
+                    RegisterComponentTypeAttribute(type);
                 }
             }
+        }
+
+        private static void RegisterComponentTypeAttribute(Type type)
+        {
+            var descriptorArray = type.GetCustomAttributes(typeof(MyComponentTypeAttribute), true);
+            Type containerComponentType = null;
+            foreach (MyComponentTypeAttribute descriptor in descriptorArray)
+            {
+                if (descriptor.ComponentType != null)
+                {
+                    if (containerComponentType == null)
+                    {
+                        // First attribute is for most derived type.
+                        containerComponentType = descriptor.ComponentType;
+                        break;
+                    }
+                }
+            }
+
+            if (containerComponentType != null)
+                m_typeToContainerComponentType.Add(type, containerComponentType);
         }
 
         private static void AddId(Type type, MyStringId id)
@@ -63,7 +99,21 @@ namespace VRage.Components
 
         public static Type GetType(string typeId)
         {
-            return m_idToType[MyStringId.Get(typeId)];
+            MyStringId typeIdInt;
+            if (MyStringId.TryGet(typeId, out typeIdInt))
+            {
+                return m_idToType[typeIdInt];
+            }
+
+            throw new Exception("Unregistered component typeId! : " + typeId);
+        }
+
+        public static Type GetComponentType(Type type) 
+        {
+            Type componentType;
+            if (m_typeToContainerComponentType.TryGetValue(type, out componentType))
+                return componentType;
+            return null;
         }
     }
 }

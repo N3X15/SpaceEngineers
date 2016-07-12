@@ -8,6 +8,8 @@ using Sandbox.Game.Entities.Cube;
 using VRageMath;
 using Sandbox.Game.Multiplayer;
 using System;
+using VRage.Game.Components;
+using VRage.Game.Entity;
 
 
 #endregion
@@ -41,20 +43,14 @@ namespace Sandbox.Game
      
         public static void AddWarhead(MyWarhead warhead)
         {
-            if (!m_warheads.Contains(warhead))
-            {
-                m_warheads.Add(warhead);
-                warhead.OnClose += warhead_OnClose;
-            }
+            if(m_warheads.Add(warhead))
+                warhead.OnMarkForClose += warhead_OnClose;
         }
 
         public static void RemoveWarhead(MyWarhead warhead)
         {
-            if (m_warheads.Contains(warhead))
-            {
-                m_warheads.Remove(warhead);
-                warhead.OnClose -= warhead_OnClose;
-            }
+            if(m_warheads.Remove(warhead))
+                warhead.OnMarkForClose -= warhead_OnClose;
         }
 
         public static bool Contains(MyWarhead warhead)
@@ -64,13 +60,13 @@ namespace Sandbox.Game
 
         static void warhead_OnClose(MyEntity obj)
         {
-           // m_warheads.Remove(obj as MyWarhead);
+            m_warheads.Remove(obj as MyWarhead);
         }
 
         //  We have only Update method for explosions, because drawing of explosion is mantained by particles and lights itself
         public override void UpdateBeforeSimulation()
         {
-            int frameMs = MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS;
+            int frameMs = VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_MILLISECONDS;
 
             foreach (var warhead in m_warheads)
             {
@@ -89,7 +85,8 @@ namespace Sandbox.Game
 
             foreach (var warhead in m_warheadsToExplode)
             {
-                m_warheads.Remove(warhead);
+                RemoveWarhead(warhead);
+                //m_warheads.Remove(warhead);
                 if (Sync.IsServer)
                     warhead.Explode();
             }

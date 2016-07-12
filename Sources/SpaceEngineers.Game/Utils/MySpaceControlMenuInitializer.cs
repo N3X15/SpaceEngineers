@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using SpaceEngineers.Game.Entities.Cube;
 
 namespace Sandbox.Game.Screens.Helpers
 {
@@ -25,6 +26,7 @@ namespace Sandbox.Game.Screens.Helpers
         //private MyControllableEntityControlHelper m_landingGearsControlHelper;
         private MyControllableEntityControlHelper m_reactorsControlHelper;
         private MyControllableEntityControlHelper m_jetpackControlHelper;
+        private MyControllableEntityControlHelper m_buildModeControlHelper;
         private MyLandingGearControlHelper m_landingGearsControlHelper;
 
         private MyQuickLoadControlHelper m_quickLoadControlHelper;
@@ -32,9 +34,12 @@ namespace Sandbox.Game.Screens.Helpers
         private MyCameraModeControlHelper m_cameraModeControlHelper;
         private MyShowTerminalControlHelper m_showTerminalControlHelper;
         private MyShowBuildScreenControlHelper m_showBuildScreenControlHelper;
+        private MyColorPickerControlHelper m_colorPickerControlHelper;
         private MySuicideControlHelper m_suicideControlHelper;
         private MyUseTerminalControlHelper m_terminalControlHelper;
         private MyEnableStationRotationControlHelper m_enableStationRotationControlHelper;
+        private MyBriefingMenuControlHelper m_briefingMenuControlHelper;
+        private MyConnectorControlHelper m_connectorControlHelper;
 
         public MySpaceControlMenuInitializer()
         {
@@ -59,6 +64,7 @@ namespace Sandbox.Game.Screens.Helpers
                 x => x.EnabledBroadcasting,
                 MySpaceTexts.ControlMenuItemLabel_Broadcasting);
             m_landingGearsControlHelper = new MyLandingGearControlHelper();
+            m_connectorControlHelper = new MyConnectorControlHelper();
             m_reactorsControlHelper = new MyControllableEntityControlHelper(
                 MyControlsSpace.TOGGLE_REACTORS,
                 x => x.SwitchReactors(),
@@ -69,16 +75,23 @@ namespace Sandbox.Game.Screens.Helpers
                 x => x.SwitchThrusts(),
                 x => x.EnabledThrusts,
                 MySpaceTexts.ControlMenuItemLabel_Jetpack);
+            m_buildModeControlHelper = new MyControllableEntityControlHelper(
+                MyControlsSpace.BUILD_MODE,
+                x => MyCubeBuilder.Static.IsBuildMode = !MyCubeBuilder.Static.IsBuildMode,
+                x => MyCubeBuilder.Static.IsBuildMode,
+                MySpaceTexts.ControlMenuItemLabel_BuildMode);
 
             m_quickLoadControlHelper = new MyQuickLoadControlHelper();
             m_hudToggleControlHelper = new MyHudToggleControlHelper();
             m_cameraModeControlHelper = new MyCameraModeControlHelper();
             m_showTerminalControlHelper = new MyShowTerminalControlHelper();
             m_showBuildScreenControlHelper = new MyShowBuildScreenControlHelper();
+            m_colorPickerControlHelper = new MyColorPickerControlHelper();
             m_suicideControlHelper = new MySuicideControlHelper();
             m_terminalControlHelper = new MyUseTerminalControlHelper();
 
             m_enableStationRotationControlHelper = new MyEnableStationRotationControlHelper();
+            m_briefingMenuControlHelper = new MyBriefingMenuControlHelper();
         }
 
         public void OpenControlMenu(IMyControllableEntity controlledEntity)
@@ -112,18 +125,23 @@ namespace Sandbox.Game.Screens.Helpers
             m_showTerminalControlHelper.SetEntity(character);
             m_suicideControlHelper.SetCharacter(character);
             m_terminalControlHelper.SetCharacter(character);
+            m_buildModeControlHelper.SetEntity(character);
 
             m_controlMenu = new MyGuiScreenControlMenu();
 
             m_controlMenu.AddItem(m_showTerminalControlHelper);
             m_controlMenu.AddItem(m_showBuildScreenControlHelper);
+            m_controlMenu.AddItem(m_buildModeControlHelper);
 
-            if (MyCubeBuilder.Static.ShipCreationIsActivated)
-            {
-                m_controlMenu.AddItem(m_enableStationRotationControlHelper);
-            }
+            //if (MyCubeBuilder.Static.ShipCreationIsActivated)
+            //{
+            //    m_controlMenu.AddItem(m_enableStationRotationControlHelper);
+            //}
 
-            m_controlMenu.AddItem(m_quickLoadControlHelper);
+
+            if (MySession.Static.IsScenario)
+                m_controlMenu.AddItem(m_briefingMenuControlHelper);
+
             m_controlMenu.AddItem(m_hudToggleControlHelper);
 
             m_controlMenu.AddItem(m_jetpackControlHelper);
@@ -133,6 +151,8 @@ namespace Sandbox.Game.Screens.Helpers
             m_controlMenu.AddItem(m_broadcastingControlHelper);
 
             m_controlMenu.AddItem(m_cameraModeControlHelper);
+            m_controlMenu.AddItem(m_quickLoadControlHelper);
+            m_controlMenu.AddItem(m_colorPickerControlHelper);
 
             AddUseObjectControl(character);
 
@@ -145,9 +165,11 @@ namespace Sandbox.Game.Screens.Helpers
             m_lightsControlHelper.SetEntity(ship);
             m_dampingControlHelper.SetEntity(ship);
             m_landingGearsControlHelper.SetEntity(ship);
+            m_connectorControlHelper.SetEntity(ship);
             m_reactorsControlHelper.SetEntity(ship);
             m_showBuildScreenControlHelper.SetEntity(ship);
             m_showTerminalControlHelper.SetEntity(ship);
+            m_buildModeControlHelper.SetEntity(ship);
 
             m_controlMenu = new MyGuiScreenControlMenu();
 
@@ -160,6 +182,7 @@ namespace Sandbox.Game.Screens.Helpers
             m_controlMenu.AddItem(m_lightsControlHelper);
             m_controlMenu.AddItem(m_dampingControlHelper);
             m_controlMenu.AddItem(m_landingGearsControlHelper);
+            m_controlMenu.AddItem(m_connectorControlHelper);
             m_controlMenu.AddItem(m_reactorsControlHelper);
 
             m_controlMenu.AddItem(m_cameraModeControlHelper);

@@ -3,11 +3,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage.Utils;
 using VRageMath;
 
 namespace VRageRender
 {
-    public class MyRenderMessageCreateDecal : IMyRenderMessage
+    [Obsolete]
+    public class MyRenderMessageCreateDecal : MyRenderMessageBase
     {
         public uint ID;
         public MyDecalTriangle_Data Triangle;
@@ -17,54 +19,80 @@ namespace VRageRender
         public float LightSize;
         public float Emissivity;
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.CreateDecal; } }
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.CreateDecal; } }
     }
 
-    public class MyRenderMessageCreateScreenDecal : IMyRenderMessage
+    public class MyRenderMessageCreateScreenDecal : MyRenderMessageBase
     {
         public uint ID;
         public uint ParentID;
-        public Matrix LocalOBB; // transforms unit box centered at 0 to volume relative to object space
-        public string DecalMaterial;
+        public MyDecalTopoData Data;
+        public MyDecalFlags Flags;
+        public string SourceTarget;
+        public string Material;
+        public int MaterialIndex;
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.CreateScreenDecal; } }
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.CreateScreenDecal; } }
     }
 
-    public class MyRenderMessageRemoveDecal : IMyRenderMessage
+    public struct MyDecalTopoData
+    {
+        public Vector3D Position;
+        public Vector3 Normal;
+        public Vector3 Scale;
+        public float Rotation;
+    }
+
+    public class MyRenderMessageUpdateScreenDecal : MyRenderMessageBase
+    {
+        public List<MyDecalPositionUpdate> Decals = new List<MyDecalPositionUpdate>();
+
+        public override void Init()
+        {
+            Decals.Clear();
+        }
+
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeEvery; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.UpdateScreenDecal; } }
+    }
+
+    public struct MyDecalPositionUpdate
+    {
+        public uint ID;
+        public Vector3D Position;
+        public Vector3 Normal;
+    }
+
+    public class MyRenderMessageRemoveDecal : MyRenderMessageBase
     {
         public uint ID;
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.RemoveDecal; } }
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.RemoveDecal; } }
     }
 
-    public enum MyScreenDecalType
+    public class MyRenderMessageRegisterScreenDecalsMaterials : MyRenderMessageBase
     {
-        ScreenDecalBump, // affects normalmap on whole surface
-        ScreenDecalColor // affects color and metallness on alphatested surface
+        public Dictionary<string, List<MyDecalMaterialDesc>> MaterialDescriptions;
+
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.RegisterDecalsMaterials; } }
     }
 
-    [ProtoContract]
-    public struct MyDecalMaterialDesc
+
+    public class MyRenderMessageClearScreenDecals : MyRenderMessageBase
     {
-        [ProtoMember]
-        public MyScreenDecalType DecalType;
-        [ProtoMember]
-        public string NormalmapTexture;
-        [ProtoMember]
-        public string ColorMetalTexture;
-        [ProtoMember]
-        public string AlphamaskTexture;
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.ClearDecals; } }
     }
 
-    public class MyRenderMessageRegisterScreenDecalsMaterials : IMyRenderMessage
+    public class MyRenderMessageSetDecalGlobals : MyRenderMessageBase
     {
-        public List<string> MaterialsNames;
-        public List<MyDecalMaterialDesc> MaterialsDescriptions;
+        public MyDecalGlobals Globals;
 
-        MyRenderMessageType IMyRenderMessage.MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
-        MyRenderMessageEnum IMyRenderMessage.MessageType { get { return MyRenderMessageEnum.RegisterDecalsMaterials; } }
+        public override MyRenderMessageType MessageClass { get { return MyRenderMessageType.StateChangeOnce; } }
+        public override MyRenderMessageEnum MessageType { get { return MyRenderMessageEnum.SetDecalGlobals; } }
     }
 }

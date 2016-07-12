@@ -1,81 +1,72 @@
-﻿using SharpDX;
-using SharpDX.Direct3D;
-using SharpDX.Direct3D11;
-using SharpDX.DXGI;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using VRage.Generics;
-
+using VRage.Library.Collections;
 using VRageMath;
-using VRageRender.Resources;
-using VRageRender.Vertex;
-using Buffer = SharpDX.Direct3D11.Buffer;
 using Matrix = VRageMath.Matrix;
-using Vector3 = VRageMath.Vector3;
 using BoundingBox = VRageMath.BoundingBox;
-using BoundingFrustum = VRageMath.BoundingFrustum;
-using VRage.Collections;
-using System.Collections.Specialized;
-using System.Threading;
+using VRage.Utils;
 
 
 namespace VRageRender
 {
-    class MyActor
+    internal class MyActor
     {
-        internal Matrix WorldMatrix;
+        internal MatrixD WorldMatrix;
 
-        internal Matrix LocalMatrix 
-        { 
-            get 
+        internal Matrix LocalMatrix
+        {
+            get
             {
                 var result = WorldMatrix;
-                result.Translation = result.Translation - MyEnvironment.CameraPosition;
-                return result;
-            } 
+                result.Translation = result.Translation - MyRender11.Environment.CameraPosition;
+                return (Matrix)result;
+            }
         }
 
-        internal BoundingBox Aabb;
+        internal BoundingBoxD Aabb;
         internal Matrix? m_relativeTransform;
         internal BoundingBox? m_localAabb;
 
-        internal bool m_renderProxyDirty;
-        internal bool m_visible;
+        private bool m_renderProxyDirty;
+        private bool m_visible;
+
+        internal bool IsVisible { get { return m_visible; } }
 
         internal bool RenderDirty { get { return m_renderProxyDirty; } }
 
-        MyIDTracker<MyActor> m_ID;
+        private MyIDTracker<MyActor> m_ID;
 
         internal void Construct()
         {
             m_components.Clear();
 
             m_visible = true;
-            m_renderProxyDirty = true;
 
-            m_ID = new MyIDTracker<MyActor>();
+            MyUtils.Init(ref m_ID);
+            m_ID.Clear();
             m_localAabb = null;
             m_relativeTransform = null;
 
-            Aabb = BoundingBox.CreateInvalid();
+            Aabb = BoundingBoxD.CreateInvalid();
         }
 
         internal void Destruct()
         {
+            if (m_ID == null)
+                return;
+
             for (int i = 0; i < m_components.Count; i++)
             {
                 m_components[i].OnRemove(this);
             }
             m_components.Clear();
 
-            if(m_ID.Value != null)
+            if (m_ID.Value != null)
             {
                 m_ID.Deregister();
             }
+
+            m_ID = null;
         }
 
         internal void SetID(uint id)
@@ -85,9 +76,19 @@ namespace VRageRender
 
         internal uint ID { get { return m_ID.ID; } }
 
+        internal bool IsDestroyed { get { return m_ID == null; } }
+
         internal void MarkRenderDirty()
         {
-            m_renderProxyDirty = true;
+            if (IsDestroyed)
+                return;
+
+            var renderableComponent = GetRenderable();
+            if (renderableComponent != null)
+            {
+                m_renderProxyDirty = true;
+                MyRender11.PendingComponentsToUpdate.Add(renderableComponent);
+            }
         }
 
         internal void MarkRenderClean()
@@ -112,7 +113,7 @@ namespace VRageRender
 
         internal void SetVisibility(bool visibility)
         {
-            if(m_visible != visibility)
+            if (m_visible != visibility)
             {
                 m_visible = visibility;
 
@@ -121,26 +122,26 @@ namespace VRageRender
             }
         }
 
-        internal void SetMatrix(ref Matrix matrix) 
+        internal void SetMatrix(ref MatrixD matrix)
         {
             WorldMatrix = matrix;
             if (m_localAabb.HasValue)
             {
-                Aabb = m_localAabb.Value.Transform(WorldMatrix);
+                Aabb = (BoundingBoxD)m_localAabb.Value.Transform(WorldMatrix);
             }
             // figure out final matrix
 
             for (int i = 0; i < m_components.Count; i++)
                 m_components[i].OnMatrixChange();
 
-            if(m_localAabb.HasValue)
+            if (m_localAabb.HasValue)
             {
                 for (int i = 0; i < m_components.Count; i++)
                     m_components[i].OnAabbChange();
             }
         }
 
-        internal void SetAabb(BoundingBox aabb) 
+        internal void SetAabb(BoundingBoxD aabb)
         {
             Aabb = aabb;
 
@@ -150,57 +151,60 @@ namespace VRageRender
 
         internal float CalculateCameraDistance()
         {
-            return Aabb.Distance(MyEnvironment.CameraPosition);
+            return (float)Aabb.Distance(MyRender11.Environment.CameraPosition);
         }
 
-        List<MyActorComponent> m_components = new List<MyActorComponent>();
+        private readonly MyIndexedComponentContainer<MyActorComponent> m_components = new MyIndexedComponentContainer<MyActorComponent>();
 
-        internal void AddComponent(MyActorComponent component) 
+        internal void AddComponent<T>(MyActorComponent component) where T : MyActorComponent
         {
             // only flat hierarchy 
             Debug.Assert(component.Type != MyActorComponentEnum.GroupLeaf || GetGroupRoot() == null);
             Debug.Assert(component.Type != MyActorComponentEnum.GroupRoot || GetGroupLeaf() == null);
 
             component.Assign(this);
-            m_components.Add(component);
+            m_components.Add(typeof(T), component);
         }
 
-        internal void RemoveComponent(MyActorComponent component)
+        internal void RemoveComponent<T>(MyActorComponent component) where T : MyActorComponent
         {
             component.OnRemove(this);
-            m_components.Remove(component);
+            m_components.Remove(typeof(T));
         }
 
-        internal MyActorComponent GetComponent(MyActorComponentEnum type)
+        internal T GetComponent<T>() where T : MyActorComponent
         {
-            for (int i = 0; i < m_components.Count; i++ )
-            {
-                if (m_components[i].Type == type)
-                    return m_components[i];
-            }
-            return null;
+            return m_components.TryGetComponent<T>();
         }
-
-        internal bool IsVisible { get { return m_visible && GetRenderable() != null; } }
 
         internal MyRenderableComponent GetRenderable()
         {
-            return GetComponent(MyActorComponentEnum.Renderable) as MyRenderableComponent;
+            return GetComponent<MyRenderableComponent>();
+        }
+
+        internal MyFoliageComponent GetFoliage()
+        {
+            return GetComponent<MyFoliageComponent>();
         }
 
         internal MySkinningComponent GetSkinning()
         {
-            return GetComponent(MyActorComponentEnum.Skinning) as MySkinningComponent;
+            return GetComponent<MySkinningComponent>();
         }
 
         internal MyGroupRootComponent GetGroupRoot()
         {
-            return GetComponent(MyActorComponentEnum.GroupRoot) as MyGroupRootComponent;
+            return GetComponent<MyGroupRootComponent>();
         }
 
         internal MyGroupLeafComponent GetGroupLeaf()
         {
-            return GetComponent(MyActorComponentEnum.GroupLeaf) as MyGroupLeafComponent;
+            return GetComponent<MyGroupLeafComponent>();
         }
-    };
+
+        internal MyInstanceLodComponent GetInstanceLod()
+        {
+            return GetComponent<MyInstanceLodComponent>();
+        }
+    }
 }

@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using VRageMath;
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Common.ObjectBuilders.Definitions;
+using VRage.Game;
 
 namespace Sandbox.Game.World
 {
-    public struct MyFogProperties
+    public class MyFogProperties
     {
         // Fog
         public bool EnableFog;

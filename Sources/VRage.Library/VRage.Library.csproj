@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>VRage.Library</RootNamespace>
     <AssemblyName>VRage.Library</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -25,6 +25,7 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <NoWarn>1591,1572,1571,1573,1587,1570</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <OutputPath>bin\x86\Release\</OutputPath>
@@ -37,6 +38,7 @@
     <DocumentationFile>bin\x86\Release\VRage.Library.XML</DocumentationFile>
     <NoWarn>1591,1572,1571,1573,1587,1570</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -49,6 +51,7 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <NoWarn>1591,1572,1571,1573,1587,1570</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
@@ -61,8 +64,57 @@
     <DocumentationFile>bin\x64\Release\VRage.Library.XML</DocumentationFile>
     <NoWarn>1591,1572,1571,1573,1587,1570</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_XB1|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug_XB1\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;FEAT_COMPILER;FEAT_SERVICEMODEL;PLAT_BINARYFORMATTER;PLAT_XMLSERIALIZER;XB1;XB1_TMP</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_XB1|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug_XB1\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;FEAT_COMPILER;FEAT_SERVICEMODEL;PLAT_BINARYFORMATTER;PLAT_XMLSERIALIZER;XB1;XB1_TMP</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_XB1|x64'">
+    <OutputPath>bin\x64\Release_XB1\</OutputPath>
+    <DefineConstants>TRACE;WINDOWS;FEAT_COMPILER;FEAT_SERVICEMODEL;PLAT_BINARYFORMATTER;PLAT_XMLSERIALIZER;XB1,XB1_TMP</DefineConstants>
+    <DocumentationFile>bin\x64\Release\VRage.Game.XML</DocumentationFile>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_XB1|x86'">
+    <OutputPath>bin\x86\Release_XB1\</OutputPath>
+    <DefineConstants>TRACE;WINDOWS;FEAT_COMPILER;FEAT_SERVICEMODEL;PLAT_BINARYFORMATTER;PLAT_XMLSERIALIZER;XB1,XB1_TMP</DefineConstants>
+    <DocumentationFile>bin\x86\Release\VRage.Game.XML</DocumentationFile>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="SharpDX">
+      <HintPath>..\..\3rd\SharpDX\SharpDX.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Mathematics">
+      <HintPath>..\..\3rd\SharpDX\SharpDX.Mathematics.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Configuration.Install" />
@@ -81,6 +133,9 @@
     <Compile Include="Algorithms\MyPathfindingData.cs" />
     <Compile Include="Algorithms\MyUnionFind.cs" />
     <Compile Include="Algorithms\Partition.cs" />
+    <Compile Include="Algorithms\SequenceIdGenerator.cs" />
+    <Compile Include="Collections\BitReaderWriter.cs" />
+    <Compile Include="Collections\BitStreamExtensions.cs" />
     <Compile Include="BulletXNA\BulletCollision\BoxCollision.cs" />
     <Compile Include="BulletXNA\BulletCollision\GImpactBvh.cs" />
     <Compile Include="BulletXNA\BulletCollision\GImpactQuantization.cs" />
@@ -92,14 +147,43 @@
     <Compile Include="BulletXNA\LinearMath\ObjectArray.cs" />
     <Compile Include="BulletXNA\LinearMath\UShortVector3.cs" />
     <Compile Include="BulletXNA\MathUtil.cs" />
+    <Compile Include="Collections\BitReader.cs" />
+    <Compile Include="Collections\BitStream.Write.cs" />
+    <Compile Include="Collections\BitStream.Read.cs" />
+    <Compile Include="Collections\BitStream.cs" />
+    <Compile Include="Collections\BitStreamException.cs" />
+    <Compile Include="Collections\CacheList.cs" />
     <Compile Include="Collections\CachingDictionary.cs" />
+    <Compile Include="Collections\ConcurrentCachingHashSet.cs" />
     <Compile Include="Collections\CachingHashSet.cs" />
+    <Compile Include="Collections\ConcurrentCachingList.cs" />
     <Compile Include="Collections\CachingList.cs" />
+    <Compile Include="Collections\DynamicSerializerDelegate.cs" />
+    <Compile Include="Collections\EmptyArray.cs" />
+    <Compile Include="Collections\IBitSerializable.cs" />
+    <Compile Include="Collections\MyConcurrentDictionary.cs" />
+    <Compile Include="Collections\MyConcurrentHashSet.cs" />
+    <Compile Include="Collections\MyFreeList.cs" />
+    <Compile Include="Collections\MyIndexArray.cs" />
+    <Compile Include="Collections\MyIndexedComponentContainer.cs" />
+    <Compile Include="Collections\MyIndexList.cs" />
+    <Compile Include="Collections\IMyQueue.cs" />
     <Compile Include="Collections\MyBinaryStructHeap.cs" />
     <Compile Include="Collections\MyConcurrentDeque.cs" />
+    <Compile Include="Collections\MyConcurrentList.cs" />
     <Compile Include="Collections\MyDeque.cs" />
     <Compile Include="Collections\MyIntervalList.cs" />
+    <Compile Include="Collections\MyListDictionary.cs" />
+    <Compile Include="Collections\MyRangeIterator.cs" />
+    <Compile Include="Collections\MyMultiKeyDictionary`4.cs" />
+    <Compile Include="Collections\MyMultiKeyDictionary`3.cs" />
+    <Compile Include="Collections\MyMultiKeyIndex`4.cs" />
+    <Compile Include="Collections\MyMultiKeyIndex`3.cs" />
+    <Compile Include="Collections\MyTransparentQueue.cs" />
     <Compile Include="Collections\QueueReader.cs" />
+    <Compile Include="Collections\SerializableDictionaryHack.cs" />
+    <Compile Include="Collections\SmallBitField.cs" />
+    <Compile Include="Collections\ThreadSafeStore.cs" />
     <Compile Include="Collections\UniqueListReader.cs" />
     <Compile Include="Collections\MyBinaryHeap.cs" />
     <Compile Include="Collections\MySinglyLinkedList.cs" />
@@ -112,8 +196,8 @@
     <Compile Include="Collections\MyCommitQueue.cs" />
     <Compile Include="Collections\MyQueue.cs" />
     <Compile Include="Collections\MyUniqueList.cs" />
-    <Compile Include="Collections\SerializableDictionary.cs" />
     <Compile Include="Collections\StackReader.cs" />
+    <Compile Include="Compiler\ClassIdAttribute.cs" />
     <Compile Include="Compiler\IlCompiler.cs" />
     <Compile Include="Compiler\IlInjector.cs" />
     <Compile Include="Compiler\TestScriptHelpers.cs" />
@@ -128,11 +212,13 @@
     <Compile Include="DShow\DsUuids.cs" />
     <Compile Include="DShow\QEdit.cs" />
     <Compile Include="DShow\VideoPlayer.cs" />
+    <Compile Include="Extensions\AttributeExtensions.cs" />
     <Compile Include="Extensions\DictionaryExtensions.cs" />
     <Compile Include="Extensions\DoubleExtensions.cs" />
     <Compile Include="Extensions\FieldExtensions.cs" />
     <Compile Include="Extensions\FloatExtensions.cs" />
     <Compile Include="Extensions\HashSetExtensions.cs" />
+    <Compile Include="Extensions\UnsharperExtensions.cs" />
     <Compile Include="Filesystem\IFileVerifier.cs" />
     <Compile Include="Filesystem\MyChecksumVerifier.cs" />
     <Compile Include="Filesystem\MyFileChecksumWatcher.cs" />
@@ -146,7 +232,6 @@
     <Compile Include="IO\MyStreamWrapper.cs" />
     <Compile Include="Cryptography\MyRSA.cs" />
     <Compile Include="Extensions\AssemblyExtensions.cs" />
-    <Compile Include="Compiler\CallerAttributes.cs" />
     <Compile Include="Compiler\IlChecker.cs" />
     <Compile Include="Compiler\IlReader.cs" />
     <Compile Include="Compiler\MethodInfoExtensions.cs" />
@@ -206,6 +291,7 @@
     <Compile Include="Memory\MyTuple.cs" />
     <Compile Include="Collections\MyConcurrentPool.cs" />
     <Compile Include="Collections\MyConcurrentQueue.cs" />
+    <Compile Include="Memory\Ref.cs" />
     <Compile Include="Native\NativeCall.Method.cs" />
     <Compile Include="Native\NativeCall.TResult.Function.cs" />
     <Compile Include="Native\NativeCall.Function.cs" />
@@ -234,6 +320,7 @@
     <Compile Include="ParallelTasks\SpinLockRef.cs" />
     <Compile Include="ParallelTasks\Task.cs" />
     <Compile Include="ParallelTasks\TaskException.cs" />
+    <Compile Include="ParallelTasks\WorkData.cs" />
     <Compile Include="ParallelTasks\Worker.cs" />
     <Compile Include="ParallelTasks\WorkItem.cs" />
     <Compile Include="ParallelTasks\WorkOptions.cs" />
@@ -328,13 +415,21 @@
     <Compile Include="ProtobufNet\SubItemToken.cs" />
     <Compile Include="ProtobufNet\WireType.cs" />
     <Compile Include="Reflection\ConstructorHelper.cs" />
+    <Compile Include="Reflection\FieldAccess.cs" />
     <Compile Include="Reflection\FullyQualifiedNameComparer.cs" />
+    <Compile Include="Reflection\GenericCallCache.cs" />
+    <Compile Include="Reflection\MemberAccess.cs" />
+    <Compile Include="Reflection\PropertyAccess.cs" />
     <Compile Include="Security\Crc32.cs" />
     <Compile Include="Security\FnvHash.cs" />
     <Compile Include="Security\Md5.cs" />
     <Compile Include="Serialization\BlitCollectionSerializer.cs" />
     <Compile Include="Serialization\BlitSerializer.cs" />
     <Compile Include="Memory\ByteStream.cs" />
+    <Compile Include="Serialization\MyObjectFlags.cs" />
+    <Compile Include="Serialization\MyPrimitiveFlags.cs" />
+    <Compile Include="Serialization\MySerializeKind.cs" />
+    <Compile Include="Serialization\SerializeAttribute.cs" />
     <Compile Include="Serialization\TupleSerializer.cs" />
     <Compile Include="Serialization\ISerializer.cs" />
     <Compile Include="Serialization\ProtoSerializer.cs" />
@@ -347,28 +442,43 @@
     <Compile Include="Stats\MyStat.cs" />
     <Compile Include="Stats\MyStats.cs" />
     <Compile Include="Stats\MyStatToken.cs" />
+    <Compile Include="SteamSDK\SteamSDK_blit.cs" />
+    <Compile Include="SteamSDK\SteamSDK_blit_base.cs" />
+    <Compile Include="SteamSDK\SteamSDK_blit_common.cs" />
+    <Compile Include="SteamSDK\SteamSDK_blit_lobby.cs" />
+    <Compile Include="SteamSDK\SteamSDK_blit_p2p.cs" />
+    <Compile Include="SteamSDK\SteamSDK_blit_ugc.cs" />
     <Compile Include="Trace\ITrace.cs" />
     <Compile Include="Trace\MyNullTrace.cs" />
     <Compile Include="Trace\MyTrace.cs" />
     <Compile Include="Trace\MyWintraceWrapper.cs" />
+    <Compile Include="Utils\BlittableHelper.cs" />
     <Compile Include="Utils\Disposable.cs" />
     <Compile Include="Utils\DontCheckAttribute.cs" />
+    <Compile Include="Utils\FixedLoop.cs" />
+    <Compile Include="Utils\GenericLoop.cs" />
     <Compile Include="Utils\MyBrowserHelper.cs" />
     <Compile Include="Filesystem\MyCheckSums.cs" />
     <Compile Include="Utils\MyEnum.cs" />
     <Compile Include="Filesystem\MyFileSystem.cs" />
     <Compile Include="Utils\MyGameTimer.cs" />
+    <Compile Include="Utils\MyHashRandomUtils.cs" />
     <Compile Include="Utils\MyInterpolationQueue.cs" />
+    <Compile Include="Utils\MyIterableComplementSet.cs" />
     <Compile Include="Utils\MyRandom.cs" />
+    <Compile Include="Utils\MySimpleTestTimer.cs" />
     <Compile Include="Utils\MyTimer.cs" />
     <Compile Include="Utils\MyTimeSpan.cs" />
-    <Compile Include="Utils\MyUtils.cs" />
+    <Compile Include="Utils\MyLibraryUtils.cs" />
+    <Compile Include="Utils\WaitForTargetFrameRate.cs" />
     <Compile Include="Win32\WinApi-Constants.cs" />
     <Compile Include="Win32\WinApi-Functions.cs" />
     <Compile Include="Win32\WinApi-Helpers.cs" />
     <Compile Include="Win32\WinApi-Structures.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Compile Include="Collections\BitStream.Dynamic.cs" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="Native\NativeCallHelper.cs" />
   </ItemGroup>

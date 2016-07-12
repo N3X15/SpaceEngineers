@@ -1,12 +1,15 @@
 ﻿using ProtoBuf;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_TextPanelDefinition : MyObjectBuilder_CubeBlockDefinition
-    {     
+    {
+	    [ProtoMember]
+	    public string ResourceSinkGroup;
+
         [ProtoMember]
         public float RequiredPowerInput = 0.001f;
 

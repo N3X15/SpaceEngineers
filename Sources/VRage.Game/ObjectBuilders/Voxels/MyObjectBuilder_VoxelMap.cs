@@ -1,32 +1,14 @@
 ﻿using ProtoBuf;
-using System.Diagnostics;
-using System.IO;
 using VRageMath;
 using VRage.ObjectBuilders;
-using VRage;
+using VRage.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders.Voxels
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_VoxelMap : MyObjectBuilder_EntityBase
     {
-        public string Filename
-        {
-            get { Debug.Fail("Obsolete."); return null; }
-            set { StorageName = Path.GetFileNameWithoutExtension(value); }
-        }
-        public bool ShouldSerializeFilename() { return false; }
-
-        // Obsolete, but because this property has the same name as in base class (by accident),
-        // it makes backwards compatibility somewhat confusing.
-        public new string Name
-        {
-            get { return base.Name; }
-            set { m_storageName = value; }
-        }
-        public bool ShouldSerializeName() { return false; }
-
         [ProtoMember]
         public string StorageName
         {
@@ -38,6 +20,9 @@ namespace Sandbox.Common.ObjectBuilders.Voxels
         //[ProtoMember]
         public bool MutableStorage = true;
         public bool ShouldSerializeMutableStorage() { return !MutableStorage; }
+
+        [Serialize(MyObjectFlags.Nullable)]
+        public bool? ContentChanged;
 
         public MyObjectBuilder_VoxelMap()
             : base()

@@ -235,18 +235,19 @@ namespace VRageRender
             //
             public int RenderableObjectsNum;
             public int ViewFrustumObjectsNum;
-            public int Cascade0ObjectsNum;
-            public int Cascade1ObjectsNum;
-            public int Cascade2ObjectsNum;
-            public int Cascade3ObjectsNum;
+            public int[] ShadowCascadeObjectsNum;
 
             //
             public int MeshesDrawn;
             public int SubmeshesDrawn;
+            public int BillboardsDrawn;
             public int ObjectConstantsChanges;
             public int MaterialConstantsChanges;
             public int TrianglesDrawn;
             public int InstancesDrawn;
+
+            public int[] ShadowCascadeTriangles;
+            public int OtherShadowTriangles;
 
             // api calls
             public int Draw;
@@ -254,6 +255,12 @@ namespace VRageRender
             public int DrawIndexed;
             public int DrawIndexedInstanced;
             public int DrawAuto;
+
+            public int ShadowDrawIndexed;
+            public int ShadowDrawIndexedInstanced;
+
+            public int BillboardDrawCalls;
+
             public int SetVB;
             public int SetIB;
             public int SetIL;
@@ -267,12 +274,16 @@ namespace VRageRender
 
             public void Reset()
             {
+				CheckArrays();
                 RenderableObjectsNum = 0;
                 ViewFrustumObjectsNum = 0;
-                Cascade0ObjectsNum = 0;
-                Cascade1ObjectsNum = 0;
-                Cascade2ObjectsNum = 0;
-                Cascade3ObjectsNum = 0;
+
+                for (int cascadeIndex = 0; cascadeIndex < MyRenderProxy.Settings.ShadowCascadeCount; ++cascadeIndex )
+                {
+                    ShadowCascadeObjectsNum[cascadeIndex] = 0;
+                    ShadowCascadeTriangles[cascadeIndex] = 0;
+                }
+                OtherShadowTriangles = 0;
 
                 MeshesDrawn = 0;
                 SubmeshesDrawn = 0;
@@ -286,6 +297,8 @@ namespace VRageRender
                 DrawIndexed = 0;
                 DrawIndexedInstanced = 0;
                 DrawAuto = 0;
+                ShadowDrawIndexed = 0;
+                ShadowDrawIndexedInstanced = 0;
                 SetVB = 0;
                 SetIB = 0;
                 SetIL = 0;
@@ -297,6 +310,19 @@ namespace VRageRender
                 SetBlendState = 0;
                 BindShaderResources = 0;
             }
+
+			void CheckArrays()
+			{
+				if(ShadowCascadeObjectsNum == null || ShadowCascadeObjectsNum.Length != MyRenderProxy.Settings.ShadowCascadeCount)
+					ShadowCascadeObjectsNum = new int[MyRenderProxy.Settings.ShadowCascadeCount];
+
+                if (ShadowCascadeTriangles == null || ShadowCascadeTriangles.Length != MyRenderProxy.Settings.ShadowCascadeCount)
+                    ShadowCascadeTriangles = new int[MyRenderProxy.Settings.ShadowCascadeCount];
+			}
+			public MyPerCameraDraw11()
+			{
+				CheckArrays();
+			}
         }
 
         //  These counters are never "reseted", they keep increasing during the whole app lifetime

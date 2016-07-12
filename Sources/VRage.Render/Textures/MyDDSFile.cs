@@ -21,7 +21,7 @@ namespace VRageRender.Textures
 
         static readonly Type D3DXType = typeof(Texture).Assembly.GetType("SharpDX.Direct3D9.D3DX9");
         static readonly MethodInfo GetImageInfoFromFileWMethodInfo = D3DXType.GetMethod("GetImageInfoFromFileW");
-        static readonly GetImageInfoFromFileWDelegate GetImageInfoFromFileW = GetImageInfoFromFileWMethodInfo.CreateDelegate<GetImageInfoFromFileWDelegate>();
+        //static readonly GetImageInfoFromFileWDelegate GetImageInfoFromFileW = GetImageInfoFromFileWMethodInfo.CreateDelegate<GetImageInfoFromFileWDelegate>();
 
         public static void DDSFromFile(string fileName, Device device, bool loadMipMap, int offsetMipMaps, out SharpDX.Direct3D9.Texture texture)
         {
@@ -83,7 +83,8 @@ namespace VRageRender.Textures
             ImageInformation imageInfo;
             if (fileStream != null)
             {
-                imageInfo = GetImageInfoFromFileW(fileStream.Name);
+                //imageInfo = GetImageInfoFromFileW(fileStream.Name);
+				imageInfo = (ImageInformation)GetImageInfoFromFileWMethodInfo.Invoke(null, new object[] { fileStream.Name });
             }
             else
             {
@@ -106,11 +107,11 @@ namespace VRageRender.Textures
             {
                 if (fileStream != null)
                 {
-                    texture = SharpDX.Direct3D9.Texture.FromFile(device, fileStream.Name, 0, 0, 0, Usage.None, Format.Unknown, Pool.Default, Filter.None, Filter.None, 0);
+                    texture = SharpDX.Direct3D9.Texture.FromFile(device, fileStream.Name, 0, 0, 0, Usage.None, Format.Unknown, Pool.Default, Filter.None, Filter.Linear, 0);
                 }
                 else
                 {
-                    texture = SharpDX.Direct3D9.Texture.FromMemory(device, data, 0, 0, 0, Usage.None, Format.Unknown, Pool.Default, Filter.None, Filter.None, 0);
+                    texture = SharpDX.Direct3D9.Texture.FromMemory(device, data, 0, 0, 0, Usage.None, Format.Unknown, Pool.Default, Filter.None, Filter.Linear, 0);
                 }
             }
             else if (loadMipmapOffset > 0)
@@ -267,7 +268,7 @@ namespace VRageRender.Textures
             try
             {
                 fileStream = File.Create(fileName);
-                BaseTexture.ToStream(texture, ImageFileFormat.Dds);
+                BaseTexture.ToStream(texture, SharpDX.Direct3D9.ImageFileFormat.Dds);
                 //DDSToStream(fileStream, 0, saveMipMaps, texture);
                 // sometimes needed because of out of memory and this helps
                 //GC.Collect(2);

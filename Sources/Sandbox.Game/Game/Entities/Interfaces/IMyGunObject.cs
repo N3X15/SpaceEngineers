@@ -5,6 +5,8 @@ using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Weapons;
 using Sandbox.ModAPI.Interfaces;
 using System;
+using VRage.Game;
+using VRage.Game.ModAPI.Interfaces;
 using VRageMath;
 
 namespace Sandbox.Game.Entities
@@ -20,6 +22,7 @@ namespace Sandbox.Game.Entities
         Failed = 6,        // Any other reason not given here
         NotSelected = 7,   // No gun was selected, so nothing could shoot
         AccessDenied = 8,   // Shooter has not access to the weapon
+        BurstLimit = 9,    // whole burst fired, re-press the trigger
     }
 
     /// <summary>
@@ -34,8 +37,6 @@ namespace Sandbox.Game.Entities
         MyDefinitionId DefinitionId { get; }
         bool EnabledInWorldRules { get; }
         T GunBase { get; }
-
-		bool IsDeconstructor { get; }
 
         Vector3 DirectionToTarget(Vector3D target);
 
@@ -53,8 +54,9 @@ namespace Sandbox.Game.Entities
         /// This method should only be called when CanShoot returns true for the given action!
         /// </summary>
         /// <param name="action">The shooting action to perform</param>
+        /// <param name="overrideWeaponPos">Changes weapon position.</param>
         /// <param name="direction">The prefered direction of shooting</param>
-        void Shoot(MyShootActionEnum action, Vector3 direction);
+        void Shoot(MyShootActionEnum action, Vector3 direction, Vector3D? overrideWeaponPos, string gunAction = null);
         void EndShoot(MyShootActionEnum action);
 
         /// <summary>

@@ -4,10 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage.Game.ModAPI;
 
 namespace Sandbox.Game.Gui
 {
-    public class MyGuiScreenTextPanel : MyGuiScreenMission
+    public class MyGuiScreenTextPanel : MyGuiScreenText
     {
         public MyGuiScreenTextPanel(
             string missionTitle = null,

@@ -63,7 +63,8 @@ namespace VRage.Utils
             try
             {
                 m_numberFormatInfoHelper.NumberDecimalDigits = decimalDigits;
-                return System.Convert.ToDecimal(number, m_numberFormatInfoHelper);
+                //by Gregory: Added Round cause decimal digits weren't wworking properly
+                return Math.Round(System.Convert.ToDecimal(number, m_numberFormatInfoHelper), decimalDigits);
             }
             catch
             {
@@ -80,11 +81,12 @@ namespace VRage.Utils
             m_numberFormatInfoHelper.NumberDecimalDigits = decimalDigits;
             try
             {
-                result = (float)System.Convert.ToDouble(number, m_numberFormatInfoHelper);
+                //by Gregory: Added Round cause decimal digits weren't wworking properly
+                result = (float)Math.Round((float)System.Convert.ToDouble(number, m_numberFormatInfoHelper), decimalDigits);
             }
             catch 
             {
-            }            
+            }
             m_numberFormatInfoHelper.NumberGroupSeparator = originalGroupSeparator;
 
             return result;
@@ -276,6 +278,14 @@ namespace VRage.Utils
             AppendFormattedValueInBestUnit(sizeInBytes, m_dataSizeUnitNames, m_dataSizeUnitMultipliers, m_dataSizeUnitDigits, output);
         }
 
+        private static readonly string[] m_volumeUnitNames = new string[] { "mL", "cL", "dL", "L", "hL", "m³" };
+        private static readonly float[] m_volumeUnitMultipliers = new float[] { 0.000001f, 0.00001f, 0.0001f, 0.001f, 0.1f, 1f };
+        private static readonly int[] m_volumeUnitDigits = new int[] { 0, 0, 0, 0, 2, 1 };
+        public static void AppendVolumeInBestUnit(float volumeInCubicMeters, StringBuilder output)
+        {
+            AppendFormattedValueInBestUnit(volumeInCubicMeters, m_volumeUnitNames, m_volumeUnitMultipliers, m_volumeUnitDigits, output);
+        }
+
         public static void AppendTimeExact(int timeInSeconds, StringBuilder output)
         {
             if (timeInSeconds >= 60 * 60 * 24)
@@ -287,6 +297,13 @@ namespace VRage.Utils
             output.ConcatFormat("{0:00}", timeInSeconds / (60 * 60) % 24);
             output.Append(":");
             output.ConcatFormat("{0:00}", timeInSeconds / 60 % 60);
+            output.Append(":");
+            output.ConcatFormat("{0:00}", timeInSeconds % 60);
+        }
+
+        public static void AppendTimeExactMinSec(int timeInSeconds, StringBuilder output)
+        {
+            output.ConcatFormat("{0:00}", timeInSeconds / 60 % (60 * 24));
             output.Append(":");
             output.ConcatFormat("{0:00}", timeInSeconds % 60);
         }

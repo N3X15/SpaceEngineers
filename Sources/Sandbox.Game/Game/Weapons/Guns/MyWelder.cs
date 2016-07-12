@@ -10,6 +10,7 @@ using Sandbox.Game.Entities.Blocks;
 using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.Gui;
+using Sandbox.Game.GUI;
 using Sandbox.Game.Localization;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
@@ -18,38 +19,45 @@ using System.Linq;
 using VRage.Input;
 using VRageMath;
 using VRage.ObjectBuilders;
+using Sandbox.Engine.Networking;
+using VRage.Game;
+using VRage.Game.Entity;
+using Sandbox.Game.Audio;
+using Sandbox.ModAPI;
+using Sandbox.ModAPI.Weapons;
 
 #endregion
 
 namespace Sandbox.Game.Weapons
 {
     [MyEntityType(typeof(MyObjectBuilder_Welder))]
-    public class MyWelder : MyEngineerToolBase
+    public class MyWelder : MyEngineerToolBase, IMyWelder
     {
-        private static MySoundPair IDLE_SOUND = new MySoundPair("ToolPlayWeldIdle");
-        private static MySoundPair METAL_SOUND = new MySoundPair("ToolPlayWeldMetal");
+        private MySoundPair weldSoundIdle = new MySoundPair("ToolPlayWeldIdle");
+        private MySoundPair weldSoundWeld = new MySoundPair("ToolPlayWeldMetal");
 
         public static readonly float WELDER_AMOUNT_PER_SECOND = 1f;
         public static readonly float WELDER_MAX_REPAIR_BONE_MOVEMENT_SPEED = 0.6f;
 
         private static MyHudNotification m_weldingHintNotification = new MyHudNotification(MySpaceTexts.WelderPrimaryActionBuild, MyHudNotification.INFINITE, level: MyNotificationLevel.Control);
-        private static MyHudNotificationBase m_missingComponentNotification = new MyHudNotification(MySpaceTexts.NotificationMissingComponentToPlaceBlockFormat, font: MyFontEnum.Red);
+        private static MyHudNotificationBase m_missingComponentNotification = new MyHudNotification(MyCommonTexts.NotificationMissingComponentToPlaceBlockFormat, font: MyFontEnum.Red);
 
         static MyDefinitionId m_physicalItemId = new MyDefinitionId(typeof(MyObjectBuilder_PhysicalGunObject), "WelderItem");
 
         private MySlimBlock m_failedBlock;
         private bool m_playedFailSound = false;
+        private MySlimBlock m_failedBlockSound = null;
 
         private Vector3I m_targetProjectionCube;
         private MyCubeGrid m_targetProjectionGrid;
 
         public struct ProjectionRaycastData
         {
-            public MyProjector.BuildCheckResult raycastResult;
+            public BuildCheckResult raycastResult;
             public MySlimBlock hitCube;
-            public MyProjector cubeProjector;
+            public MyProjectorBase cubeProjector;
 
-            public ProjectionRaycastData(MyProjector.BuildCheckResult result, MySlimBlock cubeBlock, MyProjector projector)
+            public ProjectionRaycastData(BuildCheckResult result, MySlimBlock cubeBlock, MyProjectorBase projector)
             {
                 raycastResult = result;
                 hitCube = cubeBlock;
@@ -58,30 +66,46 @@ namespace Sandbox.Game.Weapons
         }
 
         public MyWelder()
-            : base(MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(m_physicalItemId), 0.5f, 250)
+            : base(250)
         {
             HasCubeHighlight = true;
             HighlightColor = Color.Green * 0.45f;
+			HighlightMaterial = "GizmoDrawLine";
 
             SecondaryLightIntensityLower = 0.4f;
             SecondaryLightIntensityUpper = 0.4f;
 
             SecondaryEffectId = MyParticleEffectsIDEnum.WelderSecondary;
             HasSecondaryEffect = false;
-
-            PhysicalObject = (MyObjectBuilder_PhysicalGunObject)MyObjectBuilderSerializer.CreateNewObject(m_physicalItemId.TypeId, m_physicalItemId.SubtypeName);
         }
 
         public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
-            base.Init(objectBuilder);
+            if (objectBuilder.SubtypeName != null && objectBuilder.SubtypeName.Length > 0)
+                m_physicalItemId = new MyDefinitionId(typeof(MyObjectBuilder_PhysicalGunObject), objectBuilder.SubtypeName + "Item");
+            PhysicalObject = (MyObjectBuilder_PhysicalGunObject)MyObjectBuilderSerializer.CreateNewObject(m_physicalItemId);
+            base.Init(objectBuilder, m_physicalItemId);
 
-            Init(null, "Models\\Weapons\\Welder.mwm", null, null, null);
+            var definition = MyDefinitionManager.Static.GetPhysicalItemDefinition(m_physicalItemId);
+            Init(null, definition.Model, null, null, null);
             Render.CastShadows = true;
             Render.NeedsResolveCastShadow = false;
 
             PhysicalObject.GunEntity = (MyObjectBuilder_EntityBase)objectBuilder.Clone();
             PhysicalObject.GunEntity.EntityId = this.EntityId;
+
+            foreach (ToolSound toolSound in m_handItemDef.ToolSounds)
+            {
+                if (toolSound.type == null || toolSound.subtype == null || toolSound.sound == null)
+                    continue;
+                if (toolSound.type.Equals("Main"))
+                {
+                    if(toolSound.subtype.Equals("Idle"))
+                        weldSoundIdle = new MySoundPair(toolSound.sound);
+                    if (toolSound.subtype.Equals("Weld"))
+                        weldSoundWeld = new MySoundPair(toolSound.sound);
+                }
+            }
         }
 
         protected override bool ShouldBePowered()
@@ -97,7 +121,7 @@ namespace Sandbox.Game.Weapons
                 if (!block.HasDeformation) return false;
                 else return true;
             }
-            if (!MySession.Static.CreativeMode && !block.CanContinueBuild(character.GetInventory())) return false;
+            if (!MySession.Static.CreativeMode && !block.CanContinueBuild(character.GetInventory() as MyInventory)) return false;
 
             return true;
         }
@@ -137,7 +161,7 @@ namespace Sandbox.Game.Weapons
 
             MyHud.BlockInfo.MissingComponentIndex = 0;
             MyHud.BlockInfo.BlockName = block.BlockDefinition.DisplayNameText;
-            MyHud.BlockInfo.BlockIcon = block.BlockDefinition.Icon;
+            MyHud.BlockInfo.BlockIcons = block.BlockDefinition.Icons;
             MyHud.BlockInfo.BlockIntegrity = 0.01f;
             MyHud.BlockInfo.CriticalIntegrity = block.BlockDefinition.CriticalIntegrityRatio;
             MyHud.BlockInfo.CriticalComponentIndex = block.BlockDefinition.CriticalGroup;
@@ -152,7 +176,7 @@ namespace Sandbox.Game.Weapons
                 var component = new MyHudBlockInfo.ComponentInfo();
                 component.DefinitionId = info.Component.Id;
                 component.ComponentName = info.Component.DisplayNameText;
-                component.Icon = info.Component.Icon;
+                component.Icons = info.Component.Icons;
                 component.TotalCount = info.TotalCount;
                 component.MountedCount = 0;
                 component.StockpileCount = 0;
@@ -165,20 +189,21 @@ namespace Sandbox.Game.Weapons
         {
             get
             {
-                return MySession.Static.WelderSpeedMultiplier * WELDER_AMOUNT_PER_SECOND * ToolCooldownMs / 1000.0f;
+                return MySession.Static.WelderSpeedMultiplier * m_speedMultiplier * WELDER_AMOUNT_PER_SECOND * ToolCooldownMs / 1000.0f;
             }
         }
 
         public override bool CanShoot(MyShootActionEnum action, long shooter, out MyGunStatusEnum status)
         {
+            if (action == MyShootActionEnum.SecondaryAction)
+            {
+				status = MyGunStatusEnum.OK;
+                return true;
+            }
+
             if (!base.CanShoot(action, shooter, out status))
             {
                 return false;
-            }
-
-            if (action == MyShootActionEnum.SecondaryAction)
-            {
-                return true;
             }
 
 
@@ -187,7 +212,7 @@ namespace Sandbox.Game.Weapons
             if (block == null)
             {
                 var info = FindProjectedBlock();
-                if (info.raycastResult == MyProjector.BuildCheckResult.OK)
+                if (info.raycastResult == BuildCheckResult.OK)
                 {
                     return true;
                 }
@@ -215,16 +240,20 @@ namespace Sandbox.Game.Weapons
 
             {
                 var info = FindProjectedBlock();
-                if (info.raycastResult == MyProjector.BuildCheckResult.OK)
+                if (info.raycastResult == BuildCheckResult.OK)
                 {
                     return true;
                 }
             }
 
             MyCharacter character = Owner as MyCharacter;
-            if (!block.CanContinueBuild(character.GetInventory()))
+            System.Diagnostics.Debug.Assert(character.GetInventory() as MyInventory != null, "Null or unexpected inventory type returned!");
+            if (!block.CanContinueBuild(character.GetInventory() as MyInventory))
             {
                 status = MyGunStatusEnum.Failed;
+                if (!block.IsFullIntegrity)
+                    if (Owner != null && Owner == MySession.Static.LocalCharacter)
+                        BeginFailReactionLocal(0, 0);
                 return false;
             }
 
@@ -241,34 +270,39 @@ namespace Sandbox.Game.Weapons
             return false;
         }
 
-        private MyProjector GetProjector(MySlimBlock block)
+        private MyProjectorBase GetProjector(MySlimBlock block)
         {
-            var projectorSlimBlock = block.CubeGrid.GetBlocks().FirstOrDefault(b => b.FatBlock is MyProjector);
+            var projectorSlimBlock = block.CubeGrid.GetBlocks().FirstOrDefault(b => b.FatBlock is MyProjectorBase);
             if (projectorSlimBlock != null)
             {
-                return projectorSlimBlock.FatBlock as MyProjector;
+                return projectorSlimBlock.FatBlock as MyProjectorBase;
             }
 
             return null;
         }
 
-        public override void Shoot(MyShootActionEnum action, Vector3 direction)
+        public override void Shoot(MyShootActionEnum action, Vector3 direction, Vector3D? overrideWeaponPos, string gunAction)
         {
-            base.Shoot(action, direction);
-            
-            if (action == MyShootActionEnum.PrimaryAction/* && IsPreheated*/ && Sync.IsServer)
+            MyAnalyticsHelper.ReportActivityStartIf(!m_activated, this.Owner, "Welding", "Character", "HandTools","Welder",true);
+
+            base.Shoot(action, direction, overrideWeaponPos, gunAction);
+
+            if (action == MyShootActionEnum.PrimaryAction/* && IsPreheated*/  )
             {
                 var block = GetTargetBlock();
-                if (block != null && CanWeld(block) && m_activated)
+                if (block != null && m_activated)
                 {
-                    Weld();
+                    if (Sync.IsServer && CanWeld(block))
+                    {
+                        Weld();
+                    }
                 }
-                else
+                else if (Owner == MySession.Static.LocalCharacter)
                 {
                     var info = FindProjectedBlock();
-                    if (info.raycastResult == MyProjector.BuildCheckResult.OK)
+                    if (info.raycastResult == BuildCheckResult.OK)
                     {
-                        if (MySession.Static.CreativeMode || MyBlockBuilderBase.SpectatorIsBuilding || Owner.CanStartConstruction(info.hitCube.BlockDefinition))
+                        if (MySession.Static.CreativeMode || MyBlockBuilderBase.SpectatorIsBuilding || Owner.CanStartConstruction(info.hitCube.BlockDefinition) || MySession.Static.IsAdminModeEnabled(Sync.MyId))
                         {
                             info.cubeProjector.Build(info.hitCube, Owner.ControllerInfo.Controller.Player.Identity.IdentityId, Owner.EntityId);
                         }
@@ -279,14 +313,28 @@ namespace Sandbox.Game.Weapons
                     }
                 }
             }
+			else if(action == MyShootActionEnum.SecondaryAction && Sync.IsServer)
+			{
+				FillStockpile();
+			}
             return;
+        }
+
+        public override void EndShoot(MyShootActionEnum action)
+        {
+            if (m_activated)
+            {
+                MyAnalyticsHelper.ReportActivityEnd(this.Owner, "Welding");
+            }
+            m_playedFailSound = false;
+            base.EndShoot(action);
         }
 
         public override void BeginFailReaction(MyShootActionEnum action, MyGunStatusEnum status)
         {
             base.BeginFailReaction(action, status);
 
-            m_soundEmitter.PlaySingleSound(IDLE_SOUND, true, true);
+            m_soundEmitter.PlaySingleSound(weldSoundIdle, true, true);
 
             FillStockpile();
         }
@@ -318,11 +366,17 @@ namespace Sandbox.Game.Weapons
                 string.Format("{0} ({1}x)", missingGroup.Component.DisplayNameText, missingGroupAmount),
                 block.BlockDefinition.DisplayNameText.ToString());
             MyHud.Notifications.Add(m_missingComponentNotification);
+            if ((m_playedFailSound && m_failedBlockSound != block) || m_playedFailSound == false)
+            {
+                MyGuiAudio.PlaySound(MyGuiSounds.HudUnable);
+                m_playedFailSound = true;
+                m_failedBlockSound = block;
+            }
         }
 
         protected override void AddHudInfo()
         {
-            if (MyInput.Static.IsJoystickConnected())
+            if (!MyInput.Static.IsJoystickConnected())
                 m_weldingHintNotification.SetTextFormatArguments(MyInput.Static.GetGameControl(MyControlsSpace.PRIMARY_TOOL_ACTION));
             else
                 m_weldingHintNotification.SetTextFormatArguments(MyControllerHelper.GetCodeForControl(MySpaceBindingCreator.CX_CHARACTER, MyControlsSpace.PRIMARY_TOOL_ACTION));
@@ -360,28 +414,33 @@ namespace Sandbox.Game.Weapons
                 block.MoveUnneededItemsFromConstructionStockpile(CharacterInventory);
 
                 // Allow welding only for blocks with deformations or unfinished/damaged blocks
-                if (block.MaxDeformation > 0.0f || !block.IsFullIntegrity)
+                if ((block.HasDeformation || block.MaxDeformation > 0.0f) || !block.IsFullIntegrity)
                 {
                     float maxAllowedBoneMovement = WELDER_MAX_REPAIR_BONE_MOVEMENT_SPEED * ToolCooldownMs * 0.001f;
-                    block.IncreaseMountLevel(WeldAmount, Owner.ControllerInfo.ControllingIdentityId, CharacterInventory, maxAllowedBoneMovement);
+                    if (Owner != null && Owner.ControllerInfo != null)
+                    {
+                        block.IncreaseMountLevel(WeldAmount, Owner.ControllerInfo.ControllingIdentityId, CharacterInventory, maxAllowedBoneMovement);
+                        if (MySession.Static != null && Owner == MySession.Static.LocalCharacter && MyMusicController.Static != null)
+                            MyMusicController.Static.Building(250);
+                    }
                 }
             }
             
             var targetDestroyable = GetTargetDestroyable();
-            if(targetDestroyable is MyCharacter && Sync.IsServer)
-                targetDestroyable.DoDamage(20, MyDamageType.Drill, true);
+            if (targetDestroyable is MyCharacter && Sync.IsServer)
+                targetDestroyable.DoDamage(20, MyDamageType.Weld, true, attackerId: EntityId);
         }
 
         public override void UpdateAfterSimulation()
         {
             base.UpdateAfterSimulation();
 
-            if (Owner != null && Owner == MySession.LocalCharacter)
+            if (Owner != null && Owner == MySession.Static.LocalCharacter)
             {
                 CheckProjection();
             }
 
-            if (Owner == null || MySession.ControlledEntity != Owner)
+            if (Owner == null || MySession.Static.ControlledEntity != Owner)
             {
                 RemoveHudInfo();
             }
@@ -397,9 +456,9 @@ namespace Sandbox.Game.Weapons
             }
 
             var info = FindProjectedBlock();
-            if (info.raycastResult != MyProjector.BuildCheckResult.NotFound)
+            if (info.raycastResult != BuildCheckResult.NotFound)
             {
-                if (info.raycastResult == MyProjector.BuildCheckResult.OK)
+                if (info.raycastResult == BuildCheckResult.OK)
                 {
                     MyCubeBuilder.DrawSemiTransparentBox(info.hitCube.CubeGrid, info.hitCube, Color.Green.ToVector4(), true);
                     m_targetProjectionCube = info.hitCube.Position;
@@ -407,11 +466,11 @@ namespace Sandbox.Game.Weapons
 
                     return;
                 }
-                else if (info.raycastResult == MyProjector.BuildCheckResult.IntersectedWithGrid || info.raycastResult == MyProjector.BuildCheckResult.IntersectedWithSomethingElse)
+                else if (info.raycastResult == BuildCheckResult.IntersectedWithGrid || info.raycastResult == BuildCheckResult.IntersectedWithSomethingElse)
                 {
                     MyCubeBuilder.DrawSemiTransparentBox(info.hitCube.CubeGrid, info.hitCube, Color.Red.ToVector4(), true);
                 }
-                else if (info.raycastResult == MyProjector.BuildCheckResult.NotConnected)
+                else if (info.raycastResult == BuildCheckResult.NotConnected)
                 {
                     MyCubeBuilder.DrawSemiTransparentBox(info.hitCube.CubeGrid, info.hitCube, Color.Yellow.ToVector4(), true);
                 }
@@ -424,12 +483,12 @@ namespace Sandbox.Game.Weapons
         {
             if (Owner != null)
             {
-                Vector3D startPosition = Sensor.Center;
-                Vector3D forward = Sensor.FrontPoint - Sensor.Center;
+                Vector3D startPosition = m_raycastComponent.Caster.Center;
+                Vector3D forward = m_raycastComponent.Caster.FrontPoint - m_raycastComponent.Caster.Center;
                 forward.Normalize();
 
-                //Increased welder distance when projecting because it was hard to build on large grids
-                float welderDistance = m_toolActionDistance * m_toolActionDistance * 2.0f;
+                // Welder distance is now in caster.
+                float welderDistance = DEFAULT_REACH_DISTANCE * m_distanceMultiplier;
                 Vector3D endPosition = startPosition + forward * welderDistance;
                 LineD line = new LineD(startPosition, endPosition);
                 MyCubeGrid projectionGrid;
@@ -449,7 +508,7 @@ namespace Sandbox.Game.Weapons
                         {
                             var projectionBlock = blocks[i];
                             var canBuild = projector.CanBuild(projectionBlock.CubeBlock, true);
-                            if (canBuild == MyProjector.BuildCheckResult.OK)
+                            if (canBuild == BuildCheckResult.OK)
                             {
                                 farthestVisibleBlock = new ProjectionRaycastData
                                 {
@@ -458,7 +517,7 @@ namespace Sandbox.Game.Weapons
                                     cubeProjector = projector,
                                 };
                             }
-                            else if (canBuild == MyProjector.BuildCheckResult.AlreadyBuilt)
+                            else if (canBuild == BuildCheckResult.AlreadyBuilt)
                             {
                                 farthestVisibleBlock = null;
                             }
@@ -473,15 +532,15 @@ namespace Sandbox.Game.Weapons
             }
             return new ProjectionRaycastData
             {
-                raycastResult = MyProjector.BuildCheckResult.NotFound,
+                raycastResult = BuildCheckResult.NotFound,
             };
         }
 
         protected override void StartLoopSound(bool effect)
         {
-            MySoundPair cueEnum = effect ? METAL_SOUND : IDLE_SOUND;
+            MySoundPair cueEnum = effect ? weldSoundWeld : weldSoundIdle;
             if(effect)
-                m_soundEmitter.PlaySingleSound(METAL_SOUND, true, true);
+                m_soundEmitter.PlaySingleSound(weldSoundWeld, true, true);
         }
 
         protected override void StopLoopSound()

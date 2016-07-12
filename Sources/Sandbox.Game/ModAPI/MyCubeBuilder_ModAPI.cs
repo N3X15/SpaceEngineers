@@ -1,10 +1,12 @@
 ﻿using Sandbox.Game.Entities.Character;
-using Sandbox.ModAPI;
+using VRage.Game.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage.Game;
 using VRage.ModAPI;
+using Sandbox.ModAPI;
 
 namespace Sandbox.Game.Entities
 {
@@ -22,31 +24,15 @@ namespace Sandbox.Game.Entities
             return FindClosestGrid();
         }
 
-        void IMyCubeBuilder.Activate()
+        void IMyCubeBuilder.Activate(MyDefinitionId? blockDefinitionId = null)
         {
-            Activate();
-        }
-
-        void IMyCubeBuilder.ActivateShipCreationClipboard(Common.ObjectBuilders.MyObjectBuilder_CubeGrid grid, VRageMath.Vector3 centerDeltaDirection, float dragVectorLength)
-        {
-            ActivateShipCreationClipboard(grid, centerDeltaDirection, dragVectorLength);
-        }
-
-        void IMyCubeBuilder.ActivateShipCreationClipboard(Common.ObjectBuilders.MyObjectBuilder_CubeGrid[] grids, VRageMath.Vector3 centerDeltaDirection, float dragVectorLength)
-        {
-            ActivateShipCreationClipboard(grids, centerDeltaDirection, dragVectorLength);
+            Activate(blockDefinitionId);
         }
 
         bool IMyCubeBuilder.BlockCreationIsActivated
         {
             get { return BlockCreationIsActivated; }
         }
-
-        bool IMyCubeBuilder.CopyPasteIsActivated
-        {
-            get { return CopyPasteIsActivated; }
-        }
-
         void IMyCubeBuilder.Deactivate()
         {
             Deactivate();
@@ -55,16 +41,6 @@ namespace Sandbox.Game.Entities
         void IMyCubeBuilder.DeactivateBlockCreation()
         {
             DeactivateBlockCreation();
-        }
-
-        void IMyCubeBuilder.DeactivateCopyPaste()
-        {
-            DeactivateCopyPaste();
-        }
-
-        void IMyCubeBuilder.DeactivateShipCreationClipboard()
-        {
-            DeactivateShipCreationClipboard();
         }
 
         bool IMyCubeBuilder.FreezeGizmo
@@ -79,11 +55,6 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        bool IMyCubeBuilder.ShipCreationIsActivated
-        {
-            get { return ShipCreationIsActivated; }
-        }
-
         bool IMyCubeBuilder.ShowRemoveGizmo
         {
             get
@@ -96,7 +67,7 @@ namespace Sandbox.Game.Entities
             }
         }
 
-        void IMyCubeBuilder.StartNewGridPlacement(Common.ObjectBuilders.MyCubeSize cubeSize, bool isStatic)
+        void IMyCubeBuilder.StartNewGridPlacement(MyCubeSize cubeSize, bool isStatic)
         {
             StartNewGridPlacement(cubeSize, isStatic);
         }

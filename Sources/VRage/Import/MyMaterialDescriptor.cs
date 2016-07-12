@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -106,7 +107,7 @@ namespace VRage.Import
             if (String.IsNullOrEmpty(MaterialName))
                 MaterialName = null;
 
-            if (version < 01052002)
+            if (version < 1052002)
             {
                 var diffuseTextureName = reader.ReadString();
                 if (!string.IsNullOrEmpty(diffuseTextureName))
@@ -131,7 +132,7 @@ namespace VRage.Import
                 }
             }
 
-            if (version >= 01068001)
+			if (version >= 1068001) // 01068001
             {
                 int userDataCount = reader.ReadInt32();
                 for (int i = 0; i < userDataCount; i++)
@@ -150,7 +151,7 @@ namespace VRage.Import
             ExtraData.Y = reader.ReadSingle();
             ExtraData.Z = reader.ReadSingle();
 
-            if (version < 01052001)
+            if (version < 1052001)
             {
                 Technique = ((MyMeshDrawTechnique)reader.ReadInt32()).ToString();
             }
@@ -159,7 +160,7 @@ namespace VRage.Import
 
             if (Technique == "GLASS")
             {
-                if (version >= 01043001)
+                if (version >= 1043001)
                 {
                     GlassCW = reader.ReadString();
                     GlassCCW = reader.ReadString();
@@ -178,6 +179,51 @@ namespace VRage.Import
             }
 
             return true;
+        }
+
+        public MyFacingEnum Facing
+        {
+            get
+            {
+                string facingVal;
+                if (UserData.TryGetValue("Facing", out facingVal))
+                {
+                    MyFacingEnum facing;
+                    if (!Enum.TryParse(facingVal, out facing))
+                        return MyFacingEnum.None;
+
+                    return facing;
+                }
+
+                return MyFacingEnum.None;
+            }
+        }
+
+        public Vector2 WindScaleAndFreq
+        {
+            get
+            {
+                string windScaleVal;
+                Vector2 windScaleAndFreq = Vector2.Zero;
+                if (UserData.TryGetValue("WindScale", out windScaleVal))
+                {
+                    float f;
+                    if (!float.TryParse(windScaleVal, NumberStyles.Any, CultureInfo.InvariantCulture, out f))
+                        return windScaleAndFreq;
+
+                    windScaleAndFreq.X = f;
+
+                    if (UserData.TryGetValue("WindFrequency", out windScaleVal))
+                    {
+                        if (!float.TryParse(windScaleVal, NumberStyles.Any, CultureInfo.InvariantCulture, out f))
+                            return windScaleAndFreq;
+                    }
+
+                    windScaleAndFreq.Y = f;
+                }
+
+                return windScaleAndFreq;
+            }
         }
     }
 }

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using Sandbox.ModAPI;
 using Sandbox.Common;
+using VRage.Game.ModAPI;
+using VRage.Game;
 
 namespace Sandbox.Game.World
 {
@@ -62,6 +64,14 @@ namespace Sandbox.Game.World
             get
             {
                 return AutoAcceptPeace;
+            }
+        }
+
+        bool IMyFaction.AcceptHumans
+        {
+            get
+            {
+                return AcceptHumans;
             }
         }
 

@@ -3,6 +3,7 @@
 using BulletXNA.BulletCollision;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -37,16 +38,20 @@ namespace VRage.Import
             {
                 m_tagReader = tagReader;
             }
-
+#if !XB1
             T ReadTag(BinaryReader reader, int version)
             {
                 return m_tagReader(reader, version);
             }
-
+#endif
             public object Read(BinaryReader reader, int version)
             {
-                return ReadTag(reader, version);
-            }
+#if XB1
+				return m_tagReader(reader, version);
+#else
+				return ReadTag(reader, version);
+#endif
+			}
         }
 
 
@@ -70,6 +75,7 @@ namespace VRage.Import
            { MyImporterConstants.TAG_SWAP_WINDING_ORDER, new TagReader<bool>(x => x.ReadBoolean()) },
            { MyImporterConstants.TAG_DUMMIES, new TagReader<Dictionary<string, MyModelDummy>>(ReadDummies) },
            { MyImporterConstants.TAG_MESH_PARTS, new TagReader<List<MyMeshPartInfo>>(ReadMeshParts) },
+           { MyImporterConstants.TAG_MESH_SECTIONS, new TagReader<List<MyMeshSectionInfo>>(ReadMeshSections) },
            { MyImporterConstants.TAG_MODEL_BVH, new TagReader<GImpactQuantizedBvh>(delegate(BinaryReader reader) 
                {
                    GImpactQuantizedBvh bvh = new GImpactQuantizedBvh(); 
@@ -108,6 +114,7 @@ namespace VRage.Import
         private Dictionary<string, object> m_retTagData = new Dictionary<string, object>();
 
         int m_version = 0;
+        static string m_debugAssetName;
 
         #endregion
 
@@ -483,6 +490,19 @@ namespace VRage.Import
             return list;
         }
 
+        static List<MyMeshSectionInfo> ReadMeshSections(BinaryReader reader, int version)
+        {
+            List<MyMeshSectionInfo> list = new List<MyMeshSectionInfo>();
+            int nCount = reader.ReadInt32();
+            for (int i = 0; i < nCount; ++i)
+            {
+                MyMeshSectionInfo meshPart = new MyMeshSectionInfo();
+                meshPart.Import(reader, version);
+                list.Add(meshPart);
+            }
+
+            return list;
+        }
 
         /// <summary>
         /// ReadDummies
@@ -500,6 +520,7 @@ namespace VRage.Import
                 Matrix mat = ReadMatrix(reader);
 
                 MyModelDummy dummy = new MyModelDummy();
+                dummy.Name = str;
                 dummy.Matrix = mat;
                 dummy.CustomData = new Dictionary<string, object>();
 
@@ -553,9 +574,23 @@ namespace VRage.Import
             return hash;
         }
 
-        static AnimationClip ReadClip(BinaryReader reader)
+        public static bool USE_LINEAR_KEYFRAME_REDUCTION = true;
+        public static bool LINEAR_KEYFRAME_REDUCTION_STATS = false;
+        public struct ReductionInfo
         {
-            AnimationClip clip = new AnimationClip();
+            public string BoneName;
+            public int OriginalKeys;
+            public int OptimizedKeys;
+        }
+        public static Dictionary<string, List<ReductionInfo>> ReductionStats = new Dictionary<string, List<ReductionInfo>>();
+
+        private const float TinyLength = 1e-8f;
+        private const float TinyCosAngle = 0.9999999f;
+
+
+        static MyAnimationClip ReadClip(BinaryReader reader)
+        {
+            MyAnimationClip clip = new MyAnimationClip();
 
             clip.Name = reader.ReadString();
             clip.Duration = reader.ReadDouble();
@@ -563,13 +598,13 @@ namespace VRage.Import
             int bonesCount = reader.ReadInt32();
             while (bonesCount-- > 0)
             {
-                AnimationClip.Bone bone = new AnimationClip.Bone();
+                MyAnimationClip.Bone bone = new MyAnimationClip.Bone();
                 bone.Name = reader.ReadString();
 
                 int keyframesCount = reader.ReadInt32();
                 while (keyframesCount-- > 0)
                 {
-                    AnimationClip.Keyframe keyframe = new AnimationClip.Keyframe();
+                    MyAnimationClip.Keyframe keyframe = new MyAnimationClip.Keyframe();
                     keyframe.Time = reader.ReadDouble();
                     keyframe.Rotation = ImportQuaternion(reader);
                     keyframe.Translation = ImportVector3(reader);
@@ -577,11 +612,141 @@ namespace VRage.Import
                 }
 
                 clip.Bones.Add(bone);
+
+                int originalCount = bone.Keyframes.Count;
+                int newCount = 0;
+                if (originalCount > 3)
+                {
+                    if (USE_LINEAR_KEYFRAME_REDUCTION)
+                    {
+                        LinkedList<MyAnimationClip.Keyframe> linkedList = new LinkedList<MyAnimationClip.Keyframe>();
+                        foreach (var kf in bone.Keyframes)
+                        {
+                            linkedList.AddLast(kf);
+                        }
+                        //LinearKeyframeReduction(linkedList, 0.000001f, 0.985f);
+                        //PercentageKeyframeReduction(linkedList, 0.9f);
+                        LinearKeyframeReduction(linkedList, TinyLength, TinyCosAngle);
+                        bone.Keyframes.Clear();
+                        bone.Keyframes.AddArray(linkedList.ToArray());
+                        newCount = bone.Keyframes.Count;
+                    }
+                    if (LINEAR_KEYFRAME_REDUCTION_STATS)
+                    {
+                        ReductionInfo ri = new ReductionInfo()
+                        {
+                            BoneName = bone.Name,
+                            OriginalKeys = originalCount,
+                            OptimizedKeys = newCount
+                        };
+
+                        List<ReductionInfo> riList;
+                        if (!ReductionStats.TryGetValue(m_debugAssetName, out riList))
+                        {
+                            riList = new List<ReductionInfo>();
+                            ReductionStats.Add(m_debugAssetName, riList);
+                        }
+
+                        riList.Add(ri);
+                    }
+                }
+
+                CalculateKeyframeDeltas(bone.Keyframes);
+
             }
 
             return clip;
         }
-        
+
+
+        static void PercentageKeyframeReduction(LinkedList<MyAnimationClip.Keyframe> keyframes, float ratio)
+        {
+            if (keyframes.Count < 3)
+                return;
+
+            float i = 0;
+            int toRemove = (int)(keyframes.Count * ratio);
+
+            if (toRemove == 0)
+                return;
+
+            float d = (float)toRemove / keyframes.Count;
+
+            for (LinkedListNode<MyAnimationClip.Keyframe> node = keyframes.First.Next; ; )
+            {
+                LinkedListNode<MyAnimationClip.Keyframe> next = node.Next;
+                if (next == null)
+                    break;
+
+                if (i >= 1)
+                {
+                    while (i >= 1)
+                    {
+                        keyframes.Remove(node);
+                        node = next;
+                        next = node.Next;
+                        i--;
+                    }
+                }
+                else
+                    node = next;
+
+                i += d;
+            }
+        }
+
+
+        /// <summary>
+        /// This function filters out keyframes that can be approximated well with 
+        /// linear interpolation.
+        /// </summary>
+        /// <param name="keyframes"></param>
+        static void LinearKeyframeReduction(LinkedList<MyAnimationClip.Keyframe> keyframes, float translationThreshold, float rotationThreshold)
+        {
+            if (keyframes.Count < 3)
+                return;
+
+            for (LinkedListNode<MyAnimationClip.Keyframe> node = keyframes.First.Next; ; )
+            {
+                LinkedListNode<MyAnimationClip.Keyframe> next = node.Next;
+                if (next == null)
+                    break;
+
+                // Determine nodes before and after the current node.
+                MyAnimationClip.Keyframe a = node.Previous.Value;
+                MyAnimationClip.Keyframe b = node.Value;
+                MyAnimationClip.Keyframe c = next.Value;
+
+                float t = (float)((node.Value.Time - node.Previous.Value.Time) /
+                                   (next.Value.Time - node.Previous.Value.Time));
+
+                Vector3 translation = Vector3.Lerp(a.Translation, c.Translation, t);
+                var rotation = VRageMath.Quaternion.Slerp(a.Rotation, c.Rotation, t);
+
+                if ((translation - b.Translation).LengthSquared() < translationThreshold &&
+                   VRageMath.Quaternion.Dot(rotation, b.Rotation) > rotationThreshold)
+                {
+                    keyframes.Remove(node);
+                }
+
+                node = next;
+            }
+        }
+
+        static void CalculateKeyframeDeltas(List<MyAnimationClip.Keyframe> keyframes)
+        {
+            // rest of frames
+            for (int i = 1; i < keyframes.Count; i++)
+            {
+                var previousKey = keyframes[i - 1];
+                var currentKey = keyframes[i];
+
+                System.Diagnostics.Debug.Assert(previousKey.Time < currentKey.Time, "Incorrect keyframes timing!");
+
+                currentKey.InvTimeDiff = 1.0f / (currentKey.Time - previousKey.Time);
+            }
+        }
+
 
         static ModelAnimations ReadAnimations(BinaryReader reader)
         {
@@ -627,7 +792,7 @@ namespace VRage.Import
             return bones;
         }
 
-        static MyLODDescriptor[] ReadLODs(BinaryReader reader)
+        static MyLODDescriptor[] ReadLODs(BinaryReader reader, int version)
         {
             int lodCount = reader.ReadInt32();
             var lods = new MyLODDescriptor[lodCount];
@@ -637,8 +802,7 @@ namespace VRage.Import
             {
                 var lod = new MyLODDescriptor();
                 lods[i++] = lod;
-
-                lod.Read(reader);
+                lod.Read(reader); 
             }
 
             return lods;
@@ -721,13 +885,18 @@ namespace VRage.Import
         public void ImportData(string assetFileName, string[] tags = null)
         {
             Clear();
+            m_debugAssetName = assetFileName;
             var path = Path.IsPathRooted(assetFileName) ? assetFileName : Path.Combine(MyFileSystem.ContentPath, assetFileName);
 
             using (var fs = MyFileSystem.OpenRead(path))
             {
-                using (BinaryReader reader = new BinaryReader(fs))
+                if (fs != null)
                 {
-                    LoadTagData(reader, tags);
+                    using (BinaryReader reader = new BinaryReader(fs))
+                    {
+                        LoadTagData(reader, tags);
+                    }
+                    fs.Close(); // OM: Although this shouldn't be needed, we experience problems with opening files with autorefresh, is this isn't called explicitely..
                 }
             }
         }
@@ -738,11 +907,10 @@ namespace VRage.Import
             m_version = 0;
         }
 
-        private bool LoadTagData(BinaryReader reader, string[] tags)
+        private void LoadTagData(BinaryReader reader, string[] tags)
         {
             //m_retTagData
-            string tagName;
-            tagName = reader.ReadString();
+            string tagName = reader.ReadString();
             string[] strArr = ReadArrayOfString(reader);
             m_retTagData.Add(tagName, strArr);
 
@@ -776,8 +944,6 @@ namespace VRage.Import
             }
             else
                 LoadOldVersion(reader);
-
-            return true;
         }
 
         Dictionary<string, int> ReadIndexDictionary(BinaryReader reader)
@@ -958,7 +1124,7 @@ namespace VRage.Import
             {
                 //TAG_LODS
                 tagName = reader.ReadString();
-                m_retTagData.Add(tagName, ReadLODs(reader));
+                m_retTagData.Add(tagName, ReadLODs(reader, 01066002));
             }
 
             if (reader.BaseStream.Position < reader.BaseStream.Length)

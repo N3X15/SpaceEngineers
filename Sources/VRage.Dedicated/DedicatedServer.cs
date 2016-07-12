@@ -1,12 +1,12 @@
 ﻿using Microsoft.Win32;
 using Sandbox;
 using Sandbox.Common;
-using Sandbox.Common.ObjectBuilders;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Engine.Utils;
 using Sandbox.Game;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -14,6 +14,9 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using VRage.FileSystem;
+using VRage.Game;
+using VRage.Game.ObjectBuilder;
+using VRage.ObjectBuilders;
 using VRage.Plugins;
 using VRage.Service;
 using VRage.Utils;
@@ -43,10 +46,13 @@ namespace VRage.Dedicated
             if (Environment.UserInteractive)
             {
                 MyPlugins.RegisterGameAssemblyFile(MyPerGameSettings.GameModAssembly);
+                MyPlugins.RegisterGameObjectBuildersAssemblyFile(MyPerGameSettings.GameModObjBuildersAssembly);
                 MyPlugins.RegisterSandboxAssemblyFile(MyPerGameSettings.SandboxAssembly);
                 MyPlugins.RegisterSandboxGameAssemblyFile(MyPerGameSettings.SandboxGameAssembly);
                 MyPlugins.RegisterFromArgs(args);
                 MyPlugins.Load();
+
+                MyGlobalTypeMetadata.Static.Init();
                 ShowWindow(GetConsoleWindow(), SW_HIDE);
                 MyConfigurator.Start<T>();
                 MyPlugins.Unload();
@@ -95,8 +101,10 @@ namespace VRage.Dedicated
                 MyPerServerSettings.GameDSName,
                 userDataPath, DedicatedServer.AddDateToLog);
 
-
-            RunInternal();
+            do
+            {
+                RunInternal();
+            } while (MySandboxGame.IsReloading);
 
             MyInitializer.InvokeAfterRun();
         }
@@ -119,10 +127,14 @@ namespace VRage.Dedicated
 
         static void RunInternal()
         {
-            MyFileSystem.InitUserSpecific(null);
+            if (!MySandboxGame.IsReloading)
+                MyFileSystem.InitUserSpecific(null);
+
+            MySandboxGame.IsReloading = false;
 
             VRageRender.MyRenderProxy.Initialize(MySandboxGame.IsDedicated ? (IMyRender)new MyNullRender() : new MyDX9Render());
             VRageRender.MyRenderProxy.IS_OFFICIAL = MyFinalBuildConstants.IS_OFFICIAL;
+            MyFinalBuildConstants.APP_VERSION = MyPerGameSettings.BasicGameInfo.GameVersion;
 
             using (MySteamService steamService = new MySteamService(MySandboxGame.IsDedicated, MyPerServerSettings.AppId))
             {
@@ -142,7 +154,7 @@ namespace VRage.Dedicated
                     game.Run();
                 }
 
-                if (MySandboxGame.IsConsoleVisible)
+                if (MySandboxGame.IsConsoleVisible && !MySandboxGame.IsReloading)
                 {
                     Console.WriteLine("Server stopped, press any key to close this window");
                     Console.ReadKey(false);
@@ -164,7 +176,7 @@ namespace VRage.Dedicated
 
             if (args.Contains("-report"))
             {
-                if (args.Count() > 1)
+                if (args.Length > 1)
                     MyErrorReporter.ReportNotInteractive(args[1], "SEDS");
                 return true;
             }

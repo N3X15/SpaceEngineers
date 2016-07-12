@@ -30,10 +30,12 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
     using Sandbox.Graphics;
     using Sandbox.Common;
     using Sandbox.Engine.Physics;
-    using Sandbox.Graphics.TransparentGeometry.Particles;
     using Sandbox.Common.ObjectBuilders.Definitions;
     using VRage;
     using VRage.ModAPI;
+    using VRage.Game.Components;
+    using VRage.Game.Entity;
+    using VRage.Game;
 
 //  This class render "sun wind" coming from the sun. It works for sun in any direction (don't have to be parallel with one of the axis) - though I haven't tested it.
 //  There are large and small billboards. Large are because I don't want draw a lot of small billboards on edge, where player won't see anything. 
@@ -70,7 +72,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
         struct MyEntityRayCastPair
         {
             public MyEntity Entity;
-            public LineD Ray;
+            public LineD _Ray;
             public Vector3D Position;
             public MyParticleEffect Particle;
         }
@@ -119,7 +121,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
 
         static List<IMyEntity> m_sunwindEntities = new List<IMyEntity>();
 
-        static List<Havok.HkRigidBody> intersectionLst;
+        static List<Havok.HkBodyCollision> m_intersectionLst;
 
         static List<MyEntityRayCastPair> m_rayCastQueue = new List<MyEntityRayCastPair>();
         // MaxDistance values for SmallBillboards are computed in more updates
@@ -136,7 +138,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             MyLog.Default.WriteLine("MySunWind.LoadData() - START");
             MyLog.Default.IncreaseIndent();
             //MyRender.GetRenderProfiler().StartProfilingBlock("MySunwind::LoadContent");
-            intersectionLst = new List<Havok.HkRigidBody>();
+            m_intersectionLst = new List<Havok.HkBodyCollision>();
 
             //  Large billboards
             m_largeBillboards = new MySunWindBillboard[MySunWindConstants.LARGE_BILLBOARDS_SIZE.X][];
@@ -228,7 +230,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             //  Place sun wind at farest possible negative Z position
             //Vector3 directionToSunNormalized = MyMwcUtils.Normalize(MyGuiScreenGameBase.Static.SunPosition - MyCamera.Position); MyMwcSectorGroups.Get(MyGuiScreenGameBase.Static.Sector.SectorGroup).GetDirectionToSunNormalized();
             Vector3D directionToSunNormalized = MySector.DirectionToSunNormalized;
-            m_initialSunWindPosition = /*MySession.Player.PlayerEntity.Entity.WorldMatrix.Translation +*/ directionToSunNormalized * MySunWindConstants.SUN_WIND_LENGTH_HALF / 2;
+            m_initialSunWindPosition = /*MySession.Static.Player.PlayerEntity.Entity.WorldMatrix.Translation +*/ directionToSunNormalized * MySunWindConstants.SUN_WIND_LENGTH_HALF / 2;
             m_directionFromSunNormalized = -directionToSunNormalized;
 
             //  Start the sound of burning (looping)
@@ -273,23 +275,25 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
                 {
                     var rand = MyUtils.GetRandomInt(m_rayCastQueue.Count - 1);
                     var entity = m_rayCastQueue[rand].Entity;
-                    var l = m_rayCastQueue[rand].Ray;
+                    var l = m_rayCastQueue[rand]._Ray;
                     var p = m_rayCastQueue[rand].Position;
                     var particle = m_rayCastQueue[rand].Particle;
                     if (entity is MyCubeGrid)
                     {
                         particle.Stop();
                         var grid = entity as MyCubeGrid;
-                        var invMat = grid.PositionComp.GetWorldMatrixNormalizedInv();
+                        var invMat = grid.PositionComp.WorldMatrixNormalizedInv;
 
                         if (grid.BlocksDestructionEnabled)
+                        {
                             grid.Physics.ApplyDeformation(6f, 3f, 3f, Vector3.Transform(p, invMat), Vector3.Normalize(Vector3.Transform(m_directionFromSunNormalized, invMat)), MyDamageType.Environment);
+                        }
 
                         //MyPhysics.HavokWorld.CastRay(l.From, l.To, m_hitLst);
                         //rayCount++;
                         //MyEntity ent = null;
                         //if (m_hitLst.Count != 0)
-                        //    ent = m_hitLst[0].Body.GetEntity();
+                        //    ent = m_hitLst[0].GetEntity();
                         //if (ent == grid)
                         //{
                         //    grid.Physics.ApplyDeformation(6f, 3f, 3f, Vector3.Transform(m_hitLst[0].Position, invMat), Vector3.Normalize(Vector3.Transform(m_directionFromSunNormalized, invMat)), Sandbox.Game.Weapons.MyDamageType.Environment);
@@ -330,7 +334,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
                 return;
             }
 
-            Vector3D campos = MySession.LocalCharacter == null ? Vector3D.Zero : MySession.LocalCharacter.Entity.WorldMatrix.Translation;
+            Vector3D campos = MySession.Static.LocalCharacter == null ? Vector3D.Zero : MySession.Static.LocalCharacter.Entity.WorldMatrix.Translation;
 
             //  This is plane that goes through sun wind, it's in its middle
             m_planeMiddle = new PlaneD(m_initialSunWindPosition + m_directionFromSunNormalized * traveledDistance, m_directionFromSunNormalized);
@@ -338,7 +342,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
 
             //  We make sure that sound moves always on line that goes through camera. So it's not in the middle of sun wind, more like middle where is camera.
             //  Reason is that I want the sound always go through camera.            
-            m_positionOnCameraLine = /*MySession.Player.PlayerEntity.Entity.WorldMatrix.Translation*/ - m_directionFromSunNormalized * m_distanceToSunWind;
+            m_positionOnCameraLine = /*MySession.Static.Player.PlayerEntity.Entity.WorldMatrix.Translation*/ - m_directionFromSunNormalized * m_distanceToSunWind;
 
             Vector3D positionFront = m_positionOnCameraLine + m_directionFromSunNormalized * 2000;
             Vector3D positionBack = m_positionOnCameraLine + m_directionFromSunNormalized * -2000;
@@ -354,7 +358,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             //Vector3 positionOfSound;
             //if ((distanceToFrontPlane <= 0) && (distanceToBackPlane >= 0))
             //{
-            //    positionOfSound = MySession.Player.PlayerEntity.Entity.WorldMatrix.Translation;
+            //    positionOfSound = MySession.Static.Player.PlayerEntity.Entity.WorldMatrix.Translation;
             //}
             //else if (distanceToFrontPlane > 0)
             //{
@@ -381,9 +385,9 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             //float distanceToSound;
             //Vector3.Distance(ref positionOfSound, ref campos, out distanceToSound);
             //float shake = 1 - MathHelper.Clamp(distanceToSound / 1000, 0, 1);
-            /*if (MySession.Player.Controller.ControlledEntity != null)
+            /*if (MySession.Static.Player.Controller.ControlledEntity != null)
             {
-                MySession.PlayerShip.IncreaseHeadShake(
+                MySession.Static.PlayerShip.IncreaseHeadShake(
                     MathHelper.Lerp(MyHeadShakeConstants.HEAD_SHAKE_AMOUNT_DURING_SUN_WIND_MIN,
                                     MyHeadShakeConstants.HEAD_SHAKE_AMOUNT_DURING_SUN_WIND_MAX, shake));
             }*/
@@ -406,17 +410,17 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             if (m_rayCastCounter == 120)
             {
                 var pos = positionFront + m_directionFromSunNormalized * 2500;
-                MyPhysics.GetPenetrationsBox(ref v, ref pos, ref q, intersectionLst, MyPhysics.DefaultCollisionLayer);
+                MyPhysics.GetPenetrationsBox(ref v, ref pos, ref q, m_intersectionLst, MyPhysics.CollisionLayers.DefaultCollisionLayer);
                 
-                foreach (var hit in intersectionLst)
+                foreach (var hit in m_intersectionLst)
                 {
-                    var entity = hit.GetEntity();
+                    var entity = hit.GetCollisionEntity();
                     if (entity is MyVoxelMap)
                         continue;
                     if (!m_sunwindEntities.Contains(entity))
                         m_sunwindEntities.Add(entity);
                 }
-                intersectionLst.Clear();
+                m_intersectionLst.Clear();
                 for (int i = 0; i < m_sunwindEntities.Count; i++)
                 {
                     var entity = m_sunwindEntities[i];
@@ -431,18 +435,18 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
 
                         var size = (grid.Max - grid.Min);
                         var max = Math.Max(size.X, Math.Max(size.Y, size.Z));
-                        var invMat = grid.PositionComp.GetWorldMatrixNormalizedInv();
+                        var invMat = grid.PositionComp.WorldMatrixNormalizedInv;
 
                         var start = aabb.Center - rightMax * m_rightVector - downMax * m_downVector;
 
-                        for (int x = 0; x < rightMax * 2; x += grid.GridSizeEnum == Common.ObjectBuilders.MyCubeSize.Large ? 25 : 10)
+                        for (int x = 0; x < rightMax * 2; x += grid.GridSizeEnum == MyCubeSize.Large ? 25 : 10)
                         {
-                            for (int y = 0; y < downMax * 2; y += grid.GridSizeEnum == Common.ObjectBuilders.MyCubeSize.Large ? 25 : 10)
+                            for (int y = 0; y < downMax * 2; y += grid.GridSizeEnum == MyCubeSize.Large ? 25 : 10)
                             {
                                 var pivot = start + x * m_rightVector + y * m_downVector;
                                 pivot += (float)halfDiagonal * m_directionFromSunNormalized;
                                 var circle = MyUtils.GetRandomVector3CircleNormalized();
-                                float rand = MyUtils.GetRandomFloat(0, grid.GridSizeEnum == Common.ObjectBuilders.MyCubeSize.Large ? 10 : 5);
+                                float rand = MyUtils.GetRandomFloat(0, grid.GridSizeEnum == MyCubeSize.Large ? 10 : 5);
                                 pivot += m_rightVector * circle.X * rand + m_downVector * circle.Z * rand;
                                 LineD l = new LineD(pivot - m_directionFromSunNormalized * (float)halfDiagonal, pivot);
                                 if (grid.RayCastBlocks(l.From, l.To).HasValue)
@@ -451,7 +455,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
 
                                     MyPhysics.CastRay(l.From, l.To, m_hitLst);
                                     m_rayCastCounter++;
-                                    if (m_hitLst.Count == 0 || m_hitLst[0].HkHitInfo.Body.GetEntity() != grid.Components)
+                                    if (m_hitLst.Count == 0 || m_hitLst[0].HkHitInfo.GetHitEntity() != grid.Components)
                                     {
                                         m_hitLst.Clear();
                                         continue;
@@ -461,7 +465,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
                                     {
                                         particle.WorldMatrix = MatrixD.CreateWorld(m_hitLst[0].Position, Vector3D.Forward, Vector3D.Up);
                                     }
-                                    m_rayCastQueue.Add(new MyEntityRayCastPair() { Entity = grid, Ray = l , Position = m_hitLst[0].Position, Particle = particle});
+                                    m_rayCastQueue.Add(new MyEntityRayCastPair() { Entity = grid, _Ray = l , Position = m_hitLst[0].Position, Particle = particle});
                                     //grid.Physics.ApplyDeformation(0.2f, 4, 2, Vector3.Transform(m_hitLst[0].Position, invMat), Vector3.Transform(m_directionFromSunNormalized, invMat), Sandbox.Game.Weapons.MyDamageType.Environment);
                                 }
                             }
@@ -496,12 +500,12 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
 
         public static bool IsActiveForHudWarning()
         {            
-            //if (!IsActive || MySession.PlayerShip == null)
+            //if (!IsActive || MySession.Static.PlayerShip == null)
             //{
             //    return false;
             //}
             return true;
-            //Vector3 playerToSunwind = MySession.Player.PlayerEntity.Entity.WorldMatrix.Translation - Position;
+            //Vector3 playerToSunwind = MySession.Static.Player.PlayerEntity.Entity.WorldMatrix.Translation - Position;
             //Vector3 directionToPlayerNormalize = Vector3.Normalize(playerToSunwind);
             //float dot = Vector3.Dot(m_directionFromSunNormalized, directionToPlayerNormalize);
             //// if sun wind before player, always display hud warning
@@ -558,7 +562,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             //        Vector3 actualPosition = billboard.InitialAbsolutePosition + deltaPosition;
 
             //        float distanceToCamera;
-            //        Vector3 campos = MySession.Player.PlayerEntity.Entity.WorldMatrix.Translation;
+            //        Vector3 campos = MySession.Static.Player.PlayerEntity.Entity.WorldMatrix.Translation;
             //        Vector3.Distance(ref actualPosition, ref campos, out distanceToCamera);
             //        float alpha = 0.15f;// -MathHelper.Clamp(distanceToCamera / MySunWindConstants.LARGE_BILLBOARD_DISAPEAR_DISTANCE, 0, 1);
 
@@ -610,7 +614,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
  
             //               //tempPosition += m_rightVector * positionRandomDelta.X + m_downVector * positionRandomDelta.Y; 
             //                float distanceToCamera;
-            //                Vector3 campos = MySession.Player.PlayerEntity.Entity.WorldMatrix.Translation;
+            //                Vector3 campos = MySession.Static.Player.PlayerEntity.Entity.WorldMatrix.Translation;
             //                Vector3.Distance(ref tempPosition, ref campos, out distanceToCamera);
 
             //                //distanceToCamera = Math.Abs(Vector3.Dot(tempPosition - campos, m_directionFromSunNormalized));
@@ -665,9 +669,9 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
                 }
             }
 
-            Vector3D initialPositionOnCameraLine = MySession.LocalCharacter == null ?
+            Vector3D initialPositionOnCameraLine = MySession.Static.LocalCharacter == null ?
                 Vector3D.Zero :
-               MySession.LocalCharacter.Entity.WorldMatrix.Translation - m_directionFromSunNormalized * MySunWindConstants.SUN_WIND_LENGTH_HALF / 3;
+               MySession.Static.LocalCharacter.Entity.WorldMatrix.Translation - m_directionFromSunNormalized * MySunWindConstants.SUN_WIND_LENGTH_HALF / 3;
 
             for (int x = 0; x < MySunWindConstants.SMALL_BILLBOARDS_SIZE.X; x++)
             {
@@ -699,7 +703,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             int smallBillBoardsCount = MySunWindConstants.SMALL_BILLBOARDS_SIZE.X * MySunWindConstants.SMALL_BILLBOARDS_SIZE.Y;
             if (m_computedMaxDistances < smallBillBoardsCount)
             {
-                int cnt = (int)(smallBillBoardsCount / MySunWindConstants.SECONDS_FOR_SMALL_BILLBOARDS_INITIALIZATION / MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
+                int cnt = (int)(smallBillBoardsCount / MySunWindConstants.SECONDS_FOR_SMALL_BILLBOARDS_INITIALIZATION / VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
                 while (m_computedMaxDistances < smallBillBoardsCount && cnt > 0)
                 {
                     int x = m_computedMaxDistances % MySunWindConstants.SMALL_BILLBOARDS_SIZE.Y;
@@ -722,7 +726,7 @@ namespace Sandbox.AppCode.Game.TransparentGeometry
             //  This line start where billboard starts and end at place that is farest possible place billboard can reach
             //  If intersection found, we will mark that place as small billboard's destination. It can't go further.
             LineD line = new LineD((sunWindVector + billboard.InitialAbsolutePosition) + offset, billboard.InitialAbsolutePosition + m_directionFromSunNormalized * MySunWindConstants.SUN_WIND_LENGTH_TOTAL);
-            MyIntersectionResultLineTriangleEx? intersection = MyEntities.GetIntersectionWithLine(ref line, null, null);
+            VRage.Game.Models.MyIntersectionResultLineTriangleEx? intersection = MyEntities.GetIntersectionWithLine(ref line, null, null);
             if (intersection != null)
                 billboard.MaxDistance = (float)(intersection.Value.Triangle.Distance - billboard.Radius);
             else

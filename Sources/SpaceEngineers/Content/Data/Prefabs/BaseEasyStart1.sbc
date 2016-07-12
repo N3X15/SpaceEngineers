@@ -4142,7 +4142,7 @@
                       <ProjectilesCount>50</ProjectilesCount>
                     </PhysicalContent>
                     <ItemId>8</ItemId>
-                    <AmountDecimal>20</AmountDecimal>
+                    <AmountDecimal>40</AmountDecimal>
                   </MyObjectBuilder_InventoryItem>
                   <MyObjectBuilder_InventoryItem>
                     <Amount>40</Amount>
@@ -4411,7 +4411,7 @@
               <CustomName>BaseEasyStart1</CustomName>
               <ShowOnHUD>false</ShowOnHUD>
               <Enabled>true</Enabled>
-              <BroadcastRadius>10000</BroadcastRadius>
+              <BroadcastRadius>50000</BroadcastRadius>
             </MyObjectBuilder_CubeBlock>
             <MyObjectBuilder_CubeBlock xsi:type="MyObjectBuilder_MedicalRoom">
               <SubtypeName>LargeMedicalRoom</SubtypeName>

@@ -8,12 +8,14 @@ using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Cube;
+using VRage.Game;
+using VRage.Library.Utils;
 
 namespace Sandbox.Engine.Utils
 {
     public static class MyBattleHelper
     {
-        private static List<MySlimBlock> m_tmpBlocks = new List<MySlimBlock>();
+        public const int MAX_BATTLE_PLAYERS = 12;
 
         public static ulong GetBattlePoints(MyCubeGrid grid)
         {
@@ -24,8 +26,7 @@ namespace Sandbox.Engine.Utils
                 MyCompoundCubeBlock compoundBlock = block.FatBlock as MyCompoundCubeBlock;
                 if (compoundBlock != null)
                 {
-                    m_tmpBlocks.Clear();
-                    foreach (var blockInCompound in compoundBlock.GetBlocks(m_tmpBlocks))
+                    foreach (var blockInCompound in compoundBlock.GetBlocks())
                         points += GetBattlePoints(blockInCompound);
                 }
                 else
@@ -45,11 +46,9 @@ namespace Sandbox.Engine.Utils
             if (slimBlock.BlockDefinition.IsGeneratedBlock)
                 pts = 0;
 
-            // Get points from container items
-            IMyInventoryOwner inventoryOwner = slimBlock.FatBlock as IMyInventoryOwner;
-            if (inventoryOwner != null)
+            if (slimBlock.FatBlock != null)
             {
-                var inventory = inventoryOwner.GetInventory(0);
+                var inventory = slimBlock.FatBlock.GetInventory(0);
                 if (inventory != null)
                 {
                     foreach (var item in inventory.GetItems())
@@ -104,9 +103,9 @@ namespace Sandbox.Engine.Utils
             {
                 foreach (var item in cargoContainer.Inventory.Items)
                 {
-                    if (item.Content is MyObjectBuilder_BlockItem)
+                    if (item.PhysicalContent is MyObjectBuilder_BlockItem)
                     {
-                        MyObjectBuilder_BlockItem blockItem = item.Content as MyObjectBuilder_BlockItem;
+                        MyObjectBuilder_BlockItem blockItem = item.PhysicalContent as MyObjectBuilder_BlockItem;
                         pts += GetBattlePoints(blockItem.BlockDefId);
                     }
                 }
@@ -117,12 +116,9 @@ namespace Sandbox.Engine.Utils
 
         public static ulong GetBattlePoints(MyDefinitionId defId)
         {
-            MyCubeBlockDefinition definition = MyDefinitionManager.Static.GetCubeBlockDefinition(defId);
-            if (definition == null)
-            {
-                Debug.Fail("No cube block definition found to get battle points");
+            MyCubeBlockDefinition definition;
+            if (!MyDefinitionManager.Static.TryGetCubeBlockDefinition(defId, out definition))
                 return 0;
-            }
 
             if (definition.IsGeneratedBlock)
                 return 0;
@@ -131,7 +127,16 @@ namespace Sandbox.Engine.Utils
             return (ulong)(definition.Points > 0 ? definition.Points : 1);
         }
 
-
+        public static void FillDefaultBattleServerSettings(MyObjectBuilder_SessionSettings settings, bool dedicated)
+        {
+            settings.GameMode = MyGameModeEnum.Survival;
+            settings.Battle = true;
+            settings.OnlineMode = MyOnlineModeEnum.PUBLIC;
+            settings.MaxPlayers = dedicated ? (short)MAX_BATTLE_PLAYERS : (short)12;
+            settings.PermanentDeath = false;
+            settings.AutoSave = false;
+            settings.EnableStructuralSimulation = true;
+        }
 
     }
 }

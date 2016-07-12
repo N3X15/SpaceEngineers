@@ -9,6 +9,9 @@ using System.Diagnostics;
 using Sandbox.Engine.Utils;
 using Sandbox.Common;
 using Sandbox.Game.Entities;
+using Sandbox.Definitions;
+using VRage.Utils;
+using VRage.Animations;
 
 namespace Sandbox.Engine.Physics
 {
@@ -17,19 +20,19 @@ namespace Sandbox.Engine.Physics
     /// </summary>
     public class MyRagdollMapper
     {
-        public const float RAGDOLL_DEACTIVATION_TIME = 1f; // in seconds
+        public const float RAGDOLL_DEACTIVATION_TIME = 10f; // in seconds
 
-        Matrix boneToRigidBodyTransform = new Matrix(
-                        1, 0, 0, 0,
-                        0, 0, -1, 0,
-                        0, 1, 0, 0,
-                        0, 0, 0, 1);
+        //Matrix boneToRigidBodyTransform = new Matrix(
+        //                1, 0, 0, 0,
+        //                0, 0, -1, 0,
+        //                0, 1, 0, 0,
+        //                0, 0, 0, 1);
 
-        Matrix rigidBodyToBoneTransform = new Matrix(
-                        1, 0, 0, 0,
-                        0, 0, 1, 0,
-                        0, -1, 0, 0,
-                        0, 0, 0, 1);
+        //Matrix rigidBodyToBoneTransform = new Matrix(
+        //                1, 0, 0, 0,
+        //                0, 0, 1, 0,
+        //                0, -1, 0, 0,
+        //                0, 0, 0, 1);
 
         // Not needed since having new Character models
         //static Matrix Identity3DSMax = Matrix.CreateWorld(Vector3.Zero, Vector3.Up, -Vector3.Forward);
@@ -39,12 +42,15 @@ namespace Sandbox.Engine.Physics
         /// </summary>
         private Dictionary<int, List<int>> m_rigidBodiesToBonesIndices;
 
+        /// <summary>
+        /// Character associated with this ragdoll
+        /// </summary>
         private MyCharacter m_character;
 
         /// <summary>
         /// Reference to bones which are used for mapping
         /// </summary>
-        private List<MyCharacterBone> m_bones;
+        private MyCharacterBone[] m_bones;
 
         /// <summary>
         /// List for storing matrices between method calls
@@ -122,11 +128,13 @@ namespace Sandbox.Engine.Physics
         /// <summary>
         /// List of mappings bodies to bones list
         /// </summary>
-        private Dictionary<string, string[]> m_ragdollBonesMappings;
+        private Dictionary<string, MyCharacterDefinition.RagdollBoneSet> m_ragdollBonesMappings;
 
-        private Matrix m_lastSyncedWorldMatrix = Matrix.Identity;
+        private MatrixD m_lastSyncedWorldMatrix = MatrixD.Identity;
 
         public float DeactivationCounter = RAGDOLL_DEACTIVATION_TIME;
+
+        private bool m_changed;
 
         /// <summary>
         /// True if at least some of the bones are simulated and ragdoll was added to world. Partly = some bodies set to dynamic, some keyframed
@@ -161,10 +169,10 @@ namespace Sandbox.Engine.Physics
         /// </summary>
         /// <param name="ragdoll">The ragdoll model</param>
         /// <param name="bones">List of the mapped bones</param>
-        public MyRagdollMapper(MyCharacter character, List<MyCharacterBone> bones)
+        public MyRagdollMapper(MyCharacter character, MyCharacterBone[] bones)
         {
             Debug.Assert(character.Physics.Ragdoll != null, "Creating ragdoll mapper without ragdoll?");
-            Debug.Assert(bones != null && bones.Count > 0, "Creating ragdoll mapper without mapped bones?");
+            Debug.Assert(bones != null && bones.Length > 0, "Creating ragdoll mapper without mapped bones?");
 
 
             m_rigidBodiesToBonesIndices = new Dictionary<int, List<int>>();
@@ -186,10 +194,9 @@ namespace Sandbox.Engine.Physics
             {
                 return index;
             }
-            if (MyFakes.ENABLE_BONES_AND_ANIMATIONS_DEBUG)
-            {
-                Debug.Fail("Ragdoll bone with name " + bodyName + " was not found!");
-            }
+
+            //Debug.Fail("Ragdoll bone with name " + bodyName + " was not found!");
+            
             return 0;
         }
 
@@ -198,9 +205,16 @@ namespace Sandbox.Engine.Physics
         /// </summary>
         /// <param name="ragdollBonesMappings">Dictionary containing rigid body names and the corresponding character bones names list</param>
         /// <returns></returns>
-        public bool Init(Dictionary<string, string[]> ragdollBonesMappings)
+        public bool Init(Dictionary<string, MyCharacterDefinition.RagdollBoneSet> ragdollBonesMappings)
         {
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.Init");
+                MyLog.Default.WriteLine("MyRagdollMapper.Init");
+            }
+            
             Debug.Assert(ragdollBonesMappings != null, "Inicializing ragdoll mapper with null data?");
+            
             m_ragdollBonesMappings = ragdollBonesMappings;            
 
             foreach (var boneSet in ragdollBonesMappings)
@@ -208,13 +222,13 @@ namespace Sandbox.Engine.Physics
                 try
                 {
                     String rigidBodyName = boneSet.Key;
-                    String[] boneNames = boneSet.Value;
+                    String[] boneNames = boneSet.Value.Bones;
                     List<int> boneIndices = new List<int>();
                     int rigidBodyIndex = Ragdoll.FindRigidBodyIndex(rigidBodyName);
                     System.Diagnostics.Debug.Assert(Ragdoll.RigidBodies.IsValidIndex(rigidBodyIndex), "Ragdoll bones mapping error!  Rigid body with name: " + rigidBodyName + " was not found in ragdoll.");
                     foreach (var bone in boneNames)
                     {
-                        int boneIndex = m_bones.FindIndex(x => x.Name == bone);
+                        int boneIndex = Array.FindIndex(m_bones, x => x.Name == bone);
                         System.Diagnostics.Debug.Assert(m_bones.IsValidIndex(boneIndex), "Ragdoll bones mapping error! Bone with name: " + bone + " was not found in the character! ");
                         if (m_bones.IsValidIndex(boneIndex)) boneIndices.Add(boneIndex);
                         else return false;
@@ -228,8 +242,17 @@ namespace Sandbox.Engine.Physics
                     return false;
                 }
             }
+            
             InitRigTransforms();
+
             m_inicialized = true;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.Init FINISHED");
+                MyLog.Default.WriteLine("MyRagdollMapper.Init FINISHED");
+            }
+
             return true;
         }
 
@@ -240,18 +263,25 @@ namespace Sandbox.Engine.Physics
         /// </summary>
         private void InitRigTransforms()
         {
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.InitRigTransforms");
+                MyLog.Default.WriteLine("MyRagdollMapper.InitRigTransforms");
+            }
+            
             m_ragdollRigidBodiesAbsoluteTransforms = new Matrix[Ragdoll.RigidBodies.Count];
             m_bodyToBoneRigTransforms = new Matrix[Ragdoll.RigidBodies.Count];
             m_boneToBodyRigTransforms = new Matrix[Ragdoll.RigidBodies.Count];
             BodiesRigTransfoms = new Matrix[Ragdoll.RigidBodies.Count];
             BodiesRigTransfomsInverted = new Matrix[Ragdoll.RigidBodies.Count];
+
             foreach (var bodyIndex in m_rigidBodiesToBonesIndices.Keys)
             {
                 MyCharacterBone bone = m_bones[m_rigidBodiesToBonesIndices[bodyIndex].First()];
 
                 Matrix boneRig = bone.GetAbsoluteRigTransform();
 
-                Matrix rigidBodyTransform = Ragdoll.RigidBodies[bodyIndex].GetRigidBodyMatrix();
+                Matrix rigidBodyTransform = Ragdoll.RigTransforms[bodyIndex];
 
                 Matrix bodyToBone = boneRig * Matrix.Invert(rigidBodyTransform);
 
@@ -271,8 +301,9 @@ namespace Sandbox.Engine.Physics
                 Debug.Assert(BodiesRigTransfomsInverted[bodyIndex].IsValid(), "Ragdoll inverted rig transform is invalid!");
             }
 
-            BonesRigTransforms = new Matrix[m_bones.Count];
-            BonesRigTransformsInverted = new Matrix[m_bones.Count];
+            BonesRigTransforms = new Matrix[m_bones.Length];
+            BonesRigTransformsInverted = new Matrix[m_bones.Length];
+
             for (int i = 0; i < BonesRigTransforms.Length; i++)
             {
                 BonesRigTransforms[i] = m_bones[i].GetAbsoluteRigTransform();
@@ -283,6 +314,11 @@ namespace Sandbox.Engine.Physics
                 Debug.Assert(BonesRigTransformsInverted[i].IsValid(), "Bone inverted rig transform is invalid!");
             }
 
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.InitRigTransforms - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.InitRigTransforms - END");
+            }
         }
 
         /// <summary>
@@ -294,10 +330,12 @@ namespace Sandbox.Engine.Physics
         private void AddRigidBodyToBonesMap(int rigidBodyIndex, List<int> bonesIndices, String rigidBodyName)
         {
             Debug.Assert(Ragdoll.RigidBodies.IsValidIndex(rigidBodyIndex), "Ragdoll: RigidBody index is invalid. The ragdoll mode is invalid, is the rigid body definitions correct?");
+            
             foreach (var index in bonesIndices)
             {
                 Debug.Assert(m_bones.IsValidIndex(index), "The bone index is invalid. The ragdoll definition is invalid, use proper names for character bones in ragdoll mappings definition.");
             }
+            
             m_rigidBodiesToBonesIndices.Add(rigidBodyIndex, bonesIndices);
             m_rigidBodies.Add(rigidBodyName, rigidBodyIndex);
         }
@@ -309,10 +347,25 @@ namespace Sandbox.Engine.Physics
         public void UpdateRagdollPose()
         {
             Debug.Assert(Ragdoll != null, "Ragdoll mapper ragdoll in not inicialized, can not update pose!");
+            
             if (Ragdoll == null) return;
-            if (!m_inicialized || !IsActive) return; 
+            if (!m_inicialized || !IsActive) return;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateRagdollPose");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollPose");
+            }
+
             CalculateRagdollTransformsFromBones();
             UpdateRagdollRigidBodies();
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateRagdollPose - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollPose - END");
+            }
+
         }
 
 
@@ -323,6 +376,7 @@ namespace Sandbox.Engine.Physics
         private void CalculateRagdollTransformsFromBones()
         {
             Debug.Assert(Ragdoll != null, "Ragdoll mapper ragdoll in not inicialized, calculate ragdoll transforms!");
+            
             if (Ragdoll == null) return;
             if (!m_inicialized || !IsActive) return;          
 
@@ -345,16 +399,25 @@ namespace Sandbox.Engine.Physics
         private void UpdateRagdollRigidBodies()
         {
             Debug.Assert(Ragdoll != null, "Ragdoll mapper ragdoll in not inicialized, calculate ragdoll transforms!");
+            
             if (Ragdoll == null) return;
             if (!m_inicialized || !IsActive) return; 
-            Debug.Assert(Ragdoll.WorldMatrix.IsValid() && Ragdoll.WorldMatrix != Matrix.Zero, "Ragdoll matrix is invalid!");
+            
+            Debug.Assert(Ragdoll.WorldMatrix.IsValid() && Ragdoll.WorldMatrix != MatrixD.Zero, "Ragdoll matrix is invalid!");
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateRagdollRigidBodies");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollRigidBodies");
+            }
+
             foreach (var rigidBodyIndex in m_keyframedBodies)
             {
                 Debug.Assert(Ragdoll.RigidBodies.IsValidIndex(rigidBodyIndex), "Ragdoll rigid body index is invalid. Is the ragdoll model correctly built?");
                 HkRigidBody rigidBody = Ragdoll.RigidBodies[rigidBodyIndex];
 
                 Debug.Assert(m_ragdollRigidBodiesAbsoluteTransforms[rigidBodyIndex].IsValid(), "Ragdoll body absolute transform is invalid");
-                Debug.Assert(m_ragdollRigidBodiesAbsoluteTransforms[rigidBodyIndex] != Matrix.Zero, "Ragdoll body absolute transform is zero");
+                Debug.Assert(m_ragdollRigidBodiesAbsoluteTransforms[rigidBodyIndex] != Matrix.Zero, "Ragdoll body absolute transform is zero");                               
 
                 if (m_ragdollRigidBodiesAbsoluteTransforms[rigidBodyIndex].IsValid() && m_ragdollRigidBodiesAbsoluteTransforms[rigidBodyIndex] != Matrix.Zero)
                 {
@@ -364,11 +427,16 @@ namespace Sandbox.Engine.Physics
                     Vector3 translation = transform.Translation;
                     rotation.Normalize();
                     transform = Matrix.CreateFromQuaternion(rotation);
-                    transform.Translation = translation;
+                    transform.Translation = translation;                    
                     Ragdoll.SetRigidBodyLocalTransform(rigidBodyIndex, transform);
                 }
             }
 
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateRagdollRigidBodies - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollRigidBodies - END");
+            }
         }
 
         /// <summary>
@@ -378,8 +446,14 @@ namespace Sandbox.Engine.Physics
         public void UpdateCharacterPose(float dynamicBodiesWeight = 1.0f, float keyframedBodiesWeight = 1.0f)
         {
             Debug.Assert(Ragdoll != null, "Ragdoll mapper ragdoll in not inicialized, can't calculate ragdoll transforms!");
+
             if (!m_inicialized || !IsActive) return;
 
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateCharacterPose");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateCharacterPose");
+            }
 
             float weight = dynamicBodiesWeight;
             if (m_keyframedBodies.Contains(Ragdoll.m_ragdollTree.m_rigidBodyIndex))
@@ -387,11 +461,17 @@ namespace Sandbox.Engine.Physics
                 weight = keyframedBodiesWeight;
             }
 
-            // Instead of blind settings, we need to traverse tree from root to children 
-            SetBoneTo(Ragdoll.m_ragdollTree, weight, dynamicBodiesWeight, keyframedBodiesWeight);
+            // Instead of blind settings, we need to traverse tree from root to children             
+            SetBoneTo(Ragdoll.m_ragdollTree, weight, dynamicBodiesWeight, keyframedBodiesWeight, true );
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateCharacterPose - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateCharacterPose - END");
+            }
         }
 
-        private void SetBoneTo(RagdollBone ragdollBone, float weight, float dynamicChildrenWeight, float keyframedChildrenWeight)
+        private void SetBoneTo(RagdollBone ragdollBone, float weight, float dynamicChildrenWeight, float keyframedChildrenWeight, bool translationEnabled)
         {
             if (Ragdoll == null) return;
             if (!m_inicialized || !IsActive) return;
@@ -412,9 +492,9 @@ namespace Sandbox.Engine.Physics
 
             //finalTransform = rigidBodyToBoneTransform * finalTransform;
 
-            Debug.Assert(finalTransform.IsValid(), "Ragdoll - final bone transform is invalid!");
+            Debug.Assert(finalTransform.IsValid() && finalTransform != Matrix.Zero, "Ragdoll - final bone transform is invalid!");
 
-            if (finalTransform.IsValid())
+            if (finalTransform.IsValid() && finalTransform != Matrix.Zero)
             {
 
                 if (weight == 1.0f)
@@ -422,7 +502,7 @@ namespace Sandbox.Engine.Physics
                     bone.Rotation = Quaternion.CreateFromRotationMatrix(Matrix.Normalize((Matrix)finalTransform.GetOrientation()));
 
                     // NOTE: If enabled, sometimes ragdoll bodies got extra translation which leads to disproporced transfomations on limbs, therefore disabled on all bodies except the firs one                    
-                    if (MyFakes.ENABLE_RAGDOLL_BONES_TRANSLATION)
+                    if (translationEnabled)// || m_character.IsDead) 
                     {
                         bone.Translation = finalTransform.Translation;
                     }
@@ -432,7 +512,7 @@ namespace Sandbox.Engine.Physics
                     bone.Rotation = Quaternion.Slerp(bone.Rotation, Quaternion.CreateFromRotationMatrix(Matrix.Normalize((Matrix)finalTransform.GetOrientation())), weight);
 
                     // NOTE: If enabled, sometimes ragdoll bodies got extra translation which leads to disproporced transfomations on limbs, therefore disabled
-                    if (MyFakes.ENABLE_RAGDOLL_BONES_TRANSLATION)
+                    if (translationEnabled)// || m_character.IsDead) 
                     {
                         bone.Translation = Vector3.Lerp(bone.Translation, finalTransform.Translation, weight);
                     }
@@ -448,45 +528,103 @@ namespace Sandbox.Engine.Physics
                 {
                     childWeight = keyframedChildrenWeight;
                 }
-                SetBoneTo(childBone, childWeight, dynamicChildrenWeight, keyframedChildrenWeight);
+                SetBoneTo(childBone, childWeight, dynamicChildrenWeight, keyframedChildrenWeight, MyFakes.ENABLE_RAGDOLL_BONES_TRANSLATION);
             }
         }
 
         public void Activate()
         {
-            
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.Activate");
+                MyLog.Default.WriteLine("MyRagdollMapper.Activate");
+            }
+
             if (Ragdoll == null)
             {
                 IsActive = false;
                 return;
             }
             IsActive = true;
+
+            m_character.Physics.Ragdoll.AddedToWorld -= OnRagdollAdded;
+            m_character.Physics.Ragdoll.AddedToWorld += OnRagdollAdded;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.Activate - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.Activate - END");
+            }
         }
 
         public void Deactivate()
         {
-            if (IsPartiallySimulated) DeactivatePartialSimulation();
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.Deactivate");
+                MyLog.Default.WriteLine("MyRagdollMapper.Deactivate");
+            }
+
+            if (IsPartiallySimulated) 
+            {
+                DeactivatePartialSimulation();
+            }
+            
             IsActive = false;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.Deactivate - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.Deactivate -END");
+            }
         }
 
         public void SetRagdollToKeyframed()
         {
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.SetRagdollToKeyframed");
+                MyLog.Default.WriteLine("MyRagdollMapper.SetRagdollToKeyframed");
+            }
+
+            Debug.Assert(Ragdoll != null, "Can not set ragdoll to keyframed, ragdoll is null!");
             if (Ragdoll == null) return;
             Ragdoll.SetToKeyframed();
             m_dynamicBodies.Clear();
             m_keyframedBodies.Clear();
             m_keyframedBodies.AddRange(m_rigidBodies.Values);
             IsPartiallySimulated = false;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.SetRagdollToKeyframed - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.SetRagdollToKeyframed - END");
+            }
         }
 
         public void SetRagdollToDynamic()
         {
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.SetRagdollToDynamic");
+                MyLog.Default.WriteLine("MyRagdollMapper.SetRagdollToDynamic");
+            }
+
+            Debug.Assert(Ragdoll != null, "Can not set ragdoll to dynamic mode, ragdoll is null!");
+
             if (Ragdoll == null) return;
+
             Ragdoll.SetToDynamic();
             m_keyframedBodies.Clear();
             m_dynamicBodies.Clear();
             m_dynamicBodies.AddRange(m_rigidBodies.Values);
             IsPartiallySimulated = false;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.SetRagdollToDynamic - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.SetRagdollToDynamic - END");
+            }
         }
 
 
@@ -498,7 +636,7 @@ namespace Sandbox.Engine.Physics
             {
                 foreach (var pair in m_ragdollBonesMappings)
                 {
-                    if (pair.Value.Contains(bone))
+                    if (pair.Value.Bones.Contains(bone))
                     {
                         if (!bodies.Contains(m_rigidBodies[pair.Key]))
                         {
@@ -510,84 +648,116 @@ namespace Sandbox.Engine.Physics
             return bodies;
         }
 
-        public void ActivatePartialSimulation(List<int> dynamicRigidBodies)
+        public void ActivatePartialSimulation(List<int> dynamicRigidBodies = null)
         {
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.ActivatePartialSimulation");
+                MyLog.Default.WriteLine("MyRagdollMapper.ActivatePartialSimulation");
+            }
+
             if (!m_inicialized || Ragdoll == null || IsPartiallySimulated) return;
-                        
-            m_dynamicBodies.Clear();
-            m_dynamicBodies.AddList(dynamicRigidBodies);
-            m_keyframedBodies.Clear();
-            m_keyframedBodies.AddRange(m_rigidBodies.Values.Except(dynamicRigidBodies));
 
-            //Matrix havokWorld = WorldMatrix;
-            //havokWorld.Translation = m_character.Physics.WorldToCluster( havokWorld.Translation);
-            Ragdoll.DisableConstraints();
-            Ragdoll.ResetToRigPose();
-            //Physics.Ragdoll.SetWorldMatrix(havokWorld);
-            //Physics.Ragdoll.SetTransforms(havokWorld, false);
-            Ragdoll.EnableConstraints();
+            if (dynamicRigidBodies != null)
+            {
+                m_dynamicBodies.Clear();
+                m_dynamicBodies.AddList(dynamicRigidBodies);
+                m_keyframedBodies.Clear();
+                m_keyframedBodies.AddRange(m_rigidBodies.Values.Except(dynamicRigidBodies));
+            }           
 
-            SetBodiesToPartialSimulation();
+            SetBodiesSimulationMode();
+
+            if (Ragdoll.InWorld)
+            {
+                Ragdoll.EnableConstraints();
+                Ragdoll.Activate();
+            }
+
+
+            //Ragdoll.DisableConstraints();
+            //Ragdoll.SetToKeyframed();
+            //Ragdoll.ResetToRigPose();
+            
+            //Ragdoll.EnableConstraints();
 
             IsActive = true;
             IsPartiallySimulated = true;
 
-            m_character.Physics.OnRagdollActivated += Physics_OnRagdollActivated;
+            UpdateRagdollPose();
+            Ragdoll.ResetVelocities();
+
+            m_character.Physics.Ragdoll.AddedToWorld -= OnRagdollAdded;
+            m_character.Physics.Ragdoll.AddedToWorld += OnRagdollAdded;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.ActivatePartialSimulation - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.ActivatePartialSimulation - END");
+            }
+
         }
 
-        private void SetBodiesToPartialSimulation()
+        private void SetBodiesSimulationMode()
         {
             foreach (var bodyIndex in m_dynamicBodies)
             {
                 Ragdoll.SetToDynamic(bodyIndex);                
-                Ragdoll.SwitchRigidBodyToLayer(bodyIndex, MyPhysics.RagdollCollisionLayer);
+                Ragdoll.SwitchRigidBodyToLayer(bodyIndex, MyPhysics.CollisionLayers.RagdollCollisionLayer);
             }
-
-            // TODO: When we have fully wrapped HkRagdollContraintData update parameters here..
-            //foreach (var constraint in Ragdoll.RagdollConstraintsData)
-            //{
-
-            //}
 
             foreach (var bodyIndex in m_keyframedBodies)
             {
                 Ragdoll.SetToKeyframed(bodyIndex);                
-                Ragdoll.SwitchRigidBodyToLayer(bodyIndex, MyPhysics.RagdollCollisionLayer);
-            }
-
-            Ragdoll.EnableConstraints();
-            Ragdoll.Activate();
-
+                Ragdoll.SwitchRigidBodyToLayer(bodyIndex, MyPhysics.CollisionLayers.RagdollCollisionLayer);
+            }               
         }
 
-        void Physics_OnRagdollActivated(object sender, EventArgs e)
+        void OnRagdollAdded(HkRagdoll ragdoll)
         {
+            Debug.Assert(ragdoll == Ragdoll, "Wrong ragdoll model!");
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG) Debug.WriteLine("MyRagdollMapper.OnRagdollAdded");
             if (IsPartiallySimulated)
             {
-                SetBodiesToPartialSimulation();
+                SetBodiesSimulationMode();
             }
         }
 
         public void DeactivatePartialSimulation()
         {
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.DeactivatePartialSimulation");
+                MyLog.Default.WriteLine("MyRagdollMapper.DeactivatePartialSimulation");
+            }
+
             if (!IsPartiallySimulated) return;
             if (Ragdoll == null) return;
 
-            if (Ragdoll.IsAddedToWorld)
+            if (Ragdoll.InWorld)
             {
-                Ragdoll.Deactivate();
+                Ragdoll.DisableConstraints();
+                Ragdoll.Deactivate();                
             }
 
             m_keyframedBodies.Clear();
             m_dynamicBodies.Clear();
             m_dynamicBodies.AddRange(m_rigidBodies.Values);
+            SetBodiesSimulationMode();
+            Ragdoll.ResetToRigPose();
 
             IsPartiallySimulated = false;
             IsActive = false;
-            m_character.Physics.OnRagdollActivated -= Physics_OnRagdollActivated;
+            m_character.Physics.Ragdoll.AddedToWorld -= OnRagdollAdded;
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.DeactivatePartialSimulation - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.DeactivatePartialSimulation - END");
+            }
         }
 
-        public void DebugDraw(Matrix worldMatrix)
+        public void DebugDraw(MatrixD worldMatrix)
         {
             //TODO: Create some debug draw for ragdoll
             if (!MyDebugDrawSettings.ENABLE_DEBUG_DRAW) return;
@@ -633,9 +803,10 @@ namespace Sandbox.Engine.Physics
                 foreach (var bodyIndex in m_rigidBodiesToBonesIndices.Keys)
                 {
                     Color color = new Color(((bodyIndex & 1) * 255), ((bodyIndex & 2) * 255), ((bodyIndex & 4) * 255));
-                    DrawShape(Ragdoll.RigidBodies[bodyIndex].GetShape(), Ragdoll.GetRigidBodyLocalTransform(bodyIndex) * worldMatrix, color, 0.6f);
+                    var matrix = (MatrixD)Ragdoll.GetRigidBodyLocalTransform(bodyIndex) * worldMatrix;
+                    DrawShape(Ragdoll.RigidBodies[bodyIndex].GetShape(), matrix, color, 0.6f);
+                    VRageRender.MyRenderProxy.DebugDrawAxis(matrix, 0.3f, false);
                 }
-
             }
         }
 
@@ -650,9 +821,14 @@ namespace Sandbox.Engine.Physics
             if (!m_inicialized || !IsActive) return;
             if (!IsPartiallySimulated && !IsKeyFramed) return;
 
+            //if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            //{
+            //    Debug.WriteLine("MyRagdollMapper.UpdateRagdollPosition");
+            //    MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollPosition");
+            //}
 
             // Note: Character's world matrix can be changed by server and desync, this can cause artifacts, therefore it can be better to use physics pos
-            Matrix havokWorldMatrix;
+            MatrixD havokWorldMatrix;
             if (m_character.IsDead)
             {
                 havokWorldMatrix = m_character.WorldMatrix;
@@ -669,50 +845,72 @@ namespace Sandbox.Engine.Physics
             }
 
             Debug.Assert(havokWorldMatrix.IsValid(), "Ragdoll world matrix in Havok is invalid");
-            Debug.Assert(havokWorldMatrix != Matrix.Zero, "Ragdoll world matrix in Havok is invalid");
+            Debug.Assert(havokWorldMatrix != MatrixD.Zero, "Ragdoll world matrix in Havok is invalid");
             // If ragdoll is repositioned to a far distance instantly, havok doesn't hadle it properly. Simulation is broken etc.
             // Therefore in that case we need to reposition the ragdoll without breaking the simulation - setting all bodies to new position
-            if (havokWorldMatrix.IsValid() && havokWorldMatrix != Matrix.Zero)
+            if (havokWorldMatrix.IsValid() && havokWorldMatrix != MatrixD.Zero)
             {
-                Vector3 distance = havokWorldMatrix.Translation - Ragdoll.WorldMatrix.Translation;
-                if (distance.LengthSquared() > 100)
+                double distance = (havokWorldMatrix.Translation - Ragdoll.WorldMatrix.Translation).LengthSquared();
+                double forwardChange = ((Vector3)havokWorldMatrix.Forward - Ragdoll.WorldMatrix.Forward).LengthSquared();
+                double upChange = ((Vector3)havokWorldMatrix.Up - Ragdoll.WorldMatrix.Up).LengthSquared();
+                                
+                m_changed = distance > 0.001f || forwardChange > 0.001f || upChange > 0.001f;
+
+                if (distance > 10)
                 {
-                    Ragdoll.SetWorldMatrix(havokWorldMatrix);
-                    Ragdoll.SetTransforms(havokWorldMatrix, false);
+                    if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+                    {
+                        Debug.WriteLine("MyRagdollMapper.UpdateRagdollPosition");
+                        MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollPosition");
+                    }
+
+                    Ragdoll.SetWorldMatrix(havokWorldMatrix);                    
                     if (MyFakes.ENABLE_RAGDOLL_DEBUG)
                     {
                         Debug.Fail(" Ragdoll debug: Position of ragdoll has changed more than 10 m");
                     }
                 }
-                else
+                else if (m_changed)
                 {
-                    Ragdoll.SetWorldMatrix(havokWorldMatrix);
-                    Ragdoll.SetTransforms(havokWorldMatrix, IsPartiallySimulated);
+                    if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+                    {
+                        Debug.WriteLine("MyRagdollMapper.UpdateRagdollPosition - SetWorldMatrix");
+                        MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollPosition");
+                    }
+
+                    Ragdoll.SetWorldMatrix(havokWorldMatrix, true);                    
                 }
             }
+
+            //if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            //{
+            //    Debug.WriteLine("MyRagdollMapper.UpdateRagdollPosition");
+            //    MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollPosition");
+            //}
         }
 
-        public void ResetRagdoll(Matrix worldTransform)
+        public void ResetRagdollVelocities()
         {
-            if (Ragdoll == null) return;
-            Ragdoll.DisableConstraints();
-            Ragdoll.ResetToRigPose();
-            Matrix havokWorld = worldTransform;
-            havokWorld.Translation = m_character.Physics.WorldToCluster(worldTransform.Translation);
-            Ragdoll.SetWorldMatrix(havokWorld);
-            Ragdoll.SetTransforms(havokWorld, false);
-            foreach (var body in Ragdoll.RigidBodies)
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
             {
-                body.LinearVelocity = Vector3.Zero;
-                body.AngularVelocity = Vector3.Zero;
+                Debug.WriteLine("MyRagdollMapper.ResetRagdollVelocities");
+                MyLog.Default.WriteLine("MyRagdollMapper.ResetRagdollVelocities");
             }
-            Ragdoll.EnableConstraints();
+
+            if (Ragdoll == null) return;
+            
+            Ragdoll.ResetVelocities();
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.ResetRagdollVelocities - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.ResetRagdollVelocities - END");
+            }
         }
 
-        public static void DrawShape(HkShape shape, Matrix worldMatrix, Color color, float alpha, bool shaded = true)
+        public static void DrawShape(HkShape shape, MatrixD worldMatrix, Color color, float alpha, bool shaded = true)
         {
             color.A = (byte)(alpha * 255);
-
 
             switch (shape.ShapeType)
             {
@@ -771,21 +969,34 @@ namespace Sandbox.Engine.Physics
         {
             if (!m_inicialized || !IsActive) return;
             if (Ragdoll == null) return;
+            
             if (MyFakes.ENABLE_RAGDOLL_DEBUG)
             {
                 Debug.Assert(m_character.Physics.AngularVelocity.Length() <= 100f, " Ragdoll debug: Character's angular velocity over 100");
                 Debug.Assert(m_character.Physics.LinearVelocity.Length() <= 150f, " Ragdoll debug: Character's angular velocity over 150");                
             }
-            SetAngularVelocity(m_character.Physics.AngularVelocity);
-            SetLinearVelocity(m_character.Physics.LinearVelocity);
+
+            if (m_changed)
+            {
+                SetAngularVelocity(m_character.Physics.AngularVelocity);
+                SetLinearVelocity(m_character.Physics.LinearVelocity);
+            }
         }
 
         public void UpdateRagdollAfterSimulation()
         {
-            if (!m_inicialized || !IsActive) return;
-            if (Ragdoll == null || !Ragdoll.IsAddedToWorld) return;
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateRagdollAfterSimulation");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollAfterSimulation");
+            }
 
-            Matrix ragdollWorld = Ragdoll.WorldMatrix;
+            if (!m_inicialized || !IsActive) return;
+            if (Ragdoll == null || !Ragdoll.InWorld) return;
+
+            VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("UpdateRagdollAfterSimulation");                       
+
+            MatrixD ragdollWorld = Ragdoll.WorldMatrix;
             Ragdoll.UpdateWorldMatrixAfterSimulation();
             Ragdoll.UpdateLocalTransforms();
 
@@ -799,7 +1010,7 @@ namespace Sandbox.Engine.Physics
             // TODO: THIS DOESN'T WORK, UNFORTUNATELLY HAVOK DOESN'T DEACTIVATE THE RAGDOLL
             // SEEMS LIKE SOMETHING IS STILL INTERACTING - THIS COULD BE CAUSED BY CONSTRAINTS
             // WHICH DIDN'T SETTLED?
-            if (MyFakes.ENABLE_RAGDOLL_DEACTIVATION && m_character.IsDead)
+            if (MyFakes.FORCE_RAGDOLL_DEACTIVATION && m_character.IsDead)
             {
                 if ((DeactivationCounter <= 0) && Ragdoll.IsSimulationActive)
                 {   
@@ -808,21 +1019,30 @@ namespace Sandbox.Engine.Physics
                 }
                 else
                 {
-                    DeactivationCounter -= MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS;
+                    DeactivationCounter -= VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS;
                 }
             }
+
+            if (MyFakes.ENABLE_RAGDOLL_DEBUG)
+            {
+                Debug.WriteLine("MyRagdollMapper.UpdateRagdollAfterSimulation - END");
+                MyLog.Default.WriteLine("MyRagdollMapper.UpdateRagdollAfterSimulation - END");
+            }
+
+            VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
         }
 
         internal void UpdateRigidBodiesTransformsSynced(int transformsCount, Matrix worldMatrix, Matrix[] transforms)
         {           
             if (!m_inicialized || !IsActive) return;
-            if (Ragdoll == null || !Ragdoll.IsAddedToWorld) return;
+            if (Ragdoll == null || !Ragdoll.InWorld) return;
 
-            Debug.Assert(transformsCount == transforms.Count(), "Wrong ragdoll transforms sync - transforms don't match!");
+            Debug.Assert(transformsCount == transforms.Length, "Wrong ragdoll transforms sync - transforms don't match!");
             Debug.Assert(transformsCount == Ragdoll.RigidBodies.Count, "The count of ragdoll transform matrices doesn't match the count of rigid bodies!");
             List<Vector3> linearVelocities = new List<Vector3>();
             List<Vector3> angularVelocities = new List<Vector3>();
-            if (transformsCount == m_ragdollRigidBodiesAbsoluteTransforms.Count())
+
+            if (transformsCount == m_ragdollRigidBodiesAbsoluteTransforms.Length)
             {
                 for (int i =0;i<transformsCount;++i)
                 {
@@ -835,10 +1055,10 @@ namespace Sandbox.Engine.Physics
                 }
             }
 
-            Matrix havokWorld = worldMatrix;
+            MatrixD havokWorld = worldMatrix;
             havokWorld.Translation = m_character.Physics.WorldToCluster(worldMatrix.Translation);
             Ragdoll.SetWorldMatrix(havokWorld);
-            Ragdoll.SetTransforms(havokWorld, false);
+            //Ragdoll.SetTransforms(havokWorld, false);
 
             foreach (var rigidBodyIndex in m_rigidBodiesToBonesIndices.Keys)
             {
@@ -847,7 +1067,7 @@ namespace Sandbox.Engine.Physics
             }            
         }
 
-        public void SyncRigidBodiesTransforms(Matrix worldTransform)
+        public void SyncRigidBodiesTransforms(MatrixD worldTransform)
         {
             bool changed = m_lastSyncedWorldMatrix != worldTransform;
             foreach (var rigidBodyIndex in m_rigidBodiesToBonesIndices.Keys)
@@ -862,9 +1082,36 @@ namespace Sandbox.Engine.Physics
             } 
             if (changed && MyFakes.ENABLE_RAGDOLL_CLIENT_SYNC)
             {
-                m_character.SyncObject.SendRagdollTransforms(worldTransform, m_ragdollRigidBodiesAbsoluteTransforms);
+                m_character.SendRagdollTransforms(worldTransform, m_ragdollRigidBodiesAbsoluteTransforms);
                 m_lastSyncedWorldMatrix = worldTransform;
             }
+        }
+
+        public HkRigidBody GetBodyBindedToBone(MyCharacterBone myCharacterBone)
+        {
+            if (Ragdoll == null)
+            {
+                Debug.Fail("Ragdoll is not initialized!");
+                return null;
+            }
+
+            if (myCharacterBone == null)
+            {
+                Debug.Fail("Invalid parameter - cannot be null! ");
+                return null;
+            }
+
+            foreach (var pair in m_ragdollBonesMappings)
+            {
+                if (pair.Value.Bones.Contains(myCharacterBone.Name))
+                {
+                    Debug.Assert(Ragdoll.RigidBodies.IsValidIndex(m_rigidBodies[pair.Key]), "Invalid rigid body index!");
+                    return Ragdoll.RigidBodies[m_rigidBodies[pair.Key]];
+                }
+            }
+
+            Debug.Fail("Requested bone was not found in mappings!");
+            return null;
         }
     }
 }

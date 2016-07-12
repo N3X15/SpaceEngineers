@@ -1,7 +1,7 @@
 ﻿using ProtoBuf;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -11,5 +11,9 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
         public bool IsTrue;
         [ProtoMember]
         public string Message;
+        [ProtoMember]
+        public string WwwLink;
+        [ProtoMember]
+        public string NextMission;
     }
 }

@@ -1,5 +1,4 @@
-﻿using Sandbox.Common.ObjectBuilders.AI;
-using Sandbox.Common.ObjectBuilders.Definitions;
+﻿using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
 using Sandbox.Engine.Utils;
 using Sandbox.Game.Entities;
@@ -9,6 +8,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using VRage;
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRageMath;
 
 namespace Sandbox.Game.AI.Pathfinding
@@ -211,7 +212,7 @@ namespace Sandbox.Game.AI.Pathfinding
                     Vector3I.Max(ref max, ref gridPosC, out max);
 
                     Vector3I pos = min;
-                    for (var it = new Vector3I.RangeIterator(ref min, ref max); it.IsValid(); it.GetNext(out pos))
+                    for (var it = new Vector3I_RangeIterator(ref min, ref max); it.IsValid(); it.GetNext(out pos))
                     {
                         newMesh.RegisterTriangle(tri, ref pos);
                     }

@@ -25,12 +25,14 @@ using Sandbox.Game.Gui;
 using Sandbox.Engine.Utils;
 using VRage;
 using Sandbox.Game.Localization;
+using VRage.Game;
 using VRage.ObjectBuilders;
+using VRage.Network;
 
 
 namespace Sandbox.Game.Multiplayer
 {
-    [PreloadRequired]
+    [StaticEventOwner]
     partial class MyGpsCollection
     {
         public Dictionary<int,MyGps> this[long id]
@@ -44,70 +46,28 @@ namespace Sandbox.Game.Multiplayer
         }
         #region network
         
-        [MessageId(6378, P2PMessageEnum.Reliable)]
-        [ProtoContract]
         struct AddMsg
         {
-            [ProtoMember]
             public long IdentityId;
-            [ProtoMember]
+            [Serialize(MyObjectFlags.Nullable)]
             public string Name;
-            [ProtoMember]
+            [Serialize(MyObjectFlags.Nullable)]
             public string Description;
-            [ProtoMember]
             public Vector3D Coords;
-            [ProtoMember]
             public bool ShowOnHud;
-            [ProtoMember]
             public bool IsFinal;
         }
 
-        [MessageId(6379, P2PMessageEnum.Reliable)]
-        struct DeleteMsg
-        {
-            public long IdentityId;
-            public int Hash;
-        }
-
-        [MessageId(6380, P2PMessageEnum.Reliable)]
-        struct ChangeShowOnHudMsg
-        {
-            public long IdentityId;
-            public int Hash;
-            public byte Show;
-        }
-
-        [MessageId(6381, P2PMessageEnum.Reliable)]
-        [ProtoContract]
         struct ModifyMsg
         {
-            [ProtoMember]
             public long IdentityId;
-            [ProtoMember]
             public int Hash;
-            [ProtoMember]
+            [Serialize(MyObjectFlags.Nullable)]
             public string Name;
-            [ProtoMember]
+            [Serialize(MyObjectFlags.Nullable)]
             public string Description;
-            [ProtoMember]
             public Vector3D Coords;
         }
-
-        static MyGpsCollection()
-        {
-            MySyncLayer.RegisterMessage<AddMsg>(AddRequest, MyMessagePermissions.ToServer, MyTransportMessageEnum.Request);
-            MySyncLayer.RegisterMessage<AddMsg>(AddSuccess, MyMessagePermissions.FromServer, MyTransportMessageEnum.Success);
-
-            MySyncLayer.RegisterMessage<DeleteMsg>(DeleteRequest, MyMessagePermissions.ToServer, MyTransportMessageEnum.Request);
-            MySyncLayer.RegisterMessage<DeleteMsg>(DeleteSuccess, MyMessagePermissions.FromServer, MyTransportMessageEnum.Success);
-
-            MySyncLayer.RegisterMessage<ChangeShowOnHudMsg>(ShowOnHudRequest, MyMessagePermissions.ToServer, MyTransportMessageEnum.Request);
-            MySyncLayer.RegisterMessage<ChangeShowOnHudMsg>(ShowOnHudSuccess, MyMessagePermissions.FromServer, MyTransportMessageEnum.Success);
-
-            MySyncLayer.RegisterMessage<ModifyMsg>(ModifyRequest, MyMessagePermissions.ToServer, MyTransportMessageEnum.Request);
-            MySyncLayer.RegisterMessage<ModifyMsg>(ModifySuccess, MyMessagePermissions.FromServer, MyTransportMessageEnum.Success);
-        }
-
 
         #region add_GPS
         //ADD:
@@ -121,28 +81,24 @@ namespace Sandbox.Game.Multiplayer
             msg.ShowOnHud=gps.ShowOnHud;
             msg.IsFinal=(gps.DiscardAt==null?true:false);
 
-            Sync.Layer.SendMessageToServer(ref msg, MyTransportMessageEnum.Request);
+            MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.OnAddGps, msg);
         }
 
-        static void AddRequest(ref AddMsg msg, MyNetworkClient sender)
+        [Event, Reliable, Server, Broadcast]
+        static void OnAddGps(AddMsg msg)
         {
-            Sync.Layer.SendMessageToAllAndSelf(ref msg, MyTransportMessageEnum.Success);
-        }
-
-        static void AddSuccess(ref AddMsg msg, MyNetworkClient sender)
-        {
-            MyGps gps=new MyGps();
-            gps.Name=msg.Name;
-            gps.Description=msg.Description;
-            gps.Coords=msg.Coords;
-            gps.ShowOnHud=msg.ShowOnHud;
-            gps.DiscardAt=null;
+            MyGps gps = new MyGps();
+            gps.Name = msg.Name;
+            gps.Description = msg.Description;
+            gps.Coords = msg.Coords;
+            gps.ShowOnHud = msg.ShowOnHud;
+            gps.DiscardAt = null;
             if (!msg.IsFinal)
-               gps.SetDiscardAt();
+                gps.SetDiscardAt();
             gps.UpdateHash();
             if (MySession.Static.Gpss.AddPlayerGps(msg.IdentityId, ref gps))
             {//new entry succesfully added
-                if (gps.ShowOnHud && msg.IdentityId == MySession.LocalPlayerId)
+                if (gps.ShowOnHud && msg.IdentityId == MySession.Static.LocalPlayerId)
                     MyHud.GpsMarkers.RegisterMarker(gps);
             }
 
@@ -152,44 +108,44 @@ namespace Sandbox.Game.Multiplayer
                 handler(msg.IdentityId);
             }
         }
+
         #endregion add_GPS
 
         #region delete_GPS
         //DELETE:
         public void SendDelete(long identityId, int gpsHash)
         {
-            var msg = new DeleteMsg();
-            msg.IdentityId = identityId;
-            msg.Hash = gpsHash;
-
-            Sync.Layer.SendMessageToServer(ref msg, MyTransportMessageEnum.Request);
+            MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.DeleteRequest, identityId, gpsHash);
         }
-        static void DeleteRequest(ref DeleteMsg msg, MyNetworkClient sender)
+        
+        [Event, Reliable, Server]
+        static void DeleteRequest(long identityId, int gpsHash)
         {
             Dictionary<int, MyGps> gpsList;
-            var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(msg.IdentityId, out gpsList);
+            var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(identityId, out gpsList);
 
             if (result)
-                if (gpsList.ContainsKey(msg.Hash))
-                    Sync.Layer.SendMessageToAllAndSelf(ref msg, MyTransportMessageEnum.Success);
+                if (gpsList.ContainsKey(gpsHash))
+                    MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.DeleteSuccess, identityId, gpsHash);
         }
 
-        static void DeleteSuccess(ref DeleteMsg msg, MyNetworkClient sender)
+        [Event, Reliable, Server, Broadcast]
+        static void DeleteSuccess(long identityId, int gpsHash)
         {
             Dictionary<int, MyGps> gpsList;
-            var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(msg.IdentityId, out gpsList);
+            var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(identityId, out gpsList);
             if (result)
             {
                 MyGps gps;
-                result = gpsList.TryGetValue(msg.Hash, out gps);
+                result = gpsList.TryGetValue(gpsHash, out gps);
                 if (result)
                 {
                     if (gps.ShowOnHud)
                         MyHud.GpsMarkers.UnregisterMarker(gps);
-                    gpsList.Remove(msg.Hash);
+                    gpsList.Remove(gpsHash);
                     var handler = MySession.Static.Gpss.ListChanged;
                     if (handler != null)
-                        handler(msg.IdentityId);
+                        handler(identityId);
                 }
                 
             }
@@ -207,20 +163,22 @@ namespace Sandbox.Game.Multiplayer
             msg.Coords = gps.Coords;
             msg.Hash = gps.Hash;
 
-            Sync.Layer.SendMessageToServer(ref msg, MyTransportMessageEnum.Request);
+            MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.ModifyRequest, msg);
         }
 
-        static void ModifyRequest(ref ModifyMsg msg, MyNetworkClient sender)
+        [Event, Reliable, Server]
+        static void ModifyRequest(ModifyMsg msg)
         {
             Dictionary<int, MyGps> gpsList;
             var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(msg.IdentityId, out gpsList);
 
             if (result)
                 if (gpsList.ContainsKey(msg.Hash))
-                    Sync.Layer.SendMessageToAllAndSelf(ref msg, MyTransportMessageEnum.Success);
+                    MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.ModifySuccess, msg);
         }
 
-        static void ModifySuccess(ref ModifyMsg msg, MyNetworkClient sender)
+        [Event, Reliable, Server, Broadcast]
+        static void ModifySuccess(ModifyMsg msg)
         {
             Dictionary<int, MyGps> gpsList;
             var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(msg.IdentityId, out gpsList);
@@ -259,7 +217,7 @@ namespace Sandbox.Game.Multiplayer
                     else
                         gpsList.Add(gps.Hash, gps);//new key
 
-                    if (msg.IdentityId == MySession.LocalPlayerId && gps.ShowOnHud)
+                    if (msg.IdentityId == MySession.Static.LocalPlayerId && gps.ShowOnHud)
                         MyHud.GpsMarkers.RegisterMarker(gps);
                 }
             }
@@ -277,43 +235,39 @@ namespace Sandbox.Game.Multiplayer
         }
         void SendChangeShowOnHud(long identityId, int gpsHash, bool show)
         {
-            var msg = new ChangeShowOnHudMsg();
-            msg.IdentityId=identityId;
-            msg.Hash=gpsHash;
-            msg.Show=(byte)(show?1:0);
-
-            Sync.Layer.SendMessageToServer(ref msg, MyTransportMessageEnum.Request);
+            MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.ShowOnHudRequest, identityId, gpsHash, show);
         }
 
-        static void ShowOnHudRequest(ref ChangeShowOnHudMsg msg, MyNetworkClient sender)
+        [Event, Reliable, Server]
+        static void ShowOnHudRequest(long identityId, int gpsHash, bool show)
         {
             Dictionary<int,MyGps> gpsList;
-            var result=MySession.Static.Gpss.m_playerGpss.TryGetValue(msg.IdentityId,out gpsList);
+            var found = MySession.Static.Gpss.m_playerGpss.TryGetValue(identityId, out gpsList);
 
-            if (result != null)
-            {
-                Sync.Layer.SendMessageToAllAndSelf(ref msg, MyTransportMessageEnum.Success);
-            }
+            if (found)
+                MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.ShowOnHudSuccess, identityId, gpsHash, show);
         }
 
-        static void ShowOnHudSuccess(ref ChangeShowOnHudMsg msg, MyNetworkClient sender)
+        [Event, Reliable, Server, Broadcast]
+        static void ShowOnHudSuccess(long identityId, int gpsHash, bool show)
         {
             Dictionary<int,MyGps> gpsList;
-            var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(msg.IdentityId, out gpsList);
+            var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(identityId, out gpsList);
             if (result)
             {
                 MyGps gps;
-                result = gpsList.TryGetValue(msg.Hash, out gps);
+                result = gpsList.TryGetValue(gpsHash, out gps);
                 if(result)
                 {
-                    gps.ShowOnHud = msg.Show == 1;
+                    gps.ShowOnHud = show;
+                    if (!show) gps.AlwaysVisible = false;
                     gps.DiscardAt = null;//finalize
 
                     var handler = MySession.Static.Gpss.GpsChanged;
                     if (handler != null)
-                        handler(msg.IdentityId,msg.Hash);
+                        handler(identityId, gpsHash);
 
-                    if (msg.IdentityId == MySession.LocalPlayerId)
+                    if (identityId == MySession.Static.LocalPlayerId)
                     {
                         if (gps.ShowOnHud)
                             MyHud.GpsMarkers.RegisterMarker(gps);
@@ -325,6 +279,59 @@ namespace Sandbox.Game.Multiplayer
             }
         }
         #endregion showOnHUD
+
+        #region alwaysVisib;e
+        //SHOW ON HUD:
+        public void ChangeAlwaysVisible(long identityId, int gpsHash, bool alwaysVisible)
+        {
+            SendChangeAlwaysVisible(identityId, gpsHash, alwaysVisible);
+        }
+        void SendChangeAlwaysVisible(long identityId, int gpsHash, bool alwaysVisible)
+        {
+            MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.AlwaysVisibleRequest, identityId, gpsHash, alwaysVisible);
+        }
+
+        [Event, Reliable, Server]
+        static void AlwaysVisibleRequest(long identityId, int gpsHash, bool alwaysVisible)
+        {
+            Dictionary<int, MyGps> gpsList;
+            var found = MySession.Static.Gpss.m_playerGpss.TryGetValue(identityId, out gpsList);
+
+            if (found)
+                MyMultiplayer.RaiseStaticEvent(s => MyGpsCollection.AlwaysVisibleSuccess, identityId, gpsHash, alwaysVisible);
+        }
+
+        [Event, Reliable, Server, Broadcast]
+        static void AlwaysVisibleSuccess(long identityId, int gpsHash, bool alwaysVisible)
+        {
+            Dictionary<int, MyGps> gpsList;
+            var result = MySession.Static.Gpss.m_playerGpss.TryGetValue(identityId, out gpsList);
+            if (result)
+            {
+                MyGps gps;
+                result = gpsList.TryGetValue(gpsHash, out gps);
+                if (result)
+                {
+                    gps.AlwaysVisible = alwaysVisible;
+                    gps.ShowOnHud = (gps.ShowOnHud || alwaysVisible);
+                    gps.DiscardAt = null;//finalize
+
+                    var handler = MySession.Static.Gpss.GpsChanged;
+                    if (handler != null)
+                        handler(identityId, gpsHash);
+
+                    if (identityId == MySession.Static.LocalPlayerId)
+                    {
+                        if (gps.ShowOnHud)
+                            MyHud.GpsMarkers.RegisterMarker(gps);
+                        else
+                            MyHud.GpsMarkers.UnregisterMarker(gps);
+                    }
+                }
+
+            }
+        }
+        #endregion alwaysVisib
         #endregion network
 
         //<IdentityId < hash of gps, gps > >
@@ -356,15 +363,29 @@ namespace Sandbox.Game.Multiplayer
             return true;
         }
 
+        public MyGps GetGps(int hash)
+        {
+            foreach (var gpss in MySession.Static.Gpss.m_playerGpss.Values)
+            {
+                MyGps gps;
+                if (gpss.TryGetValue(hash, out gps))
+                {
+                    return gps;
+                }
+            }
+
+            return null;
+        }
+
         private StringBuilder m_NamingSearch = new StringBuilder();
         public void GetNameForNewCurrent(StringBuilder name)
         {//makes next entry name of coordinate from my current position - playername #xx
             Dictionary<int, MyGps> result;
             int number=0;
             name.Clear()
-                .Append(MySession.LocalHumanPlayer.DisplayName)
+                .Append(MySession.Static.LocalHumanPlayer.DisplayName)
                 .Append(" #");
-            if (m_playerGpss.TryGetValue(MySession.LocalPlayerId, out result))
+            if (m_playerGpss.TryGetValue(MySession.Static.LocalPlayerId, out result))
             {
                 foreach (var gpsList in result)
                 {
@@ -406,20 +427,20 @@ namespace Sandbox.Game.Multiplayer
                             m_playerGpss.Add(entry.Key, playersGpss);
                         }
                         playersGpss.Add(gps.GetHashCode(), gps);
-                        if (gps.ShowOnHud && entry.Key == MySession.LocalPlayerId && MySession.LocalPlayerId!=0)// LocalPlayerId=0 => loading MP game and not yet initialized. Or server, which does not matter
+                        if (gps.ShowOnHud && entry.Key == MySession.Static.LocalPlayerId && MySession.Static.LocalPlayerId!=0)// LocalPlayerId=0 => loading MP game and not yet initialized. Or server, which does not matter
                             MyHud.GpsMarkers.RegisterMarker(gps);
                     }
                 }
         }
         public void updateForHud()
         {//unfortunately, when loading MP game, local identity is not initialized, we need register hud markers later. =now
-            if (lastPlayerId != MySession.LocalPlayerId)
+            if (lastPlayerId != MySession.Static.LocalPlayerId)
             {
                 Dictionary<int, MyGps> playersGpss;
                 if (m_playerGpss.TryGetValue(lastPlayerId, out playersGpss))
                     foreach (var gps in playersGpss)
                         MyHud.GpsMarkers.UnregisterMarker(gps.Value);
-                lastPlayerId = MySession.LocalPlayerId;
+                lastPlayerId = MySession.Static.LocalPlayerId;
                 if (m_playerGpss.TryGetValue(lastPlayerId, out playersGpss))
                     foreach (var gps in playersGpss)
                         if (gps.Value.ShowOnHud)
@@ -458,7 +479,8 @@ namespace Sandbox.Game.Multiplayer
                     description = gps.Description,
                     coords = gps.Coords,
                     isFinal = (gps.DiscardAt == null ? true : false),
-                    showOnHud = gps.ShowOnHud
+                    showOnHud = gps.ShowOnHud,
+                    alwaysVisible = gps.AlwaysVisible
                 };
 
         }
@@ -531,6 +553,39 @@ namespace Sandbox.Game.Multiplayer
             }
             return false;
         }
+
+        //parses input string, searches for only one valid coords
+        public static bool ParseOneGPSExtended(string input, StringBuilder name, ref Vector3D coords, StringBuilder additionalData)
+        {
+            foreach (Match match in Regex.Matches(input, m_ScanPatternExtended))
+            {
+                double x, y, z;
+                try
+                {
+                    x = double.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    x = Math.Round(x, 2);
+                    y = double.Parse(match.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    y = Math.Round(y, 2);
+                    z = double.Parse(match.Groups[4].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    z = Math.Round(z, 2);
+                }
+                catch (SystemException)
+                {
+                    continue;//search for next GPS in the input
+                }
+                //parsed successfully
+                name.Clear().Append(match.Groups[1].Value);
+                coords.X = x; coords.Y = y; coords.Z = z;
+
+                additionalData.Clear();
+
+                if (match.Groups.Count == 6 && !string.IsNullOrWhiteSpace(match.Groups[5].Value))
+                    additionalData.Append(match.Groups[5].Value);
+
+                return true;
+            }
+            return false;
+        }
         
         //this is all you have to call if you have text with possible GPS coordinates and want to add them
         //drop string in question into input parameter, if you want you can provide text into GPS description field in second parameter
@@ -542,6 +597,7 @@ namespace Sandbox.Game.Multiplayer
         }
         private static readonly int PARSE_MAX_COUNT = 20;
         private static readonly string m_ScanPattern = @"GPS:([^:]{0,32}):([\d\.-]*):([\d\.-]*):([\d\.-]*):";
+        private static readonly string m_ScanPatternExtended = @"GPS:([^:]{0,32}):([\d\.-]*):([\d\.-]*):([\d\.-]*):(.*)";
         public int ScanText(string input, string desc = null)
         {//scans given text and adds all as uncorfirmed
             int count = 0;
@@ -572,7 +628,7 @@ namespace Sandbox.Game.Multiplayer
                     ShowOnHud = false
                 };
                 newGps.UpdateHash();
-                MySession.Static.Gpss.SendAddGps(MySession.LocalPlayerId, ref newGps);
+                MySession.Static.Gpss.SendAddGps(MySession.Static.LocalPlayerId, ref newGps);
                 ++count;
                 if (count == PARSE_MAX_COUNT)
                     break;

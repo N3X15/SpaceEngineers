@@ -3,6 +3,7 @@ using Sandbox.Engine.Physics;
 using Sandbox.Engine.Utils;
 using Sandbox.Game.Entities;
 using Sandbox.Game.World;
+using VRage.Game.Components;
 using VRage.Input;
 using VRage.Utils;
 using VRageMath;
@@ -30,14 +31,11 @@ namespace Sandbox.Game.SessionComponents
             Vector3D origin = MySector.MainCamera.Position;
             Vector3D end = origin + forward * 100f;
 
-            Vector3D hitPosition;
-            Vector3 hitNormal;
-
             m_lastCubeGrid = null;
             m_lastBone = null;
 
-            var physTarget = MyPhysics.CastRay(origin, end, out hitPosition, out hitNormal, MyPhysics.ExplosionRaycastLayer);
-            var hitEntity = physTarget != null ? ((MyPhysicsBody)physTarget.UserObject).Entity : null;
+            var hitInfo = MyPhysics.CastRay(origin, end, MyPhysics.CollisionLayers.ExplosionRaycastLayer);
+            var hitEntity = hitInfo.HasValue ? ((MyPhysicsBody)hitInfo.Value.HkHitInfo.Body.UserObject).Entity : null;
 
             var grid = (hitEntity as MyCubeGrid);
             if (grid != null)
@@ -105,7 +103,7 @@ namespace Sandbox.Game.SessionComponents
                     bonePos -= new Vector3D(m_lastCubeGrid.GridSize / m_lastCubeGrid.Skeleton.BoneDensity);
                     Vector3D pos = Vector3D.Transform(bonePos, m_lastCubeGrid.PositionComp.WorldMatrix);
 
-                    m_localBonePosition = Vector3.Transform(pos, MySession.LocalCharacter.PositionComp.WorldMatrixNormalizedInv);
+                    m_localBonePosition = Vector3.Transform(pos, MySession.Static.LocalCharacter.PositionComp.WorldMatrixNormalizedInv);
 
                     m_movingCubeGrid = m_lastCubeGrid;
                     m_movingBone = m_lastBone;
@@ -125,7 +123,7 @@ namespace Sandbox.Game.SessionComponents
                     }
                     else
                     {
-                        Vector3D m_worldBonePosition = Vector3D.Transform(m_localBonePosition, MySession.LocalCharacter.PositionComp.WorldMatrix);
+                        Vector3D m_worldBonePosition = Vector3D.Transform(m_localBonePosition, MySession.Static.LocalCharacter.PositionComp.WorldMatrix);
 
                         var bonePos = Vector3D.Transform(m_worldBonePosition, m_movingCubeGrid.PositionComp.WorldMatrixInvScaled);
                         bonePos += new Vector3D(m_movingCubeGrid.GridSize / m_movingCubeGrid.Skeleton.BoneDensity);

@@ -22,6 +22,7 @@ using Sandbox.Game;
 using VRage;
 using Sandbox.Common.ObjectBuilders.Definitions;
 using System;
+using Sandbox.Engine.Voxels;
 using Sandbox.Game.Multiplayer;
 
 
@@ -31,20 +32,47 @@ namespace Sandbox.Engine.Physics
 {
     //using MyHavokCluster = VRageMath.Spatial.MyClusterTree<HkWorld>;
     using MyHavokCluster = VRageMath.Spatial.MyClusterTree;
+    using VRage.Game.Components;
+    using VRage.Game.Entity;
+    using VRage.Game;
+    using ParallelTasks;
+    using VRage.Game.ModAPI;
+    using VRage.ModAPI;
 
     [MySessionComponentDescriptor(MyUpdateOrder.Simulation, 500)]
     public class MyPhysics : MySessionComponentBase
     {
-        public struct HitInfo
+        public struct HitInfo : IHitInfo
         {
+            public HitInfo(HkWorld.HitInfo hi, Vector3D worldPosition)
+            {
+                HkHitInfo = hi;
+                Position = worldPosition;
+            }
+
             public HkWorld.HitInfo HkHitInfo;
             public Vector3D Position;
+
+            Vector3D IHitInfo.Position
+            {
+                get { return Position; }
+            }
+
+            IMyEntity IHitInfo.HitEntity
+            {
+                get { return HkHitInfo.GetHitEntity(); }
+            }
         }
 
         public struct MyContactPointEvent
         {
             public HkContactPointEvent ContactPointEvent;
             public Vector3D Position;
+
+            public Vector3 Normal
+            {
+                get { return ContactPointEvent.ContactPoint.Normal; }
+            }
         }
 
         public struct FractureImpactDetails
@@ -55,39 +83,56 @@ namespace Sandbox.Engine.Physics
             public MyEntity Entity;
             //public StackTrace dbgTrace;
         }
-        // Layer that doesn't collide with static grids and voxels
-		public const int NotCollideWithStaticLayer = 12;
-        // Static grids
-        public const int StaticCollisionLayer = 13;
-        public const int CollideWithStaticLayer = 14;
-        public const int DefaultCollisionLayer = 15;
-        public const int DynamicDoubledCollisionLayer = 16;
-        public const int KinematicDoubledCollisionLayer = 17;
-        public const int CharacterCollisionLayer = 18;
-        public const int NoCollisionLayer = 19;
 
-        public const int DebrisCollisionLayer = 20;
-        public const int GravityPhantomLayer = 21;
+        /// <summary>
+        /// Collision layers that can be used to filter what collision should be found for casting methods.
+        /// </summary>
+        /// <remarks>!!** If new layer is added then also add conversion to "GetCollisionLayer" function **!! 
+        /// Also max layer number is 31!!</remarks>
+        public struct CollisionLayers
+        {
+            /// <summary>
+            /// Layer that works like 'DefaultCollisionLayer' but do not return collision with voxels (ex. Planet ground/asteroid).
+            /// </summary>
+            public const int NoVoxelCollisionLayer = 9;
 
-        public const int CharacterNetworkCollisionLayer = 22;
-        public const int FloatingObjectCollisionLayer = 23;
+            public const int LightFloatingObjectCollisionLayer = 10;
 
-        public const int ObjectDetectionCollisionLayer = 24;
+            // Layer that doesn't collide with static grids and voxels
+            public const int VoxelLod1CollisionLayer = 11;
+            public const int NotCollideWithStaticLayer = 12;
+            // Static grids
+            public const int StaticCollisionLayer = 13;
+            public const int CollideWithStaticLayer = 14;
+            public const int DefaultCollisionLayer = 15;
+            public const int DynamicDoubledCollisionLayer = 16;
+            public const int KinematicDoubledCollisionLayer = 17;
+            public const int CharacterCollisionLayer = 18;
+            public const int NoCollisionLayer = 19;
 
-        public const int VirtualMassLayer = 25;
-        public const int CollectorCollisionLayer = 26;
+            public const int DebrisCollisionLayer = 20;
+            public const int GravityPhantomLayer = 21;
 
-        public const int AmmoLayer = 27;
-        public const int VoxelCollisionLayer = 28;
-        public const int ExplosionRaycastLayer = 29;
-        public const int CollisionLayerWithoutCharacter = 30;
+            public const int CharacterNetworkCollisionLayer = 22;
+            public const int FloatingObjectCollisionLayer = 23;
 
-        // TODO: This layer should be removed, when character won't need both CharacterProxy's body with ragdoll enabled at one time i.e. jetpack
-        public const int RagdollCollisionLayer = 31;
+            public const int ObjectDetectionCollisionLayer = 24;
+
+            public const int VirtualMassLayer = 25;
+            public const int CollectorCollisionLayer = 26;
+
+            public const int AmmoLayer = 27;
+            public const int VoxelCollisionLayer = 28;
+            public const int ExplosionRaycastLayer = 29;
+            public const int CollisionLayerWithoutCharacter = 30;
+
+            // TODO: This layer should be removed, when character won't need both CharacterProxy's body with ragdoll enabled at one time i.e. jetpack
+            public const int RagdollCollisionLayer = 31;
+        }
 
         public static int ThreadId;
 
-        public static MyHavokCluster Clusters;
+        private static MyHavokCluster Clusters;
 
         private static HkJobThreadPool m_threadPool;
         private static HkJobQueue m_jobQueue;
@@ -110,7 +155,12 @@ namespace Sandbox.Engine.Physics
         {
             get 
             {
-                return Math.Max(0.5f, StepsLastSecond) / (float)MyEngineConstants.UPDATE_STEPS_PER_SECOND;
+                if (MyFakes.ENABLE_SIMSPEED_LOCKING || MyFakes.PRECISE_SIM_SPEED)
+                {
+                    return MySandboxGame.SimulationRatio;
+                }
+ 
+                return (float)Math.Round(Math.Max(0.5f, StepsLastSecond) / (float)MyEngineConstants.UPDATE_STEPS_PER_SECOND,2);
             }
         }
 
@@ -122,147 +172,196 @@ namespace Sandbox.Engine.Physics
             }
         }
 
+        private static SpinLockRef m_raycastLock = new SpinLockRef();
+
         static void InitCollisionFilters(HkWorld world)
         {
             // Floating objects intentionally collide with both DynamicDoubledCollisionLayer and KinematicDoubledCollisionLayer
             // DynamicDoubledCollisionLayer is necessary, because we won't deformations
             // KinematicDoubledCollisionLayer is necessary, because we don't want to push it when floating object is resting on it
 
-            world.DisableCollisionsBetween(DynamicDoubledCollisionLayer, KinematicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(DynamicDoubledCollisionLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(DynamicDoubledCollisionLayer, DebrisCollisionLayer);
-            world.DisableCollisionsBetween(DynamicDoubledCollisionLayer, CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.DynamicDoubledCollisionLayer, CollisionLayers.KinematicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.DynamicDoubledCollisionLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.DynamicDoubledCollisionLayer, CollisionLayers.DebrisCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.DynamicDoubledCollisionLayer, CollisionLayers.LightFloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.DynamicDoubledCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
 
-			world.DisableCollisionsBetween(NotCollideWithStaticLayer, StaticCollisionLayer);
-            world.DisableCollisionsBetween(NotCollideWithStaticLayer, VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NotCollideWithStaticLayer, CollisionLayers.StaticCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NotCollideWithStaticLayer, CollisionLayers.VoxelCollisionLayer);
 
-            world.DisableCollisionsBetween(KinematicDoubledCollisionLayer, DefaultCollisionLayer);
-            world.DisableCollisionsBetween(KinematicDoubledCollisionLayer, StaticCollisionLayer);
-            world.DisableCollisionsBetween(KinematicDoubledCollisionLayer, VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.KinematicDoubledCollisionLayer, CollisionLayers.DefaultCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.KinematicDoubledCollisionLayer, CollisionLayers.StaticCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.KinematicDoubledCollisionLayer, CollisionLayers.VoxelCollisionLayer);
             //world.DisableCollisionsBetween(KinematicDoubledCollisionLayer, AmmoLayer);
 
-            world.DisableCollisionsBetween(GravityPhantomLayer, StaticCollisionLayer);
-            world.DisableCollisionsBetween(GravityPhantomLayer, VoxelCollisionLayer);
-            world.DisableCollisionsBetween(GravityPhantomLayer, DefaultCollisionLayer);
-            world.DisableCollisionsBetween(GravityPhantomLayer, DynamicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(GravityPhantomLayer, KinematicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(GravityPhantomLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(GravityPhantomLayer, CharacterNetworkCollisionLayer);
-            world.DisableCollisionsBetween(GravityPhantomLayer, ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.StaticCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.DefaultCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.DynamicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.KinematicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.ObjectDetectionCollisionLayer);
             //world.DisableCollisionsBetween(GravityPhantomLayer, AmmoLayer);
 
-            world.DisableCollisionsBetween(VirtualMassLayer, StaticCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, VoxelCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, DefaultCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, CharacterNetworkCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, DynamicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, KinematicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, DebrisCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, FloatingObjectCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, ObjectDetectionCollisionLayer);
-            world.DisableCollisionsBetween(VirtualMassLayer, VirtualMassLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.StaticCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.DefaultCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.DynamicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.KinematicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.DebrisCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.FloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.LightFloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.VirtualMassLayer);
             //world.DisableCollisionsBetween(VirtualMassLayer, AmmoLayer);
 
-            world.DisableCollisionsBetween(NoCollisionLayer, StaticCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, VoxelCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, DefaultCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, CharacterNetworkCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, DynamicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, KinematicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, DebrisCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, FloatingObjectCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, GravityPhantomLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, ObjectDetectionCollisionLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, VirtualMassLayer);
-            world.DisableCollisionsBetween(NoCollisionLayer, NoCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.StaticCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.DefaultCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.DynamicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.KinematicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.DebrisCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.FloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.LightFloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.GravityPhantomLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.VirtualMassLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.NoCollisionLayer);
 
             if (MyPerGameSettings.PhysicsNoCollisionLayerWithDefault)
-                world.DisableCollisionsBetween(NoCollisionLayer, 0);
+                world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, 0);
             //world.DisableCollisionsBetween(NoCollisionLayer, AmmoLayer);
 
-            world.DisableCollisionsBetween(ObjectDetectionCollisionLayer, ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ObjectDetectionCollisionLayer, CollisionLayers.ObjectDetectionCollisionLayer);
 
-            world.DisableCollisionsBetween(CollectorCollisionLayer, StaticCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, VoxelCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, DefaultCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, CharacterNetworkCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, DynamicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, KinematicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, DebrisCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, GravityPhantomLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, ObjectDetectionCollisionLayer);
-            world.DisableCollisionsBetween(CollectorCollisionLayer, VirtualMassLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.StaticCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.DefaultCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.DynamicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.KinematicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.DebrisCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.GravityPhantomLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.VirtualMassLayer);
             //world.DisableCollisionsBetween(CollectorCollisionLayer, AmmoLayer);
 
             if (!Sandbox.Game.Multiplayer.Sync.IsServer)
             {
-                world.DisableCollisionsBetween(DefaultCollisionLayer, CharacterNetworkCollisionLayer);
-                world.DisableCollisionsBetween(StaticCollisionLayer, CharacterNetworkCollisionLayer);
-                world.DisableCollisionsBetween(VoxelCollisionLayer, CharacterNetworkCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.DefaultCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.StaticCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.VoxelCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
             }
 
             if (!MyFakes.ENABLE_CHARACTER_AND_DEBRIS_COLLISIONS)
             {
-                world.DisableCollisionsBetween(DebrisCollisionLayer, CharacterCollisionLayer);
-                world.DisableCollisionsBetween(DebrisCollisionLayer, CharacterNetworkCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.DebrisCollisionLayer, CollisionLayers.CharacterCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.DebrisCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
             }
 
             //Disable collisions with anything but ships and stations
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, VoxelCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, NoCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, DebrisCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, GravityPhantomLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, CharacterNetworkCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, FloatingObjectCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, ObjectDetectionCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, VirtualMassLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, CollectorCollisionLayer);
-            world.DisableCollisionsBetween(ExplosionRaycastLayer, AmmoLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.NoCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.DebrisCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.GravityPhantomLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.FloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.LightFloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.VirtualMassLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.CollectorCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.AmmoLayer);
 
-            world.DisableCollisionsBetween(CollisionLayerWithoutCharacter, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(CollisionLayerWithoutCharacter, NoCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollisionLayerWithoutCharacter, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollisionLayerWithoutCharacter, CollisionLayers.NoCollisionLayer);
 
-            world.DisableCollisionsBetween(CollideWithStaticLayer, CollideWithStaticLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, DynamicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, DefaultCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, NoCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, DebrisCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, GravityPhantomLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, CharacterNetworkCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, FloatingObjectCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, ObjectDetectionCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, VirtualMassLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, CollectorCollisionLayer);
-            world.DisableCollisionsBetween(CollideWithStaticLayer, AmmoLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.CollideWithStaticLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.DynamicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.DefaultCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.NoCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.DebrisCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.GravityPhantomLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.FloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.LightFloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.VirtualMassLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.CollectorCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.AmmoLayer);
 
 
             // TODO: This should be removed, when ragdoll won't need to be simulated on separate layer when partial simulation is enabled
-            world.DisableCollisionsBetween(RagdollCollisionLayer, StaticCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, VoxelCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, DefaultCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, CharacterCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, CharacterNetworkCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, DynamicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, KinematicDoubledCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, DebrisCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, FloatingObjectCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, GravityPhantomLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, ObjectDetectionCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, VirtualMassLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, NoCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, ExplosionRaycastLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, CollisionLayerWithoutCharacter);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, CollideWithStaticLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, CollectorCollisionLayer);
-            world.DisableCollisionsBetween(RagdollCollisionLayer, AmmoLayer);
-            
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.StaticCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.DefaultCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.CharacterCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.DynamicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.KinematicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.DebrisCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.FloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.LightFloatingObjectCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.GravityPhantomLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.ObjectDetectionCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.VirtualMassLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.NoCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.ExplosionRaycastLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.CollisionLayerWithoutCharacter);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.CollideWithStaticLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.CollectorCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.AmmoLayer);
+            if (!MyFakes.ENABLE_JETPACK_RAGDOLL_COLLISIONS)
+            {
+                world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.RagdollCollisionLayer);
+            }
 
-                    }
+
+            if (MyVoxelPhysicsBody.UseLod1VoxelPhysics)
+            {
+                //large and low quality objects dont collide with lod0 voxel physics
+                world.DisableCollisionsBetween(CollisionLayers.DynamicDoubledCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.KinematicDoubledCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.DefaultCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.CollideWithStaticLayer, CollisionLayers.VoxelCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.DebrisCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.FloatingObjectCollisionLayer, CollisionLayers.VoxelCollisionLayer); // normal fo(now large) should collide with lod1
+
+                world.DisableCollisionsBetween(CollisionLayers.ObjectDetectionCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.CharacterCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.CharacterNetworkCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.LightFloatingObjectCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.RagdollCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.ExplosionRaycastLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.CollectorCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.GravityPhantomLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.NoCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.VirtualMassLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.KinematicDoubledCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+                world.DisableCollisionsBetween(CollisionLayers.NotCollideWithStaticLayer, CollisionLayers.VoxelLod1CollisionLayer);
+            }
+
+            // NoVoxelCollisionLayer collision filters
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.KinematicDoubledCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.GravityPhantomLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.VirtualMassLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.NoCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.CollectorCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.CollideWithStaticLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.RagdollCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.VoxelCollisionLayer);
+            world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.VoxelLod1CollisionLayer);
+            if (!Sandbox.Game.Multiplayer.Sync.IsServer)
+                world.DisableCollisionsBetween(CollisionLayers.NoVoxelCollisionLayer, CollisionLayers.CharacterNetworkCollisionLayer);
+
+        }
 
         [Conditional("DEBUG")]
         [DebuggerStepThrough]
@@ -277,20 +376,25 @@ namespace Sandbox.Engine.Physics
             HkBaseSystem.EnableAssert(-668493307, false);
             //HkBaseSystem.EnableAssert((int)3626473989, false);
             //float broadphaseSize = 100000.0f; // For unlimited worlds
-            
+
             //Angular velocities and impulses
             HkBaseSystem.EnableAssert(952495168, false);
             HkBaseSystem.EnableAssert(1501626980, false);
             HkBaseSystem.EnableAssert(-258736554, false);
             HkBaseSystem.EnableAssert(524771844, false);
             HkBaseSystem.EnableAssert(1081361407, false);
+            HkBaseSystem.EnableAssert(-1383504214, false); //we have more shapeKeys in contact point data
+
+            //frequent, removing to clean logs
+            HkBaseSystem.EnableAssert(-265005969, false); //calling set transform on body trying to deactivate
+            HkBaseSystem.EnableAssert(1976984315, false);
+            HkBaseSystem.EnableAssert(-252450131, false);
+            HkBaseSystem.EnableAssert(-1400416854, false);
 
             ThreadId = Thread.CurrentThread.ManagedThreadId;
 
-            if(MyPerGameSettings.SingleCluster)
-                Clusters = new MyHavokCluster(MySession.Static.WorldBoundaries);
-            else
-                Clusters = new MyHavokCluster(null);
+            Clusters = new MyHavokCluster(MySession.Static.WorldBoundaries);
+
             Clusters.OnClusterCreated += OnClusterCreated;
             Clusters.OnClusterRemoved += OnClusterRemoved;
             Clusters.OnFinishBatch += OnFinishBatch;
@@ -308,6 +412,7 @@ namespace Sandbox.Engine.Physics
         HkWorld OnClusterCreated(int clusterId, BoundingBoxD bbox)
         {
             float broadPhaseSize = (float)bbox.Size.Max();
+            //Debug.Assert(false, "bbox.Center: " + bbox.Center + ", bbox.Size: " + bbox.Size + ", broadPhaseSize: " + broadPhaseSize);
             System.Diagnostics.Debug.Assert(broadPhaseSize > 10 && broadPhaseSize < 1000000);
             return CreateHkWorld(broadPhaseSize);
         }
@@ -330,11 +435,11 @@ namespace Sandbox.Engine.Physics
 
         public static HkWorld CreateHkWorld(float broadphaseSize = 100000)
         {
-            var hkWorld = new HkWorld(MyPerGameSettings.EnableGlobalGravity, broadphaseSize, RestingVelocity, MyFakes.ENABLE_HAVOK_MULTITHREADING, MySession.Static.Settings.PhysicsIterations);
+            var hkWorld = new HkWorld(MyPerGameSettings.EnableGlobalGravity, broadphaseSize, MyFakes.WHEEL_SOFTNESS ? float.MaxValue : RestingVelocity, MyFakes.ENABLE_HAVOK_MULTITHREADING, MySession.Static.Settings.PhysicsIterations);
 
             hkWorld.MarkForWrite();
 
-            if (MySession.Static.Settings.WorldSizeKm > 0 || MyPerGameSettings.SingleCluster)
+            if (MySession.Static.Settings.WorldSizeKm > 0)
             {
                 hkWorld.EntityLeftWorld += HavokWorld_EntityLeftWorld;
             }
@@ -360,42 +465,46 @@ namespace Sandbox.Engine.Physics
 
         static void HavokWorld_EntityLeftWorld(HkEntity hkEntity)
         {
-            var entity = hkEntity.GetEntity();
-            if (Sandbox.Game.Multiplayer.Sync.IsServer && entity != null)
+            var entities = hkEntity.GetAllEntities();
+            foreach (var entity in entities)
             {
-                // HACK: due to not working Close or MarkForClose correctly
-                if (entity is Sandbox.Game.Entities.Character.MyCharacter)
+                if (Sandbox.Game.Multiplayer.Sync.IsServer && entity != null)
                 {
-                    ((Sandbox.Game.Entities.Character.MyCharacter)entity).DoDamage(1000, MyDamageType.Suicide, true);
-                }
-                else if (entity is MyVoxelMap || entity is MyCubeBlock)
-                {
-                }
-                else if (entity is MyCubeGrid)
-                {
-                    var grid = ((MyCubeGrid)entity);
-                    if (entity.SyncObject != null)
+                    // HACK: due to not working Close or MarkForClose correctly
+                    if (entity is Sandbox.Game.Entities.Character.MyCharacter)
                     {
-                        grid.SyncObject.SendCloseRequest();
+                        ((Sandbox.Game.Entities.Character.MyCharacter)entity).DoDamage(1000, MyDamageType.Suicide, true);
                     }
-                    else
+                    else if (entity is MyVoxelMap || entity is MyCubeBlock)
                     {
-                        grid.Close();
                     }
-                }
-                else if (entity is MyFloatingObject)
-                {
-                    MyFloatingObjects.RemoveFloatingObject((MyFloatingObject)entity);
-                }
-                else if (entity is MyFracturedPiece)
-                {
-                    Sandbox.Game.GameSystems.MyFracturedPiecesManager.Static.RemoveFracturePiece((MyFracturedPiece)entity, 0);
-                }
-                else if(entity.SyncObject != null)
-                {
-                    entity.SyncObject.SendCloseRequest();
+                    else if (entity is MyCubeGrid)
+                    {
+                        var grid = ((MyCubeGrid)entity);
+                        if (entity.SyncObject != null)
+                        {
+                            grid.SyncObject.SendCloseRequest();
+                        }
+                        else
+                        {
+                            grid.Close();
+                        }
+                    }
+                    else if (entity is MyFloatingObject)
+                    {
+                        MyFloatingObjects.RemoveFloatingObject((MyFloatingObject)entity);
+                    }
+                    else if (entity is MyFracturedPiece)
+                    {
+                        Sandbox.Game.GameSystems.MyFracturedPiecesManager.Static.RemoveFracturePiece((MyFracturedPiece)entity, 0);
+                    }
+                    else if (entity.SyncObject != null)
+                    {
+                        entity.SyncObject.SendCloseRequest();
+                    }
                 }
             }
+            entities.Clear();
         }
 
         protected override void UnloadData()
@@ -415,6 +524,12 @@ namespace Sandbox.Engine.Physics
                 m_jobQueue = null;
             }
             m_destructionQueue.Clear();
+
+            if (MyPerGameSettings.Destruction)
+            {
+                //Dispose material otherwise memory is corrupted on DS service and memory leaks
+                HkdBreakableShape.DisposeSharedMaterial();
+            }
         }
 
         void AddTimestamp()
@@ -445,12 +560,29 @@ namespace Sandbox.Engine.Physics
 
             ProfilerShort.Begin("HavokWorld.Step");
 
-            foreach (HkWorld world in Clusters.GetList())
+            if (MyFakes.CLIENTS_SIMULATE_SINGLE_WORLD && !Sync.IsServer)
             {
-                //VRageRender.MyRenderProxy.DebugDrawText2D(new Vector2(100, 100), "Constr:" + world.GetConstraintCount(), Color.Red, 0.9f);
-                world.UnmarkForWrite();
-                world.StepSimulation(MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS * MyFakes.SIMULATION_SPEED);
-                world.MarkForWrite();
+                var world = Clusters.GetClusterForPosition(MySector.MainCamera.Position);
+                if(world != null)
+                    StepWorld((HkWorld)world);
+            }
+            else
+            {
+               // <ib.debug print>
+               //{
+               //     Console.WriteLine("Simulate:");
+
+               //     int worldCount = 0;
+               //     foreach (HkWorld world in Clusters.GetList())
+               //     {
+               //         Console.WriteLine(" Cluster:{0:D} ConstraintsCount:{1:D} ActionsCount:{2:D} RbCount:{3:D} ARbCount:{4:D} ", worldCount++, world.GetConstraintCount(), world.GetActionCount(), world.RigidBodies.Count(), world.ActiveRigidBodies.Count());
+               //     }
+               //}
+                              
+                foreach (HkWorld world in Clusters.GetList())
+                {
+                    StepWorld(world);
+                }
             }
 
             ProfilerShort.End();
@@ -479,15 +611,15 @@ namespace Sandbox.Engine.Physics
             //    MyPhysicsBody body = (MyPhysicsBody)m_iterationBodies[rb].UserObject;
             //    if (body == null)
             //        return;
-            //    body.OnMotion(m_iterationBodies[rb], MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
+            //    body.OnMotion(m_iterationBodies[rb], VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
             //}, Math.Max(1, m_iterationBodies.Count / 16));
 
             foreach (var rb in m_iterationBodies)
             {
                 MyPhysicsBody body = (MyPhysicsBody)rb.UserObject;
                 if (body == null)
-                    return;
-                body.OnMotion(rb, MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
+                    continue;
+                body.OnMotion(rb, VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
             }
 
             foreach (HkCharacterRigidBody rb in m_characterIterationBodies)
@@ -507,10 +639,23 @@ namespace Sandbox.Engine.Physics
             ProfilerShort.Begin("HavokWorld.StepVDB");
             foreach (HkWorld world in Clusters.GetList())
             {
-                world.StepVDB(MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
+                if (MySession.Static.ControlledEntity != null
+                    && MySession.Static.ControlledEntity.Entity.GetTopMostParent().GetPhysicsBody() != null
+                    && MySession.Static.ControlledEntity.Entity.GetTopMostParent().GetPhysicsBody().HavokWorld == world)
+                    world.StepVDB(VRage.Game.MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
             }
 
             ProfilerShort.End();
+        }
+
+        private static void StepWorld(HkWorld world)
+        {
+            world.ExecutePendingCriticalOperations();
+            
+            world.UnmarkForWrite();
+            world.StepSimulation(VRage.Game.MyEngineConstants.PHYSICS_STEP_SIZE_IN_SECONDS * MyFakes.SIMULATION_SPEED);
+            world.StepSimulation(VRage.Game.MyEngineConstants.PHYSICS_STEP_SIZE_IN_SECONDS * MyFakes.SIMULATION_SPEED);
+            world.MarkForWrite();
         }
 
 
@@ -527,6 +672,10 @@ namespace Sandbox.Engine.Physics
                 if (details.IsValid())
                 {
                     details.Flag = details.Flag | HkdFractureImpactDetails.Flags.FLAG_DONT_DELAY_OPERATION;
+                    // this is here to give us more details about a crash, it is to be removed later
+                    Debug.WriteLineIf(details.GetBreakingBody() == null, "Oops! Breaking Body is null");
+                    Debug.WriteLineIf(details.GetBreakingBody().BreakableBody == null, "Oops! Breakable Body is null");
+                    Debug.WriteLineIf(details.GetBreakingBody().BreakableBody.BreakableShape == null, "Oops! Breakable Shape is null");
                     for (int i = 0; i < details.GetBreakingBody().BreakableBody.BreakableShape.GetChildrenCount(); i++)
                     {
                         var child = details.GetBreakingBody().BreakableBody.BreakableShape.GetChild(i);
@@ -540,6 +689,9 @@ namespace Sandbox.Engine.Physics
                         }
                     }
 
+                    // this is here to give us more details about a crash, it is to be removed later
+                    Debug.WriteLineIf(destructionInfo.World == null, "Oops! World is null");
+                    Debug.WriteLineIf(destructionInfo.World.DestructionWorld == null, "Oops! Destruction World is null");
                     destructionInfo.World.DestructionWorld.TriggerDestruction(ref details);
                     
                     MySyncDestructions.AddDestructionEffect(MyPerGameSettings.CollisionParticle.LargeGridClose, destructionInfo.ContactInWorld, Vector3D.Forward,0.2f);
@@ -668,7 +820,7 @@ namespace Sandbox.Engine.Physics
             {
                 BoundingBoxD scaledBox = new BoundingBoxD(totalBox.Min * scaleAxis * 1.02f, totalBox.Max * scaleAxis * 1.02f);
                 MyOrientedBoundingBoxD oriented = new MyOrientedBoundingBoxD(scaledBox, previewMatrix);
-                MyRenderProxy.DebugDrawOBB(oriented, Vector3.Up, 1, false, false);
+                MyRenderProxy.DebugDrawOBB(oriented, Color.Green, .2f, false, false);
 
                 MyRenderProxy.DebugDrawAxis(previewMatrix, 50, false);
 
@@ -692,7 +844,7 @@ namespace Sandbox.Engine.Physics
 
                 MyOrientedBoundingBoxD oriented = new MyOrientedBoundingBoxD(scaledBox, previewMatrix);
 
-                MyRenderProxy.DebugDrawOBB(oriented, Color.Blue, 1, false, false);
+                MyRenderProxy.DebugDrawOBB(oriented, Color.Blue, .2f, false, false);
             }
 
             foreach (var res in m_resultWorlds)
@@ -701,7 +853,7 @@ namespace Sandbox.Engine.Physics
 
                 MyOrientedBoundingBoxD oriented = new MyOrientedBoundingBoxD(scaledBox, previewMatrix);
 
-                MyRenderProxy.DebugDrawOBB(oriented, Vector3.One, 1, false, false);
+                MyRenderProxy.DebugDrawOBB(oriented, Color.White, .2f, false, false);
 
                 foreach (var rb in ((HkWorld)res.UserData).CharacterRigidBodies)
                 {
@@ -716,46 +868,67 @@ namespace Sandbox.Engine.Physics
 
                 foreach (var rb in ((HkWorld)res.UserData).RigidBodies)
                 {
-                    MyOrientedBoundingBoxD rbbb = new MyOrientedBoundingBoxD((BoundingBoxD)rb.GetEntity().LocalAABB, rb.GetEntity().WorldMatrix);
-                    rbbb.Center = (rbbb.Center - center) * scaleAxis;
-                    rbbb.HalfExtent *= scaleAxis;
-                    rbbb.Transform(previewMatrix);
-                    MyRenderProxy.DebugDrawOBB(rbbb, Color.Yellow, 1, false, false);
+                    //jn: TODO fix debug draw
+                    //MyOrientedBoundingBoxD rbbb = new MyOrientedBoundingBoxD((BoundingBoxD)rb.GetEntity().LocalAABB, rb.GetEntity().WorldMatrix);
+                    //rbbb.Center = (rbbb.Center - center) * scaleAxis;
+                    //rbbb.HalfExtent *= scaleAxis;
+                    //rbbb.Transform(previewMatrix);
+                    //MyRenderProxy.DebugDrawOBB(rbbb, Color.Yellow, 1, false, false);
 
-                    //BoundingBoxD rbaa = rb.GetEntity().WorldAABB;
-                    //rbaa.Min = (rbaa.Min - center) * scaleAxis;
-                    //rbaa.Max = (rbaa.Max - center) * scaleAxis;
-                    //MyRenderProxy.DebugDrawAABB(rbaa, new Vector3(0.8f, 0.8f, 0.8f), 1, 1, false);
+                    ////BoundingBoxD rbaa = rb.GetEntity().WorldAABB;
+                    ////rbaa.Min = (rbaa.Min - center) * scaleAxis;
+                    ////rbaa.Max = (rbaa.Max - center) * scaleAxis;
+                    ////MyRenderProxy.DebugDrawAABB(rbaa, new Vector3(0.8f, 0.8f, 0.8f), 1, 1, false);
 
-                    Vector3D velocity = rb.LinearVelocity;
-                    velocity = Vector3D.TransformNormal(velocity, previewMatrix) * 10;
-                    MyRenderProxy.DebugDrawLine3D(rbbb.Center, rbbb.Center + velocity, Color.Red, Color.White, false);
+                    //Vector3D velocity = rb.LinearVelocity;
+                    //velocity = Vector3D.TransformNormal(velocity, previewMatrix) * 10;
+                    //MyRenderProxy.DebugDrawLine3D(rbbb.Center, rbbb.Center + velocity, Color.Red, Color.White, false);
 
-                    if (velocity.Length() > 1)
-                    {
-                        BoundingBoxD ideal = new BoundingBoxD(rb.GetEntity().WorldAABB.Center - MyHavokCluster.IdealClusterSize / 2, rb.GetEntity().WorldAABB.Center + MyHavokCluster.IdealClusterSize / 2);
-                        MyOrientedBoundingBoxD idealObb = new MyOrientedBoundingBoxD(ideal, MatrixD.Identity);
-                        idealObb.Center = (ideal.Center - center) * scaleAxis;
-                        idealObb.HalfExtent *= scaleAxis;
-                        idealObb.Transform(previewMatrix);
-                        MyRenderProxy.DebugDrawOBB(idealObb, new Vector3(0, 0, 1), 1, false, false);
-                    }
+                    //if (velocity.Length() > 1)
+                    //{
+                    //    BoundingBoxD ideal = new BoundingBoxD(rb.GetEntity().WorldAABB.Center - MyHavokCluster.IdealClusterSize / 2, rb.GetEntity().WorldAABB.Center + MyHavokCluster.IdealClusterSize / 2);
+                    //    MyOrientedBoundingBoxD idealObb = new MyOrientedBoundingBoxD(ideal, MatrixD.Identity);
+                    //    idealObb.Center = (ideal.Center - center) * scaleAxis;
+                    //    idealObb.HalfExtent *= scaleAxis;
+                    //    idealObb.Transform(previewMatrix);
+                    //    MyRenderProxy.DebugDrawOBB(idealObb, new Vector3(0, 0, 1), 1, false, false);
+                    //}
                 }
             }
         }
 
-        public void Debug_ReorderClusters()
-        {
-            MySession.ControlledEntity.Entity.Physics.ReorderClusters();
-        }
-
         #region Havok worlds wrapper
 
-        static List<MyHavokCluster.MyClusterQueryResult> m_resultWorlds = new List<MyHavokCluster.MyClusterQueryResult>();
-        static List<HkWorld.HitInfo> m_resultHits = new List<HkWorld.HitInfo>();
+        [ThreadStatic]
+        static List<MyHavokCluster.MyClusterQueryResult> m_resultWorldsPerThread;
+
+        static List<MyHavokCluster.MyClusterQueryResult> m_resultWorlds
+        {
+            get
+            {
+                if (m_resultWorldsPerThread == null)
+                    m_resultWorldsPerThread = new List<MyHavokCluster.MyClusterQueryResult>();
+                return m_resultWorldsPerThread;
+            }
+        }
+
+        [ThreadStatic]
+        static List<HkWorld.HitInfo> m_resultHitsPerThread;
+
+        static List<HkWorld.HitInfo> m_resultHits
+        {
+            get
+            {
+                if (m_resultHitsPerThread == null)
+                    m_resultHitsPerThread = new List<HkWorld.HitInfo>();
+                return m_resultHitsPerThread;
+            }
+        }
 
         public static void CastRay(Vector3D from, Vector3D to, List<HitInfo> toList, int raycastFilterLayer = 0)
         {
+            using (m_raycastLock.Acquire())
+            {
             m_resultWorlds.Clear();
             Clusters.CastRay(from, to, m_resultWorlds);
 
@@ -767,7 +940,10 @@ namespace Sandbox.Engine.Physics
                 Vector3 toF = to - world.AABB.Center;
 
                 m_resultHits.Clear();
-                ((HkWorld)world.UserData).CastRay(fromF, toF, m_resultHits, raycastFilterLayer);
+
+
+                    HkWorld havokWorld = (HkWorld)(world.UserData);
+                    havokWorld.CastRay(fromF, toF, m_resultHits, raycastFilterLayer);
 
                 foreach (var hit in m_resultHits)
                 {
@@ -779,69 +955,199 @@ namespace Sandbox.Engine.Physics
                     );
                 }
             }
+            }
 
             m_resultWorlds.Clear();
         }
 
-        public static HkRigidBody CastRay(Vector3D from, Vector3D to, out Vector3D position, out Vector3 normal, int raycastFilterLayer = 0)
+        public static HitInfo? CastRay(Vector3D from, Vector3D to, int raycastFilterLayer = 0)
         {
             m_resultWorlds.Clear();
             Clusters.CastRay(from, to, m_resultWorlds);
 
+            HitInfo? hitInfo = CastRayInternal(from, to, m_resultWorlds, raycastFilterLayer);
+
+            m_resultWorlds.Clear();
+
+            return hitInfo;
+        }
+
+        /// <summary>
+        /// Cast a ray on given worlds and returns closest one from all of the worlds. WARNING: It does not clear worlds list after.
+        /// </summary>
+        /// <param name="from">Start of ray.</param>
+        /// <param name="to">End of ray.</param>
+        /// <param name="worlds">Worlds to make test on.</param>
+        /// <param name="raycastFilterLayer">Collision filter.</param>
+        /// <returns>Hit info. Null if no hit registered.</returns>
+        private static HitInfo? CastRayInternal(Vector3D from, Vector3D to, List<MyHavokCluster.MyClusterQueryResult> worlds, int raycastFilterLayer = 0)
+        {
+            float closestHitFraction = float.MaxValue;
+            HitInfo? hitInfo = null;
+
             foreach (var world in m_resultWorlds)
             {
                 Vector3 fromF = from - world.AABB.Center;
                 Vector3 toF = to - world.AABB.Center;
 
-                m_resultHits.Clear();
-                Vector3 hitPos;
-                HkRigidBody rb = ((HkWorld)world.UserData).CastRay(fromF, toF, out hitPos, out normal, raycastFilterLayer);
+                HkWorld.HitInfo? info = ((HkWorld)world.UserData).CastRay(fromF, toF, raycastFilterLayer);
 
-                if (rb != null)
+                if (info.HasValue && info.Value.HitFraction < closestHitFraction)
                 {
-                    position = (Vector3D)hitPos + world.AABB.Center;
+                    Vector3D pos = (Vector3D)info.Value.Position + world.AABB.Center;
+                    hitInfo = new HitInfo(info.Value, pos);
+                    closestHitFraction = info.Value.HitFraction;
 
-                    m_resultWorlds.Clear();
-                    return rb;
+                    return hitInfo;
                 }
             }
-
-            position = Vector3D.Zero;
-            normal = Vector3D.Up;
-            m_resultWorlds.Clear();
 
             return null;
         }
 
-        public static bool CastRay(Vector3D from, Vector3D to, out Vector3D position, out Vector3 normal, uint raycastCollisionFilter, bool ignoreConvexShape)
-        {            
+        public static bool CastRay(Vector3D from, Vector3D to, out HitInfo hitInfo, uint raycastCollisionFilter, bool ignoreConvexShape)
+        {
             m_resultWorlds.Clear();
             Clusters.CastRay(from, to, m_resultWorlds);
 
+            hitInfo = new HitInfo();
             foreach (var world in m_resultWorlds)
             {
                 Vector3 fromF = from - world.AABB.Center;
                 Vector3 toF = to - world.AABB.Center;
 
                 m_resultHits.Clear();
-                Vector3 hitPos;                
-                bool hit = ((HkWorld)world.UserData).CastRay(fromF, toF, out hitPos, out normal, raycastCollisionFilter, ignoreConvexShape);
+                HkWorld.HitInfo info = new HkWorld.HitInfo();
+                bool hit = ((HkWorld)world.UserData).CastRay(fromF, toF, out info, raycastCollisionFilter, ignoreConvexShape);
 
                 if (hit)
                 {
-                    position = (Vector3D)hitPos + world.AABB.Center;                    
+                    hitInfo.Position = (Vector3D)info.Position + world.AABB.Center;
+                    hitInfo.HkHitInfo = info;
                     m_resultWorlds.Clear();
                     return hit;
                 }
             }
-
-            position = Vector3D.Zero;
-            normal = Vector3D.Up;
             m_resultWorlds.Clear();
 
             return false;
         }
-        public static void GetPenetrationsShape(HkShape shape, ref Vector3D translation, ref Quaternion rotation, List<HkRigidBody> results, int filter)
+
+        private static bool nPressed = false;
+        /// <summary>
+        /// Used for saving result of search in CastLongRay. (For optimalisation rules)
+        /// </summary>
+        private static List<MyLineSegmentOverlapResult<MyVoxelBase>> m_foundEntities = new List<MyLineSegmentOverlapResult<MyVoxelBase>>();
+        /// <summary>
+        /// Finds closest or any object on the path of the ray from->to. Uses Storage for voxels for faster 
+        /// search but only good for long rays (more or less more than 50m). Use it only in such cases.
+        /// </summary>
+        /// <param name="from">Start of the ray.</param>
+        /// <param name="to">End of the ray.</param>
+        /// <param name="any">Indicates if method should return any object found (May not be closest)</param>
+        /// <returns>Hit info.</returns>
+        public static HitInfo? CastLongRay(Vector3D from, Vector3D to, bool any = false)
+        {
+
+            //Debug.Assert((to - from).LengthSquared() >= 2500, "You are using ray shorter than 50m. It may be not efficient. Use CastRay instead.");
+
+            m_resultWorlds.Clear();
+            Clusters.CastRay(from, to, m_resultWorlds);
+
+            HitInfo? info = null;
+
+            //Raycas physics without voxels
+            info = CastRayInternal(from, to, m_resultWorlds, CollisionLayers.NoVoxelCollisionLayer);
+
+            // trim original ray to be only long as hitted position
+            if (info.HasValue)
+            {
+                // If any than return
+                if(any)
+                {
+                    m_resultWorlds.Clear();
+                    return info;
+                }
+
+                to = (Vector3D)info.Value.Position + info.Value.Position;
+            }
+
+            // Find intersection with the new ray in Voxel Storage.
+            LineD rayLine = new LineD(from, to);
+
+            MyGamePruningStructure.GetVoxelMapsOverlappingRay(ref rayLine, m_foundEntities);
+
+            double startOffset = 1.0;
+            double endOffset = 0;
+            bool cont = false;
+
+            foreach (var voxelResult in m_foundEntities)
+            {
+                if (voxelResult.Element.GetOrePriority() != -1) continue;
+
+                MyVoxelBase foundVoxel = voxelResult.Element.RootVoxel;
+                ProfilerShort.Begin("MyGamePruningStructure::FoundVoxelAlgo");
+                if (foundVoxel.Storage.DataProvider != null)
+                {
+                    Vector3D start = Vector3D.Transform(rayLine.From, foundVoxel.PositionComp.WorldMatrixInvScaled);
+                    start += foundVoxel.SizeInMetresHalf;
+                    var end = Vector3D.Transform(rayLine.To, foundVoxel.PositionComp.WorldMatrixInvScaled);
+                    end += foundVoxel.SizeInMetresHalf;
+                    var localVoxRay = new LineD(start, end);
+
+                    double localStartOffset;
+                    double localEndOffset;
+
+                    // Intersect provider for nau
+                    cont = foundVoxel.Storage.DataProvider.Intersect(ref localVoxRay, out localStartOffset, out localEndOffset);
+
+                    if (cont)
+                    {
+                        // Trim original ray to be only as long as predicted ray from intersection on Storage.
+                        if (localStartOffset < startOffset)
+                        {
+                            startOffset = localStartOffset;
+                            
+                        }
+
+                        if (localEndOffset > endOffset)
+                        {
+                            endOffset = localEndOffset;
+                            
+                        }
+                    }
+                }
+                ProfilerShort.End();
+            }
+
+            if (!cont)
+                return info;
+            
+            to = from + rayLine.Direction * rayLine.Length * endOffset;
+            from = from + rayLine.Direction * rayLine.Length * startOffset;
+
+            m_foundEntities.Clear();
+            // Make final raycast to find final hit entity (either voxel or something else)
+            ProfilerShort.Begin("MyGamePruningStructure::VoxelCollisionLayer");
+            HitInfo? infoVoxel = CastRayInternal(from, to, m_resultWorlds, CollisionLayers.VoxelCollisionLayer);
+
+            if (info == null)
+                return infoVoxel;
+
+            if (infoVoxel.HasValue && info.HasValue)
+            {
+                if (infoVoxel.Value.HkHitInfo.HitFraction < info.Value.HkHitInfo.HitFraction)
+                    return infoVoxel;
+            }
+
+            ProfilerShort.End();
+
+            m_resultWorlds.Clear();
+
+            return info;
+        }
+
+        public static void GetPenetrationsShape(HkShape shape, ref Vector3D translation, ref Quaternion rotation, List<HkBodyCollision> results, int filter)
         {
             m_resultWorlds.Clear();
             Clusters.Intersects(translation, m_resultWorlds);
@@ -871,7 +1177,32 @@ namespace Sandbox.Engine.Physics
             return ((HkWorld)world.UserData).CastShape(toF, shape, ref transformF, filterLayer, extraPenetration);
         }
 
-        public static void GetPenetrationsBox(ref Vector3 halfExtents, ref Vector3D translation, ref Quaternion rotation, List<HkRigidBody> results, int filter)
+        public static float? CastShapeInAllWorlds(Vector3D to, HkShape shape, ref MatrixD transform, int filterLayer, float extraPenetration = 0)
+        {
+            m_resultWorlds.Clear();
+            Clusters.CastRay(transform.Translation, to, m_resultWorlds);
+
+            foreach (var world in m_resultWorlds)
+            {
+                Matrix transformF = transform;
+                transformF.Translation = (Vector3)(transform.Translation - world.AABB.Center);
+
+                Vector3 toF = (Vector3)(to - world.AABB.Center);
+
+                var hitValue = ((HkWorld)world.UserData).CastShape(toF, shape, ref transformF, filterLayer, extraPenetration);
+                if (hitValue.HasValue)
+                {
+                    m_resultWorlds.Clear();
+                    return hitValue;
+                }
+            }
+
+            m_resultWorlds.Clear();
+
+            return null;
+        }
+
+        public static void GetPenetrationsBox(ref Vector3 halfExtents, ref Vector3D translation, ref Quaternion rotation, List<HkBodyCollision> results, int filter)
         {
             m_resultWorlds.Clear();
             Clusters.Intersects(translation, m_resultWorlds);
@@ -958,7 +1289,7 @@ namespace Sandbox.Engine.Physics
             return cpd;
         }
 
-        public static HkContactBodyData? CastShapeReturnContactBodyData(Vector3D to, HkShape shape, ref MatrixD transform, uint collisionFilter, float extraPenetration, bool ignoreConvexShape = true)
+        public static HitInfo? CastShapeReturnContactBodyData(Vector3D to, HkShape shape, ref MatrixD transform, uint collisionFilter, float extraPenetration, bool ignoreConvexShape = true)
         {
             m_resultWorlds.Clear();
             Clusters.Intersects(to, m_resultWorlds);
@@ -973,20 +1304,20 @@ namespace Sandbox.Engine.Physics
 
             Vector3 toF = (Vector3)(to - world.AABB.Center);
 
-            HkContactBodyData? result = ((HkWorld)world.UserData).CastShapeReturnContactBodyData(toF, shape, ref transformF, collisionFilter, extraPenetration);
+            HkWorld.HitInfo? result = ((HkWorld)world.UserData).CastShapeReturnContactBodyData(toF, shape, ref transformF, collisionFilter, extraPenetration);
             if (result == null)
             {
                 return null;
             }
-            HkContactBodyData cpd = result.Value;
-            cpd.HitPosition += world.AABB.Center;
-            return cpd;
+            HkWorld.HitInfo cpd = result.Value;
+            HitInfo hitInfo = new HitInfo(cpd, cpd.Position + world.AABB.Center);
+            return hitInfo;
         }
 
 
-        static List<HkContactBodyData?> m_resultShapeCasts = new List<HkContactBodyData?>();
+        static List<HkWorld.HitInfo?> m_resultShapeCasts = new List<HkWorld.HitInfo?>();
 
-        public static bool CastShapeReturnContactBodyDatas(Vector3D to, HkShape shape, ref MatrixD transform, uint collisionFilter, float extraPenetration, List<HkContactBodyData> result, bool ignoreConvexShape = true)
+        public static bool CastShapeReturnContactBodyDatas(Vector3D to, HkShape shape, ref MatrixD transform, uint collisionFilter, float extraPenetration, List<HitInfo> result, bool ignoreConvexShape = true)
         {
             m_resultWorlds.Clear();
             Clusters.Intersects(to, m_resultWorlds);
@@ -1007,9 +1338,13 @@ namespace Sandbox.Engine.Physics
             {
                 foreach (var res in m_resultShapeCasts)
                 {
-                    HkContactBodyData cpd = res.Value;
-                    cpd.HitPosition += world.AABB.Center;
-                    result.Add(cpd);
+                    HkWorld.HitInfo cpd = res.Value;
+                    HitInfo hitInfo = new HitInfo() 
+                    { 
+                        HkHitInfo = cpd, 
+                        Position = cpd.Position + world.AABB.Center 
+                    };
+                    result.Add(hitInfo);
                 }
 
                 return true;
@@ -1022,6 +1357,11 @@ namespace Sandbox.Engine.Physics
 
         public static bool IsPenetratingShapeShape(HkShape shape1, ref Vector3D translation1, ref Quaternion rotation1, HkShape shape2, ref Vector3D translation2, ref Quaternion rotation2)
         {
+            //rotations have to be normalized
+            rotation1.Normalize();
+            rotation2.Normalize();
+
+            //jn: TODO this is world independent test, just transform so shape1 is on zero and querry on any world
             m_resultWorlds.Clear();
             Clusters.Intersects(translation1, m_resultWorlds);
 
@@ -1040,6 +1380,11 @@ namespace Sandbox.Engine.Physics
             return false;
         }
 
+        public static bool IsPenetratingShapeShape(HkShape shape1, ref Matrix transform1, HkShape shape2, ref Matrix transform2)
+        {
+            return (Clusters.GetList().First() as HkWorld).IsPenetratingShapeShape(shape1, ref transform1, shape2, ref transform2);
+        }
+
         public static HkWorld SingleWorld
         {
             get
@@ -1052,5 +1397,146 @@ namespace Sandbox.Engine.Physics
         #endregion
 
         public static bool InsideSimulation { get; private set; }
+
+        public static int GetCollisionLayer(string strLayer)
+        {
+            if (strLayer == "LightFloatingObjectCollisionLayer")
+                return CollisionLayers.LightFloatingObjectCollisionLayer;
+            else if (strLayer == "VoxelLod1CollisionLayer")
+                return CollisionLayers.VoxelLod1CollisionLayer;
+            else if (strLayer == "NotCollideWithStaticLayer")
+                return CollisionLayers.NotCollideWithStaticLayer;
+            else if (strLayer == "StaticCollisionLayer")
+                return CollisionLayers.StaticCollisionLayer;
+            else if (strLayer == "CollideWithStaticLayer")
+                return CollisionLayers.CollideWithStaticLayer;
+            else if (strLayer == "DefaultCollisionLayer")
+                return CollisionLayers.DefaultCollisionLayer;
+            else if (strLayer == "DynamicDoubledCollisionLayer")
+                return CollisionLayers.DynamicDoubledCollisionLayer;
+            else if (strLayer == "KinematicDoubledCollisionLayer")
+                return CollisionLayers.KinematicDoubledCollisionLayer;
+            else if (strLayer == "CharacterCollisionLayer")
+                return CollisionLayers.CharacterCollisionLayer;
+            else if (strLayer == "NoCollisionLayer")
+                return CollisionLayers.NoCollisionLayer;
+            else if (strLayer == "DebrisCollisionLayer")
+                return CollisionLayers.DebrisCollisionLayer;
+            else if (strLayer == "GravityPhantomLayer")
+                return CollisionLayers.GravityPhantomLayer;
+            else if (strLayer == "CharacterNetworkCollisionLayer")
+                return CollisionLayers.CharacterNetworkCollisionLayer;
+            else if (strLayer == "FloatingObjectCollisionLayer")
+                return CollisionLayers.FloatingObjectCollisionLayer;
+            else if (strLayer == "ObjectDetectionCollisionLayer")
+                return CollisionLayers.ObjectDetectionCollisionLayer;
+            else if (strLayer == "VirtualMassLayer")
+                return CollisionLayers.VirtualMassLayer;
+            else if (strLayer == "CollectorCollisionLayer")
+                return CollisionLayers.CollectorCollisionLayer;
+            else if (strLayer == "AmmoLayer")
+                return CollisionLayers.AmmoLayer;
+            else if (strLayer == "VoxelCollisionLayer")
+                return CollisionLayers.VoxelCollisionLayer;
+            else if (strLayer == "ExplosionRaycastLayer")
+                return CollisionLayers.ExplosionRaycastLayer;
+            else if (strLayer == "CollisionLayerWithoutCharacter")
+                return CollisionLayers.CollisionLayerWithoutCharacter;
+            else if (strLayer == "RagdollCollisionLayer")
+                return CollisionLayers.RagdollCollisionLayer;
+            else if (strLayer == "NoVoxelCollisionLayer")
+                return CollisionLayers.NoVoxelCollisionLayer;
+
+            Debug.Fail("Cannot convert collision layer string - layer not found");
+            return CollisionLayers.DefaultCollisionLayer;
+        }
+
+        /// <summary>
+        /// Ensure aabb is inside only one subspace. If no, reorder.
+        /// </summary>
+        /// <param name="aabb"></param>
+        public static void EnsurePhysicsSpace(BoundingBoxD aabb)
+        {
+            Clusters.EnsureClusterSpace(aabb);
+        }
+
+        /// <summary>
+        /// Change position of object in world. Move object between subspaces if necessary.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="oldAabb"></param>
+        /// <param name="aabb"></param>
+        /// <param name="velocity"></param>
+        public static void MoveObject(ulong id, BoundingBoxD oldAabb, BoundingBoxD aabb, Vector3 velocity)
+        {
+            Clusters.MoveObject(id, oldAabb, aabb, velocity);
+        }
+
+        /// <summary>
+        /// Remove object from world, remove also subspace if empty.
+        /// </summary>
+        /// <param name="id"></param>
+        public static void RemoveObject(ulong id)
+        {
+            Clusters.RemoveObject(id);
+        }
+
+        /// <summary>
+        /// Return offset of objects subspace center.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static Vector3D GetObjectOffset(ulong id)
+        {
+            return Clusters.GetObjectOffset(id);
+        }
+
+        /// <summary>
+        /// Try add object to some subspace.
+        /// Create new subspace if allowed (!SingleCluster.HasValue) and needed (object is outside of existing subspaces).
+        /// If not allowed, mark object as left the world.
+        /// </summary>
+        /// <param name="bbox"></param>
+        /// <param name="velocity"></param>
+        /// <param name="activationHandler"></param>
+        /// <param name="customId"></param>
+        /// <returns></returns>
+        public static ulong AddObject(BoundingBoxD bbox, Vector3 velocity, MyPhysicsBody activationHandler, ulong? customId)
+        {
+            ulong tmp = Clusters.AddObject(bbox, velocity, activationHandler, customId);
+
+            if (tmp == MyHavokCluster.CLUSTERED_OBJECT_ID_UNITIALIZED)
+            {
+                HavokWorld_EntityLeftWorld(activationHandler.RigidBody);
+                return MyHavokCluster.CLUSTERED_OBJECT_ID_UNITIALIZED;
+            }
+            return tmp;
+            
+        }
+
+        public static VRage.Collections.ListReader<object>? GetClusterList()
+        {
+            if (Clusters == null)
+                return null;
+            return Clusters.GetList();
+        }
+
+        public static void GetAll(List<VRageMath.Spatial.MyClusterTree.MyClusterQueryResult> results)
+        {
+            Clusters.GetAll(results);
+        }
+
+        public static void UpdateGravity(float ratio)
+        {
+            Clusters.GetAll(m_resultWorlds);
+
+            foreach (var world in m_resultWorlds)
+            {
+                ((HkWorld)world.UserData).Gravity = new Vector3(0.0f, -9.81f, 0.0f) * ratio;
+            }
+            m_resultWorlds.Clear();
+        }
+
     }
+
 }

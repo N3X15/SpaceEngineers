@@ -16,6 +16,8 @@ namespace Sandbox.Graphics.GUI
         MyGuiControlBase GetNextFocusControl(MyGuiControlBase currentFocusControl, bool forwardMovement);
 
         string DebugNamePath { get; }
-        bool HandleMouse { get; }
+
+        string Name { get; }
+        IMyGuiControlsOwner Owner { get; }
     }
 }

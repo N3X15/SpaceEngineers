@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage.Game;
 
 namespace Sandbox.ModAPI
 {
@@ -34,7 +35,7 @@ namespace Sandbox.ModAPI
             MyTerminalControlFactory.GetActions(blockType, m_actionList);
             foreach (var action in m_actionList)
             {
-                if ((collect == null || collect(action))&& action.IsValidForToolbarType(MyToolbarType.ButtonPanel))
+                if ((collect == null || collect(action)) && action.IsValidForToolbarType(MyToolbarType.ButtonPanel))
                 {
                     resultList.Add(action);
                 }
@@ -110,7 +111,7 @@ namespace Sandbox.ModAPI
             m_valueControls.Clear();
         }
 
-        IMyGridTerminalSystem IMyTerminalActionsHelper.GetTerminalSystemForGrid(Sandbox.ModAPI.IMyCubeGrid grid)
+        IMyGridTerminalSystem IMyTerminalActionsHelper.GetTerminalSystemForGrid(VRage.Game.ModAPI.IMyCubeGrid grid)
         {
             var gridGroup = MyCubeGridGroups.Static.Logical.GetGroup(grid as MyCubeGrid);
             if (gridGroup != null && gridGroup.GroupData != null)

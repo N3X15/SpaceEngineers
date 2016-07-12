@@ -21,6 +21,7 @@ namespace VRage.Utils
 
         static void CheckEnumNotDuplicities(string companyName)
         {
+#if !XB1
             Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
             string[] dlls = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "*.dll");
             List<Assembly> assembliesToTest = new List<Assembly>(assemblies.Length + dlls.Length);
@@ -50,8 +51,9 @@ namespace VRage.Utils
             {
                 TestEnumNotDuplicitiesInAssembly(assembly, hashSet);
             }
+#endif
         }
-
+#if !XB1
         static bool IsLoaded(Assembly[] assemblies, string assemblyPath)
         {
             foreach (var assembly in assemblies)
@@ -73,13 +75,13 @@ namespace VRage.Utils
 
         static void TestEnumNotDuplicitiesInAssembly(Assembly assembly, HashSet<object> hashSet)
         {
-            foreach (Type type in assembly.GetTypes())
-            {
-                if (!type.IsEnum) continue;
-                if (type.IsGenericType) continue; // don't check enums in generic classes
-                if (type.IsDefined(typeof(DontCheckAttribute), false)) continue;
-                AssertEnumNotDuplicities(type, hashSet);
-            }
+            //foreach (Type type in assembly.GetTypes())
+            //{
+            //    if (!type.IsEnum) continue;
+            //    if (type.IsGenericType) continue; // don't check enums in generic classes
+            //    if (type.IsDefined(typeof(DontCheckAttribute), false)) continue;
+            //    AssertEnumNotDuplicities(type, hashSet);
+            //}
         }
 
         static void AssertEnumNotDuplicities(Type enumType, HashSet<object> hashSet)
@@ -94,5 +96,6 @@ namespace VRage.Utils
                 }
             }
         }
+#endif
     }
 }

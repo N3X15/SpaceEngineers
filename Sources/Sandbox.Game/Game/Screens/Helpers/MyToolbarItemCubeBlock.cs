@@ -15,6 +15,11 @@ using Sandbox.Game.Weapons;
 using Sandbox.Game.World;
 using VRageMath;
 using Sandbox.Common.ObjectBuilders.Definitions;
+using VRage.Game;
+using VRage.Game.Entity;
+using VRage;
+using Sandbox.Game.SessionComponents;
+using VRage.Utils;
 
 namespace Sandbox.Game.Screens.Helpers
 {
@@ -23,35 +28,39 @@ namespace Sandbox.Game.Screens.Helpers
     {
         public static readonly string VariantsAvailableSubicon = @"Textures\GUI\Icons\VariantsAvailable.dds";
 
+        private MyFixedPoint m_lastAmount = 0;
+        public MyFixedPoint Amount
+        {
+            get { return m_lastAmount; }
+        }
+
         public override bool Activate()
         {
-            var character = MySession.LocalCharacter;
+            var character = MySession.Static.LocalCharacter;
 
-			MyDefinitionId weaponDefinition = new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer));
+            MyDefinitionId weaponDefinition = new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer));
             if (character != null)
             {
                 if (!(character.CurrentWeapon != null && character.CurrentWeapon.DefinitionId == weaponDefinition))
                 {
                     character.SwitchToWeapon(weaponDefinition);
                 }
-                
-                MyCubeBuilder.Static.ActivateBlockCreation(((MyCubeBlockDefinition)Definition).Id);
+
+                MyCubeBuilder.Static.Activate(((MyCubeBlockDefinition)Definition).Id);
             }
+            else
+            { }
 
             if (MyCubeBuilder.SpectatorIsBuilding)
             {
-                MyCubeBuilder.Static.ActivateBlockCreation(((MyCubeBlockDefinition)Definition).Id);
-                if (!MyCubeBuilder.Static.IsActivated)
-                {
-                    MyCubeBuilder.Static.Activate();
+                MyCubeBuilder.Static.Activate(((MyCubeBlockDefinition)Definition).Id);
                 }
-            }
             return true;
         }
 
         public override bool AllowedInToolbarType(MyToolbarType type)
         {
-            return (type == MyToolbarType.Character || type == MyToolbarType.Spectator);
+            return (type == MyToolbarType.Character || type == MyToolbarType.Spectator || type == MyToolbarType.BuildCockpit);
         }
 
         public override bool Init(MyObjectBuilder_ToolbarItem data)
@@ -68,12 +77,15 @@ namespace Sandbox.Game.Screens.Helpers
 
         public override ChangeInfo Update(MyEntity owner, long playerID = 0)
         {
-            if (MyCubeBuilder.Static==null)
-                return ChangeInfo.None;
+            ChangeInfo changed = ChangeInfo.None;
+            bool enable = true;
+
+            if (MyCubeBuilder.Static == null)
+                return changed;
             var blockDefinition = MyCubeBuilder.Static.IsActivated ? MyCubeBuilder.Static.ToolbarBlockDefinition : null;
-            if ((MyCubeBuilder.Static.BlockCreationIsActivated || MyCubeBuilder.Static.MultiBlockCreationIsActivated) && blockDefinition != null && (!MyFakes.ENABLE_BATTLE_SYSTEM || !MySession.Static.Battle))
+            var blockDef = (this.Definition as Sandbox.Definitions.MyCubeBlockDefinition);
+            if ((MyCubeBuilder.Static.IsActivated /*|| MyCubeBuilder.Static.MultiBlockCreationIsActivated*/) && blockDefinition != null && (!MyFakes.ENABLE_BATTLE_SYSTEM || !MySession.Static.Battle))
             {
-                var blockDef = (this.Definition as Sandbox.Definitions.MyCubeBlockDefinition);
                 if (blockDefinition.BlockPairName == blockDef.BlockPairName)
                 {
                     WantsToBeSelected = true;
@@ -91,7 +103,48 @@ namespace Sandbox.Game.Screens.Helpers
             {
                 WantsToBeSelected = false;
             }
-            return ChangeInfo.None;
+
+            var character = MySession.Static.LocalCharacter;
+            if (MyFakes.ENABLE_GATHERING_SMALL_BLOCK_FROM_GRID)
+            {
+                if (blockDef.CubeSize == MyCubeSize.Small && character != null)
+                {
+                    var inventory = character.GetInventory();
+                    MyFixedPoint amount = inventory != null ? inventory.GetItemAmount(Definition.Id) : 0;
+                    if (m_lastAmount != amount)
+                    {
+                        m_lastAmount = amount;
+                        changed |= ChangeInfo.IconText;
+                    }
+
+                    if (MySession.Static.SurvivalMode)
+                    {
+                        enable &= m_lastAmount > 0;
+                    }
+                    else
+                    {
+                        // so that we correctly set icontext when changing from enabled to disabled even when the amount is the same
+                        changed |= ChangeInfo.IconText;
+                    }
+                }
+            }
+
+            if (MyPerGameSettings.EnableResearch && MySessionComponentResearch.Static != null && (blockDef.CubeSize == MyCubeSize.Large))
+                enable &= MySessionComponentResearch.Static.CanUse(character, Definition.Id);
+
+            if (MyCubeBuilder.Static != null)
+                enable &= MyCubeBuilder.Static.IsCubeSizeAvailable(blockDef);
+
+            return changed;
+        }
+
+        public override void FillGridItem(MyGuiControlGrid.Item gridItem)
+        {
+            if (MyFakes.ENABLE_GATHERING_SMALL_BLOCK_FROM_GRID)
+                if (m_lastAmount > 0)
+                    gridItem.AddText(String.Format("{0}x", m_lastAmount), MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_BOTTOM);
+                else
+                    gridItem.ClearText(MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_BOTTOM);
         }
     }
 }

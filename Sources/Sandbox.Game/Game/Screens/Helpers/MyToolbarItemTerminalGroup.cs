@@ -12,11 +12,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using VRage.Collections;
+using VRage.Game;
+using VRage.Game.Entity;
 
 namespace Sandbox.Game.Screens.Helpers
 {
     [MyToolbarItemDescriptor(typeof(MyObjectBuilder_ToolbarItemTerminalGroup))]
-    class MyToolbarItemTerminalGroup : MyToolbarItemActions
+    class MyToolbarItemTerminalGroup : MyToolbarItemActions, IMyToolbarItemEntity
     {
         private static HashSet<Type> tmpBlockTypes = new HashSet<Type>();
         private static List<MyTerminalBlock> m_tmpBlocks = new List<MyTerminalBlock>();
@@ -58,7 +60,7 @@ namespace Sandbox.Game.Screens.Helpers
                 if (tmpBlockTypes.Count == 1)
                 {
                     genericType = false;
-                    return GetValidActions(blocks.ItemAt(0).GetType());
+                    return GetValidActions(blocks.ItemAt(0).GetType(), blocks);
                 }
                 else if (tmpBlockTypes.Count == 0 || !allFunctional)
                 {
@@ -68,7 +70,8 @@ namespace Sandbox.Game.Screens.Helpers
                 else
                 {
                     genericType = true;
-                    return GetValidActions(typeof(MyFunctionalBlock));
+                    var commonType = FindBaseClass(tmpBlockTypes.ToArray<Type>(), typeof(MyFunctionalBlock));
+                    return GetValidActions(commonType, blocks);
                 }
             }
             finally
@@ -77,7 +80,45 @@ namespace Sandbox.Game.Screens.Helpers
             }
         }
 
-        private ListReader<ITerminalAction> GetValidActions(Type blockType)
+        /// <summary>
+        /// Searching for common base class. Used to return more specific group actions than only basic actions of functional blocks (if the blocks are of common origin)
+        /// </summary>
+        /// <param name="types"></param>
+        /// <param name="baseKnownCommonType"></param>
+        /// <returns></returns>
+        public static Type FindBaseClass(Type[] types, Type baseKnownCommonType)
+        {
+            var currentType = types[0];
+            Dictionary<Type, int> typeCount = new Dictionary<Type, int>();
+            typeCount.Add(baseKnownCommonType, types.Length);
+
+            for (int i = 0; i < types.Length; i++)
+            {
+                 currentType = types[i];
+                 while (currentType != baseKnownCommonType)
+                 {
+                     if (typeCount.ContainsKey(currentType))
+                     {
+                         typeCount[currentType] += 1;
+                     }
+                     else
+                     {
+                         typeCount[currentType] = 1;
+                     }
+                     currentType = currentType.BaseType;
+                 }
+            }
+
+            //return the top-most class found that is common for all types
+            currentType = types[0];
+            while (typeCount[currentType] != types.Length)
+            {
+                currentType = currentType.BaseType;
+            }
+            return currentType;
+        }
+
+        private ListReader<ITerminalAction> GetValidActions(Type blockType, ListReader<MyTerminalBlock> blocks)
         {
             var allActions = MyTerminalControlFactory.GetActions(blockType);
             var validActions = new List<ITerminalAction>();
@@ -85,7 +126,15 @@ namespace Sandbox.Game.Screens.Helpers
             {
                 if (action.IsValidForGroups())
                 {
-                    validActions.Add(action);
+                    bool found = false;
+                    foreach (var block in blocks)
+                        if (action.IsEnabled(block))
+                        {
+                            found = true;
+                            break;
+                        }
+                    if (found)
+                        validActions.Add(action);
                 }
             }
             return validActions;
@@ -120,7 +169,7 @@ namespace Sandbox.Game.Screens.Helpers
             }
         }
 
-        public override ListReader<ITerminalAction> PossibleActions (MyToolbarType toolbarType)
+        public override ListReader<ITerminalAction> PossibleActions(MyToolbarType toolbarType)
         {
             return AllActions;
         }
@@ -169,7 +218,7 @@ namespace Sandbox.Game.Screens.Helpers
             var firstFunctional = FirstFunctional(blocks, owner, playerID);
 
             changed |= SetEnabled(action != null && firstFunctional != null);
-            changed |= SetIcon(genericType ? "Textures\\GUI\\Icons\\GroupIcon.dds" : blocks.ItemAt(0).BlockDefinition.Icon);
+            changed |= SetIcons(genericType ? new string[] { "Textures\\GUI\\Icons\\GroupIcon.dds" } : blocks.ItemAt(0).BlockDefinition.Icons);
             changed |= SetSubIcon(action != null ? action.Icon : null);
 
             if (action != null && !m_wasValid)
@@ -199,6 +248,11 @@ namespace Sandbox.Game.Screens.Helpers
             return changed;
         }
 
+        public bool CompareEntityIds(long id)
+        {
+            return m_blockEntityId == id;
+        }
+
         public override bool Equals(object obj)
         {
             if (object.ReferenceEquals(this, obj))
@@ -225,6 +279,7 @@ namespace Sandbox.Game.Screens.Helpers
 
             WantsToBeActivated = false;
             WantsToBeSelected = false;
+            ActivateOnClick = true;
 
             var builder = (MyObjectBuilder_ToolbarItemTerminalGroup)objBuilder;
             SetDisplayName(builder.GroupName);
@@ -236,7 +291,7 @@ namespace Sandbox.Game.Screens.Helpers
             this.m_blockEntityId = builder.BlockEntityId;
             this.m_groupName = new StringBuilder(builder.GroupName);
             m_wasValid = true;
-            SetAction(builder.Action);
+            SetAction(builder._Action);
             return true;
         }
 
@@ -245,7 +300,7 @@ namespace Sandbox.Game.Screens.Helpers
             MyObjectBuilder_ToolbarItemTerminalGroup output = (MyObjectBuilder_ToolbarItemTerminalGroup)MyToolbarItemFactory.CreateObjectBuilder(this);
             output.GroupName = this.m_groupName.ToString();
             output.BlockEntityId = this.m_blockEntityId;
-            output.Action = this.ActionId;
+            output._Action = this.ActionId;
             return output;
         }
     }

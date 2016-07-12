@@ -9,7 +9,10 @@ using Sandbox.Game.Entities.Character;
 using Sandbox.Common;
 using Sandbox.Definitions;
 using System.Diagnostics;
+using VRage.Game;
 using VRage.ObjectBuilders;
+using VRage.Game.Components;
+using VRage.Game.Utils;
 
 namespace Sandbox.Game.World
 {
@@ -29,25 +32,37 @@ namespace Sandbox.Game.World
         internal static MyGodRaysProperties GodRaysProperties;
         public static VRageRender.MyImpostorProperties[] ImpostorProperties;
         public static string BackgroundTexture;
+        public static string BackgroundTextureNight;
+        public static string BackgroundTextureNightPrefiltered;
         public static Quaternion BackgroundOrientation;
         public static bool UseGenerator = false;
         public static List<int> PrimaryMaterials;
         public static List<int> SecondaryMaterials;
+
+        public static MyEnvironmentDefinition EnvironmentDefinition;
 
         public static MyCamera MainCamera;
 
 
         public static void SetDefaults()
         {
-            SunProperties = MySunProperties.Default;
+            SunProperties = new MySunProperties(MySunProperties.Default);
             FogProperties = MyFogProperties.Default;
             ImpostorProperties = new VRageRender.MyImpostorProperties[1];
             ParticleDustProperties = new MyParticleDustProperties();
             GodRaysProperties = new MyGodRaysProperties();
             BackgroundTexture = "BackgroundCube";
+            BackgroundTextureNight = "BackgroundCube";
+            BackgroundTextureNightPrefiltered = "BackgroundCube";
         }
 
-        public static Vector3 DirectionToSunNormalized;
+        public static Vector3 DirectionToSunNormalized
+        {
+            get
+            {
+                return SunProperties.SunDirectionNormalized;
+            }
+        }
 
         public static float DistanceToSun;
         public static float DayTime;
@@ -55,13 +70,25 @@ namespace Sandbox.Game.World
 
         public static void InitEnvironmentSettings(MyObjectBuilder_EnvironmentSettings environmentBuilder = null)
         {
-            var environment = MyDefinitionManager.Static.EnvironmentDefinition;
-            var o = environment.BackgroundOrientation;
-            BackgroundTexture        = environment.BackgroundTexture;
-            BackgroundOrientation    = Quaternion.CreateFromYawPitchRoll(o.Yaw, o.Pitch, o.Roll);
-            DistanceToSun            = environment.DistanceToSun;
+            if (environmentBuilder != null)
+            {
+                EnvironmentDefinition = MyDefinitionManager.Static.GetDefinition<MyEnvironmentDefinition>(environmentBuilder.EnvironmentDefinition);
+            }
+            else if (EnvironmentDefinition == null)
+            {
+                // Fallback
+                EnvironmentDefinition = MyDefinitionManager.Static.GetDefinition<MyEnvironmentDefinition>(MyStringHash.GetOrCompute("Default"));
+            }
 
-            SunProperties = environment.SunProperties;
+            var environment = EnvironmentDefinition;
+            var o = environment.BackgroundOrientation;
+            BackgroundTexture                   = environment.BackgroundTexture;
+            BackgroundTextureNight              = environment.BackgroundTextureNight;
+            BackgroundTextureNightPrefiltered   = environment.BackgroundTextureNightPrefiltered;
+            BackgroundOrientation               = Quaternion.CreateFromYawPitchRoll(o.Yaw, o.Pitch, o.Roll);
+            DistanceToSun                       = environment.DistanceToSun;
+
+            SunProperties = new MySunProperties(environment.SunProperties);
             FogProperties = environment.FogProperties;
 
             if (environmentBuilder != null)
@@ -77,12 +104,11 @@ namespace Sandbox.Game.World
                 FogProperties.FogColor = new Color(environmentBuilder.FogColor);
                 FogProperties.FogColor.A = 255;
             }
-            DirectionToSunNormalized = SunProperties.SunDirectionNormalized;
         }
 
         public static MyObjectBuilder_EnvironmentSettings GetEnvironmentSettings()
         {
-            if (SunProperties.Equals(MyDefinitionManager.Static.EnvironmentDefinition.SunProperties) && FogProperties.Equals(MyDefinitionManager.Static.EnvironmentDefinition.FogProperties))
+            if (SunProperties.Equals(EnvironmentDefinition.SunProperties) && FogProperties.Equals(EnvironmentDefinition.FogProperties))
             {
                 return null;
             }
@@ -90,7 +116,7 @@ namespace Sandbox.Game.World
             var objectBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_EnvironmentSettings>();
 
             float azimuth, elevation;
-            Vector3.GetAzimuthAndElevation(SunProperties.SunDirectionNormalized, out azimuth, out elevation);
+            Vector3.GetAzimuthAndElevation(SunProperties.BaseSunDirectionNormalized, out azimuth, out elevation);
             objectBuilder.SunAzimuth = azimuth;
             objectBuilder.SunElevation = elevation;
             objectBuilder.SunIntensity = SunProperties.SunIntensity;
@@ -99,12 +125,14 @@ namespace Sandbox.Game.World
             objectBuilder.FogDensity = FogProperties.FogDensity;
             objectBuilder.FogColor = FogProperties.FogColor.ToVector3();
 
+            objectBuilder.EnvironmentDefinition = EnvironmentDefinition.Id;
+
             return objectBuilder;
         }
 
         public override void LoadData()
         {
-            MainCamera = new MyCamera();
+            MainCamera = new MyCamera(MySandboxGame.Config.FieldOfView, MySandboxGame.ScreenViewport);
             MainCamera.FarPlaneDistance = MySession.Static.Settings.ViewDistance;
             MyEntities.LoadData();
         }
@@ -118,7 +146,6 @@ namespace Sandbox.Game.World
 
         public override void UpdateBeforeSimulation()
         {
-            MainCamera.Update();
             MyEntities.UpdateBeforeSimulation();
 
             base.UpdateBeforeSimulation();

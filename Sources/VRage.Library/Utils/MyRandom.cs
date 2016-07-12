@@ -22,7 +22,9 @@ namespace VRage.Library.Utils
             public fixed int Seed[0x38];
         }
 
-        public struct StateToken : IDisposable
+#if !UNSHARPER
+
+		public struct StateToken : IDisposable
         {
             MyRandom m_random;
             State m_state;
@@ -48,7 +50,9 @@ namespace VRage.Library.Utils
             }
         }
 
-        public static MyRandom Instance
+#endif
+
+		public static MyRandom Instance
         {
             get
             {
@@ -80,12 +84,14 @@ namespace VRage.Library.Utils
             SetSeed(Seed);
         }
 
+#if !UNSHARPER
+
         public StateToken PushSeed(int newSeed)
         {
             return new StateToken(this, newSeed);
         }
 
-        public unsafe void GetState(out State state)
+		public unsafe void GetState(out State state)
         {
             state.Inext = inext;
             state.Inextp = inextp;
@@ -104,6 +110,8 @@ namespace VRage.Library.Utils
                 Marshal.Copy(new IntPtr(ptr), SeedArray, 0, 0x38);
             }
         }
+
+#endif
 
         public int CreateRandomSeed()
         {
@@ -233,11 +241,13 @@ namespace VRage.Library.Utils
             }
         }
 
+        /// Returns random number between 0 and 1.
         public float NextFloat()
         {
             return (float)NextDouble();
         }
 
+        /// Returns random number between 0 and 1.
         public double NextDouble()
         {
             return this.Sample();
@@ -248,6 +258,4 @@ namespace VRage.Library.Utils
             return (this.InternalSample() * 4.6566128752457969E-10);
         }
     }
-
-
 }

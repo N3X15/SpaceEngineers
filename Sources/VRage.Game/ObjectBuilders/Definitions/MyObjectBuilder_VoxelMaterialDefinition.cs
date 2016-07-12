@@ -1,20 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
+﻿using System.ComponentModel;
 using System.Xml.Serialization;
 using ProtoBuf;
 using VRage.Data;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [XmlType("VoxelMaterial")]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_VoxelMaterialDefinition : MyObjectBuilder_DefinitionBase
     {
+		[ProtoMember]
+		public string MaterialTypeName = "Rock";
+
         [ProtoMember]
         public string MinedOre;
         
@@ -72,5 +71,19 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public bool SpawnsFlora = false;
+
+        [ProtoMember]
+        [XmlArrayItem("Channel")]
+        public int[] SpawnChannels;
+
+        [ProtoMember, DefaultValue("")]
+        public string ParticleEffect;
+
+        // Voxel material to replace this if damaged.
+        public string DamagedMaterial = null;
+
+        // Damage Threshold
+        public float DamageThreashold = 0.1f;
     }
+
 }

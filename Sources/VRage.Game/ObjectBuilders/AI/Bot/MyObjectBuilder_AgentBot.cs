@@ -1,7 +1,7 @@
 ﻿using ProtoBuf;
 using VRage.ObjectBuilders;
 
-namespace Sandbox.Common.ObjectBuilders.AI.Bot
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -9,5 +9,12 @@ namespace Sandbox.Common.ObjectBuilders.AI.Bot
     {
         [ProtoMember]
         public MyObjectBuilder_AiTarget AiTarget;
+
+        // Obsolete! Don't use! (Should be taken from the bot definition)
+        [ProtoMember]
+        public bool RemoveAfterDeath;
+
+        [ProtoMember]
+        public int RespawnCounter;
     }
 }

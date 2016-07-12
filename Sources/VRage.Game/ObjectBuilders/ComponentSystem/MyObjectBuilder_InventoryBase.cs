@@ -1,15 +1,21 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.ComponentModel;
 using VRage.ObjectBuilders;
+using VRage.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders.ComponentSystem
+namespace VRage.Game.ObjectBuilders.ComponentSystem
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_InventoryBase : MyObjectBuilder_ComponentBase
     {
+        [ProtoMember, DefaultValue(null)]
+        [Serialize(MyObjectFlags.Nullable)]
+        public string InventoryId = null;
+
+        public virtual void Clear()
+        {
+        }
+
     }
 }

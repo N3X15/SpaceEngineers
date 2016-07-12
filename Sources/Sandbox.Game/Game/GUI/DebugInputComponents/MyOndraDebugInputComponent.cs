@@ -13,6 +13,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using VRage;
+using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Input;
 using VRage.ObjectBuilders;
 using VRageMath;
@@ -180,7 +182,7 @@ namespace Sandbox.Game.Gui
             //        if (ctrl)
             //        {
             //            MySession.Static.Name = name;
-            //            MySession.Static.WorldID = MySession.GetNewWorldId();
+            //            MySession.Static.WorldID = MySession.Static.GetNewWorldId();
             //            MySession.Static.Save(name);
             //        }
             //        else if (shift)
@@ -189,7 +191,7 @@ namespace Sandbox.Game.Gui
             //            if (System.IO.Directory.Exists(path))
             //            {
             //                MySession.Static.Unload();
-            //                MySession.Load(path);
+            //                MySession.Static.Load(path);
             //            }
             //        }
             //        handled = true;
@@ -213,7 +215,7 @@ namespace Sandbox.Game.Gui
 
             if (MyInput.Static.IsNewKeyPressed(MyKeys.NumPad6))
             {
-                var view = MySession.Static.CameraController.GetViewMatrix();
+                var view = MySector.MainCamera.ViewMatrix;
                 var inv = Matrix.Invert(view);
 
                 //MyPhysicalInventoryItem item = new MyPhysicalInventoryItem(100, 
@@ -291,11 +293,17 @@ namespace Sandbox.Game.Gui
 
             if (MyInput.Static.IsNewKeyPressed(MyKeys.NumPad8))
             {
-                var view = MySession.Static.CameraController.GetViewMatrix();
+                var view = MySector.MainCamera.ViewMatrix;
                 var inv = Matrix.Invert(view);
 
                 var oreBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>("Stone");
-                var obj = new MyObjectBuilder_FloatingObject() { Item = new MyObjectBuilder_InventoryItem() { Content = oreBuilder, Amount = 1000 } };
+                var obj = new MyObjectBuilder_FloatingObject() 
+                { 
+                    Item = new MyObjectBuilder_InventoryItem() 
+                    { 
+                        PhysicalContent = oreBuilder, Amount = 1000 
+                    } 
+                };
                 obj.PositionAndOrientation = new MyPositionAndOrientation(inv.Translation + 2.0f * inv.Forward, inv.Forward, inv.Up);
                 obj.PersistentFlags = MyPersistentEntityFlags2.InScene;
                 var e = MyEntities.CreateFromObjectBuilderAndAdd(obj);
@@ -310,7 +318,6 @@ namespace Sandbox.Game.Gui
             if (MyInput.Static.IsNewKeyPressed(MyKeys.Multiply))
             {
                 MyDebugDrawSettings.ENABLE_DEBUG_DRAW = !MyDebugDrawSettings.ENABLE_DEBUG_DRAW;
-                MyStructuralIntegrity.Enabled = true;
                 MyDebugDrawSettings.DEBUG_DRAW_STRUCTURAL_INTEGRITY = true;
 
                 var grids = MyEntities.GetEntities().OfType<MyCubeGrid>();
@@ -353,7 +360,7 @@ namespace Sandbox.Game.Gui
 
             if (MyInput.Static.IsNewKeyPressed(MyKeys.NumPad9))
             {
-                var obj = MySession.ControlledEntity != null ? MySession.ControlledEntity.Entity : null;
+                var obj = MySession.Static.ControlledEntity != null ? MySession.Static.ControlledEntity.Entity : null;
                 if (obj != null)
                 {
                     const float dist = 5.0f;
@@ -363,13 +370,14 @@ namespace Sandbox.Game.Gui
 
             if (MyInput.Static.IsNewKeyPressed(MyKeys.NumPad4))
             {
-                IMyInventoryOwner invObject = MySession.ControlledEntity as IMyInventoryOwner;
-                if (invObject != null)
+                MyEntity invObject = MySession.Static.ControlledEntity as MyEntity;
+                if (invObject != null && invObject.HasInventory)
                 {
                     MyFixedPoint amount = 20000;
 
                     var oreBuilder = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>("Stone");
-                    MyInventory inventory = invObject.GetInventory(0);
+                    MyInventory inventory = invObject.GetInventory(0) as MyInventory;
+                    System.Diagnostics.Debug.Assert(inventory != null, "Null or unexpected type returned!");
                     inventory.AddItems(amount, oreBuilder);
                 }
 
@@ -421,9 +429,9 @@ namespace Sandbox.Game.Gui
                 int count = MyEntities.GetEntities().OfType<MyFloatingObject>().Count();
                 foreach (var obj in MyEntities.GetEntities().OfType<MyFloatingObject>())
                 {
-                    if (obj == MySession.ControlledEntity)
+                    if (obj == MySession.Static.ControlledEntity)
                     {
-                        MySession.SetCameraController(MyCameraControllerEnum.Spectator);
+                        MySession.Static.SetCameraController(MyCameraControllerEnum.Spectator);
                     }
                     obj.Close();
                 }
@@ -434,7 +442,7 @@ namespace Sandbox.Game.Gui
             {
                 foreach (var obj in MyEntities.GetEntities())
                 {
-                    if (obj != MySession.ControlledEntity && (MySession.ControlledEntity == null || obj != MySession.ControlledEntity.Entity.Parent) && obj != MyCubeBuilder.Static.FindClosestGrid())
+                    if (obj != MySession.Static.ControlledEntity && (MySession.Static.ControlledEntity == null || obj != MySession.Static.ControlledEntity.Entity.Parent) && obj != MyCubeBuilder.Static.FindClosestGrid())
                         obj.Close();
                 }
                 handled = true;
@@ -444,7 +452,7 @@ namespace Sandbox.Game.Gui
             {
                 //MyCubeGrid.UserCollisions = input.IsNewKeyPressed(Keys.NumPad9);
 
-                var body = MySession.ControlledEntity.Entity.GetTopMostParent().Physics;
+                var body = MySession.Static.ControlledEntity.Entity.GetTopMostParent().Physics;
                 if (body.RigidBody != null)
                 {
                     //body.AddForce(Engine.Physics.MyPhysicsForceType.ADD_BODY_FORCE_AND_BODY_TORQUE, new Vector3(0, 0, 10 * body.Mass), null, null);

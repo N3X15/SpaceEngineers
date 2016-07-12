@@ -1,13 +1,15 @@
 ﻿using VRage.ObjectBuilders;
 using ProtoBuf;
-using VRageMath;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
     public class MyObjectBuilder_PhysicalMaterialDefinition : MyObjectBuilder_DefinitionBase
     {
+        [ProtoMember]
+        public bool Transparent = false;
+
         [ProtoMember]
         public float Density = 32000;
 
@@ -22,8 +24,5 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public float CollisionMultiplier = 1;
-
-        [ProtoMember]
-        public string DamageDecal = null;
     }
 }

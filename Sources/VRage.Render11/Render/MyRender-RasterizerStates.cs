@@ -11,6 +11,7 @@ namespace VRageRender
     partial class MyRender11
     {
         internal static RasterizerId m_nocullRasterizerState;
+        internal static RasterizerId m_invTriRasterizerState;
         internal static RasterizerId m_wireframeRasterizerState;
         internal static RasterizerId m_linesRasterizerState;
         internal static RasterizerId m_cascadesRasterizerState;
@@ -32,6 +33,10 @@ namespace VRageRender
             m_wireframeRasterizerState = MyPipelineStates.CreateRasterizerState(desc);
 
             desc.FillMode = FillMode.Solid;
+            desc.CullMode = CullMode.Front;
+            m_invTriRasterizerState = MyPipelineStates.CreateRasterizerState(desc);
+
+            desc.FillMode = FillMode.Solid;
             desc.CullMode = CullMode.None;
             m_nocullRasterizerState = MyPipelineStates.CreateRasterizerState(desc);
 
@@ -42,24 +47,24 @@ namespace VRageRender
             desc = new RasterizerStateDescription();
             desc.FillMode = FillMode.Solid;
             desc.CullMode = CullMode.Back;
-            desc.IsAntialiasedLineEnabled = true;
             m_linesRasterizerState = MyPipelineStates.CreateRasterizerState(desc);
 
             desc = new RasterizerStateDescription();
             desc.FillMode = FillMode.Solid;
             desc.CullMode = CullMode.None;
             desc.IsFrontCounterClockwise = true;
-            desc.DepthBias = 25000;
+            desc.DepthBias = 20;
             desc.DepthBiasClamp = 2;
-            desc.SlopeScaledDepthBias = 2;
+            desc.SlopeScaledDepthBias = 4;
             m_cascadesRasterizerState = MyPipelineStates.CreateRasterizerState(desc);
 
             desc = new RasterizerStateDescription();
             desc.FillMode = FillMode.Solid;
             desc.CullMode = CullMode.None;
-            desc.DepthBias = 0;
-            desc.DepthBiasClamp = 0;
-            desc.SlopeScaledDepthBias = 0;
+            desc.IsFrontCounterClockwise = true;
+            desc.DepthBias = 2500;
+            desc.DepthBiasClamp = 10000;
+            desc.SlopeScaledDepthBias = 4;
             m_shadowRasterizerState = MyPipelineStates.CreateRasterizerState(desc);
 
             desc.FillMode = FillMode.Solid;

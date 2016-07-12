@@ -6,7 +6,8 @@ using System.Text;
 
 using VRage.Utils;
 using VRage;
-using VRage.Utils;
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRage.Library.Utils;
 
 namespace Sandbox.Definitions

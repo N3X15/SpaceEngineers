@@ -6,16 +6,23 @@ using Sandbox.ModAPI;
 using SteamSDK;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using VRage.Game.ModAPI;
+using VRage.Network;
 using VRage.ObjectBuilders;
+using VRage.Scripting;
+using MyMultiplayerMain = Sandbox.Engine.Multiplayer.MyMultiplayer;
+using Sandbox.Game.Gui;
 
 namespace Sandbox.ModAPI
-{ 
+{
     public static class MyModAPIHelper
     {
         public static void OnSessionLoaded()
         {
+            MySandboxGame.EnableSimSpeedLocking = true;
             MyAPIGateway.Session = MySession.Static;
             MyAPIGateway.Entities = new MyEntitiesHelper_ModAPI();
             MyAPIGateway.Players = Sync.Players;
@@ -23,152 +30,26 @@ namespace Sandbox.ModAPI
             MyAPIGateway.TerminalActionsHelper = MyTerminalControlFactoryHelper.Static;
             MyAPIGateway.Utilities = MyAPIUtilities.Static;
             MyAPIGateway.Parallel = MyParallelTask.Static;
+            MyAPIGateway.Physics = Physics.MyPhysics.Static;
             MyAPIGateway.Multiplayer = MyMultiplayer.Static;
             MyAPIGateway.PrefabManager = MyPrefabManager.Static;
-        }
-        [PreloadRequired]
-        public class MyMultiplayerSyncObject
-        {
-            [ProtoBuf.ProtoContract]
-            [MessageIdAttribute(16295, P2PMessageEnum.Reliable)]
-            struct CustomModMsg
-            {
-                [ProtoBuf.ProtoMember]
-                public ushort ModID;
-                [ProtoBuf.ProtoMember]
-                public byte[] Message;
-            }
-            [ProtoBuf.ProtoContract]
-            [MessageIdAttribute(16296, P2PMessageEnum.Unreliable)]
-            struct CustomModMsgUnreliable
-            {
-                [ProtoBuf.ProtoMember]
-                public ushort ModID;
-                [ProtoBuf.ProtoMember]
-                public byte[] Message;
-            }
-
-            static Dictionary<ushort, List<Action<byte[]>>> m_registeredListeners = new Dictionary<ushort, List<Action<byte[]>>>();
-
-            static MyMultiplayerSyncObject()
-            {
-                MySyncLayer.RegisterMessage<CustomModMsg>(ModMessageRecieved, MyMessagePermissions.Any, MyTransportMessageEnum.Success);
-                MySyncLayer.RegisterMessage<CustomModMsgUnreliable>(ModMessageRecievedUnreliable, MyMessagePermissions.Any, MyTransportMessageEnum.Success);
-            }
-
-            static void ModMessageRecieved(ref CustomModMsg msg, MyNetworkClient sender)
-            {
-                List<Action<byte[]>> actionsList = null;
-                if (m_registeredListeners.TryGetValue(msg.ModID, out actionsList) && actionsList != null)
-                {
-                    foreach (var action in actionsList)
-                    {
-                        action(msg.Message);
-                    }
-                }
-            }
-            static void ModMessageRecievedUnreliable(ref CustomModMsgUnreliable msg, MyNetworkClient sender)
-            {
-                List<Action<byte[]>> actionsList = null;
-                if (m_registeredListeners.TryGetValue(msg.ModID, out actionsList) && actionsList != null)
-                {
-                    foreach (var action in actionsList)
-                    {
-                        action(msg.Message);
-                    }
-                }
-            }
-
-            public void SendMessageTo(ushort id, byte[] message, ulong recipient, bool reliable)
-            {
-                if (reliable)
-                {
-                    CustomModMsg msg = new CustomModMsg();
-                    msg.ModID = id;
-                    msg.Message = message;
-                    Sync.Layer.SendMessage(ref msg, recipient, MyTransportMessageEnum.Success);
-                }
-                else
-                {
-                    CustomModMsgUnreliable msg = new CustomModMsgUnreliable();
-                    msg.ModID = id;
-                    msg.Message = message;
-                    Sync.Layer.SendMessage(ref msg, recipient, MyTransportMessageEnum.Success);
-                }
-            }
-
-            public void SendMessageToOthers(ushort id, byte[] message, bool reliable)
-            {
-                if (reliable)
-                {
-                    CustomModMsg msg = new CustomModMsg();
-                    msg.ModID = id;
-                    msg.Message = message;
-                    Sync.Layer.SendMessageToAll(ref msg, MyTransportMessageEnum.Success);
-                }
-                else
-                {
-                    CustomModMsgUnreliable msg = new CustomModMsgUnreliable();
-                    msg.ModID = id;
-                    msg.Message = message;
-                    Sync.Layer.SendMessageToAll(ref msg, MyTransportMessageEnum.Success);
-                }
-            }
-
-            public void SendMessageToServer(ushort id, byte[] message, bool reliable)
-            {
-                if (reliable)
-                {
-                    CustomModMsg msg = new CustomModMsg();
-                    msg.ModID = id;
-                    msg.Message = message;
-                    Sync.Layer.SendMessageToServer(ref msg, MyTransportMessageEnum.Success);
-                }
-                else
-                {
-                    CustomModMsgUnreliable msg = new CustomModMsgUnreliable();
-                    msg.ModID = id;
-                    msg.Message = message;
-                    Sync.Layer.SendMessageToServer(ref msg, MyTransportMessageEnum.Success);
-                }
-            }
-
-            public void RegisterMessageHandler(ushort id, Action<byte[]> messageHandler)
-            {
-                List<Action<byte[]>> actionList = null;
-                if (m_registeredListeners.TryGetValue(id, out actionList))
-                {
-                    actionList.Add(messageHandler);
-                }
-                else
-                {
-                    m_registeredListeners[id] = new List<Action<byte[]>>();
-                    m_registeredListeners[id].Add(messageHandler);
-                }
-            }
-
-            public void UnregisterMessageHandler(ushort id, Action<byte[]> messageHandler)
-            {
-                List<Action<byte[]>> actionList = null;
-                if (m_registeredListeners.TryGetValue(id, out actionList))
-                {
-                    actionList.Remove(messageHandler);
-                }
-            }
-
+            MyAPIGateway.ScriptBlacklist = MyScriptCompiler.Static.Whitelist;
+            MyAPIGateway.Input = (VRage.ModAPI.IMyInput)VRage.Input.MyInput.Static;
+            MyAPIGateway.TerminalControls = MyTerminalControls.Static;
         }
 
+        [StaticEventOwner]
         public class MyMultiplayer : IMyMultiplayer
         {
 
             public static MyMultiplayer Static;
-            static MyMultiplayerSyncObject SyncObject = null;
             const int MAX_MESSAGE_SIZE = 4096;
+
+            static Dictionary<ushort, List<Action<byte[]>>> m_registeredListeners = new Dictionary<ushort, List<Action<byte[]>>>();
 
             static MyMultiplayer()
             {
                 Static = new MyMultiplayer();
-                SyncObject = new MyMultiplayerSyncObject();
             }
 
             public bool MultiplayerActive
@@ -210,47 +91,143 @@ namespace Sandbox.ModAPI
 
             public void SendEntitiesCreated(List<MyObjectBuilder_EntityBase> objectBuilders)
             {
-                MySyncCreate.SendEntitiesCreated(objectBuilders);
+               // MySyncCreate.SendEntitiesCreated(objectBuilders);
             }
 
             public bool SendMessageToServer(ushort id, byte[] message, bool reliable)
             {
                 if (message.Length > MAX_MESSAGE_SIZE)
-                {
                     return false;
-                }
-                SyncObject.SendMessageToServer(id, message, reliable);
+
+                if (reliable)
+                    MyMultiplayerMain.RaiseStaticEvent(s => MyMultiplayer.ModMessageServerReliable, id, message, Sync.ServerId);
+                else
+                    MyMultiplayerMain.RaiseStaticEvent(s => MyMultiplayer.ModMessageServerUnreliable, id, message, Sync.ServerId);
+
                 return true;
             }
 
             public bool SendMessageToOthers(ushort id, byte[] message, bool reliable)
             {
                 if (message.Length > MAX_MESSAGE_SIZE)
-                {
                     return false;
-                }
-                SyncObject.SendMessageToOthers(id, message, reliable);
+
+                if (reliable)
+                    MyMultiplayerMain.RaiseStaticEvent(s => MyMultiplayer.ModMessageBroadcastReliable, id, message);
+                else
+                    MyMultiplayerMain.RaiseStaticEvent(s => MyMultiplayer.ModMessageBroadcastUnreliable, id, message);
+
                 return true;
             }
 
             public bool SendMessageTo(ushort id, byte[] message, ulong recipient, bool reliable)
             {
                 if (message.Length > MAX_MESSAGE_SIZE)
-                {
                     return false;
-                }
-                SyncObject.SendMessageTo(id, message, recipient, reliable);
+
+                if (reliable)
+                    MyMultiplayerMain.RaiseStaticEvent(s => MyMultiplayer.ModMessageClientReliable, id, message, recipient, new EndpointId(recipient));
+                else
+                    MyMultiplayerMain.RaiseStaticEvent(s => MyMultiplayer.ModMessageClientUnreliable, id, message, recipient, new EndpointId(recipient));
+
                 return true;
             }
-       
+
+            public void JoinServer(string address)
+            {
+                if (MySandboxGame.IsDedicated && IsServer)
+                    return;
+
+                System.Net.IPEndPoint endpoint;
+                if (System.Net.IPAddressExtensions.TryParseEndpoint(address, out endpoint))
+                {
+                    Sandbox.Game.Gui.MyGuiScreenMainMenu.UnloadAndExitToMenu();
+                    MySandboxGame.Services.SteamService.SteamAPI.PingServer(System.Net.IPAddressExtensions.ToIPv4NetworkOrder(endpoint.Address), (ushort)endpoint.Port);
+                }
+            }
+
             public void RegisterMessageHandler(ushort id, Action<byte[]> messageHandler)
             {
-                SyncObject.RegisterMessageHandler(id, messageHandler);
+                List<Action<byte[]>> actionList = null;
+                if (m_registeredListeners.TryGetValue(id, out actionList))
+                {
+                    actionList.Add(messageHandler);
+                }
+                else
+                {
+                    m_registeredListeners[id] = new List<Action<byte[]>>();
+                    m_registeredListeners[id].Add(messageHandler);
+                }
             }
 
             public void UnregisterMessageHandler(ushort id, Action<byte[]> messageHandler)
             {
-                SyncObject.UnregisterMessageHandler(id, messageHandler);       
+                List<Action<byte[]>> actionList = null;
+                if (m_registeredListeners.TryGetValue(id, out actionList))
+                {
+                    actionList.Remove(messageHandler);
+                }     
+            }
+
+            [Event, Reliable, Server]
+            static void ModMessageServerReliable(ushort id, byte[] message, ulong recipient)
+            {
+                HandleMessageClient(id, message, recipient);
+            }
+
+            [Event, Server]
+            static void ModMessageServerUnreliable(ushort id, byte[] message, ulong recipient)
+            {
+                HandleMessageClient(id, message, recipient);
+            }
+
+            [Event, Reliable, Server, Client]
+            static void ModMessageClientReliable(ushort id, byte[] message, ulong recipient)
+            {
+                HandleMessageClient(id, message, recipient);
+            }
+
+            [Event, Server, Client]
+            static void ModMessageClientUnreliable(ushort id, byte[] message, ulong recipient)
+            {
+                HandleMessageClient(id, message, recipient);
+            }
+
+            [Event, Reliable, Server, BroadcastExcept]
+            static void ModMessageBroadcastReliable(ushort id, byte[] message)
+            {
+                HandleMessage(id, message);
+            }
+
+            [Event, Server, BroadcastExcept]
+            static void ModMessageBroadcastUnreliable(ushort id, byte[] message)
+            {
+                HandleMessage(id, message);
+            }
+
+            static void HandleMessageClient(ushort id, byte[] message, ulong recipient)
+            {
+                if (recipient != Sync.MyId)
+                {
+                    // This should just be the case of SendMessageTo(): server should
+                    // not invoke this code
+                    Debug.Assert(Sync.IsServer);
+                    return;
+                }
+
+                HandleMessage(id, message);
+            }
+
+            static void HandleMessage(ushort id, byte[] message)
+            {
+                List<Action<byte[]>> actionsList = null;
+                if (m_registeredListeners.TryGetValue(id, out actionsList) && actionsList != null)
+                {
+                    foreach (var action in actionsList)
+                    {
+                        action(message);
+                    }
+                }
             }
         }
     }

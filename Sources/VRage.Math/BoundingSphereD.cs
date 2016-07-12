@@ -183,11 +183,10 @@ namespace VRageMath
         /// Creates a BoundingSphereD that can contain a specified list of points.
         /// </summary>
         /// <param name="points">List of points the BoundingSphereD must contain.</param>
-        public static BoundingSphereD CreateFromPoints(IEnumerable<Vector3D> points)
+        public static BoundingSphereD CreateFromPoints(Vector3D[] points)
         {
-            IEnumerator<Vector3D> enumerator = points.GetEnumerator();
             Vector3D current;
-            Vector3D Vector3D_1 = current = enumerator.Current;
+            Vector3D Vector3D_1 = current = points[0];
             Vector3D Vector3D_2 = current;
             Vector3D Vector3D_3 = current;
             Vector3D Vector3D_4 = current;
@@ -267,7 +266,7 @@ namespace VRageMath
             if (frustum == (BoundingFrustumD)null)
                 throw new ArgumentNullException("frustum");
             else
-                return BoundingSphereD.CreateFromPoints((IEnumerable<Vector3D>)frustum.cornerArray);
+                return BoundingSphereD.CreateFromPoints(frustum.cornerArray);
         }
 
         /// <summary>
@@ -569,11 +568,11 @@ namespace VRageMath
         /// <param name="matrix">A transformation matrix that might include translation, rotation, or uniform scaling. Note that BoundingSphereD.Transform will not return correct results if there are non-uniform scaling, shears, or other unusual transforms in this transformation matrix. This is because there is no way to shear or non-uniformly scale a sphere. Such an operation would cause the sphere to lose its shape as a sphere.</param>
         public BoundingSphereD Transform(MatrixD matrix)
         {
-            BoundingSphereD BoundingSphereD = new BoundingSphereD();
-            BoundingSphereD.Center = Vector3D.Transform(this.Center, matrix);
+            BoundingSphereD bsd = new BoundingSphereD();
+            bsd.Center = Vector3D.Transform(this.Center, matrix);
             double num = Math.Max((double)((double)matrix.M11 * (double)matrix.M11 + (double)matrix.M12 * (double)matrix.M12 + (double)matrix.M13 * (double)matrix.M13), Math.Max((double)((double)matrix.M21 * (double)matrix.M21 + (double)matrix.M22 * (double)matrix.M22 + (double)matrix.M23 * (double)matrix.M23), (double)((double)matrix.M31 * (double)matrix.M31 + (double)matrix.M32 * (double)matrix.M32 + (double)matrix.M33 * (double)matrix.M33)));
-            BoundingSphereD.Radius = this.Radius * (double)Math.Sqrt((double)num);
-            return BoundingSphereD;
+            bsd.Radius = this.Radius * (double)Math.Sqrt((double)num);
+            return bsd;
         }
 
         /// <summary>

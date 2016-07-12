@@ -3,6 +3,9 @@
 
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Common.ObjectBuilders.Definitions;
+using System.Collections.Generic;
+using VRage.Game;
+using VRage.Game.Definitions;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
@@ -58,6 +61,8 @@ namespace Sandbox.Definitions
         public float LightIntensityUpper;
         public float ShakeAmountTarget;
         public float ShakeAmountNoTarget;
+
+        public List<ToolSound> ToolSounds;
 
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
@@ -125,6 +130,8 @@ namespace Sandbox.Definitions
             LightIntensityUpper = ob.LightIntensityUpper;
             ShakeAmountTarget = ob.ShakeAmountTarget;
             ShakeAmountNoTarget = ob.ShakeAmountNoTarget;
+
+            ToolSounds = ob.ToolSounds;
         }
 
         public override MyObjectBuilder_DefinitionBase GetObjectBuilder()
@@ -192,6 +199,8 @@ namespace Sandbox.Definitions
             ob.LightIntensityUpper = LightIntensityUpper;
             ob.ShakeAmountTarget = ShakeAmountTarget;
             ob.ShakeAmountNoTarget = ShakeAmountNoTarget;
+
+            ob.ToolSounds = ToolSounds;
 
             return ob;
         }

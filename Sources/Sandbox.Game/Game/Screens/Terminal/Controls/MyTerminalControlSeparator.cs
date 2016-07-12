@@ -7,10 +7,12 @@ using System.Text;
 using VRageMath;
 using Sandbox.Game.World;
 using VRage.Utils;
+using Sandbox.ModAPI;
+using Sandbox.ModAPI.Interfaces.Terminal;
 
 namespace Sandbox.Game.Gui
 {
-    class MyTerminalControlSeparator<TBlock> : MyTerminalControl<TBlock>
+    public class MyTerminalControlSeparator<TBlock> : MyTerminalControl<TBlock>, IMyTerminalControlSeparator
         where TBlock : MyTerminalBlock
     {
         public MyTerminalControlSeparator()
@@ -27,9 +29,12 @@ namespace Sandbox.Game.Gui
             return control;
         }
 
-        protected override void OnUpdateVisual()
+        string IMyTerminalControl.Id
         {
-            base.OnUpdateVisual();
+            get
+            {
+                return "";
+            }
         }
     }
 }

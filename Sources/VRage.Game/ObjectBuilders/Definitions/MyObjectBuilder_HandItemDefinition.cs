@@ -2,8 +2,10 @@
 using ProtoBuf;
 using VRageMath;
 using System.ComponentModel;
+using System.Collections.Generic;
+using System.Xml.Serialization;
 
-namespace Sandbox.Common.ObjectBuilders.Definitions
+namespace VRage.Game
 {
     [ProtoContract]
     [MyObjectBuilderDefinition]
@@ -127,5 +129,21 @@ namespace Sandbox.Common.ObjectBuilders.Definitions
 
         [ProtoMember]
         public float ShakeAmountNoTarget;
+
+        [ProtoMember]
+        public List<ToolSound> ToolSounds;
+    }
+
+    [ProtoContract, XmlType("ToolSound")]
+    public struct ToolSound
+    {
+        [ProtoMember, XmlAttribute]
+        public string type;
+
+        [ProtoMember, XmlAttribute]
+        public string subtype;
+
+        [ProtoMember, XmlAttribute]
+        public string sound;
     }
 }
