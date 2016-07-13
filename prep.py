@@ -86,7 +86,8 @@ class VS2015Project:
     self.XPATH_NSMAP = {'x': 'http://schemas.microsoft.com/developer/msbuild/2003'}
 
   def LoadFromFile(self, filename):
-    self.project = etree.parse(filename)
+    parser = etree.XMLParser(remove_blank_text=True)
+    self.project = etree.parse(filename, parser)
     self.references = {}
     self.projectrefs = {}
     for reference in self.project.xpath('//x:Reference', namespaces=self.XPATH_NSMAP):
@@ -100,7 +101,7 @@ class VS2015Project:
 
   def SaveToFile(self, filename):
     with open(filename, 'w') as f:
-      f.write(etree.tostring(self.project, pretty_print=True))
+      f.write(etree.tostring(self.project, pretty_print=True, xml_declaration=True))
 
   def subelement(self, parent, name):
     return etree.SubElement(parent, self.MSBNS + name)
