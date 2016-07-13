@@ -6,6 +6,12 @@ Space Engineer - Community Edition (SECE) is a community-driven repository with 
 changes that improve the game through stability and performance improvements, in addition to design fixes and new features.
 The idea is to make SE better for everyone.
 
+# Changes
+
+This fork of Space Engineers is intended to fix issues with the game, similar to community patchsets like USLEEP for Skyrim.  There are some notable changes from the Keen version of the game, which are listed [here](CHANGES.md).
+
+DO NOT EXPECT COMPATIBILITY WITH STOCK SPACE ENGINEERS SERVERS OR CLIENTS.
+
 ## Legal Stuff
 
 Since this is actually a commercial project, Keen has some requirements before you're allowed to download or commit.
