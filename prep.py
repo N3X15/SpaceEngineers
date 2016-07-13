@@ -147,24 +147,6 @@ if __name__ == '__main__':
     logging.error('{0} is not a directory.', sys.args[1])
     logging.info('USAGE: python prep.py <path\\to\\SpaceEngineers>')
     sys.exit(1)
-  for c in Configurations:
-    for p in Platforms:
-      logging.info('Setting up %s/%s...', c, p)
-      for libname in Libraries.keys():
-        for lib in Libraries[libname][p]:
-          # print(repr(lib))
-          frompath = os.path.join(SE_ROOT_DIR, lib)
-          topath = os.path.join('3rd', libname, c.lower(), p)
-          if not os.path.isdir(topath):
-            logging.info('  mkdir -p %s', topath)
-            os.makedirs(topath)
-          tofile = os.path.join(topath, os.path.basename(lib))
-          if os.path.isfile(tofile):
-            logging.info('  rm %s', tofile)
-            os.remove(tofile)
-            # continue
-          logging.info('  copy %s -> %s', frompath, topath)
-          shutil.copy2(frompath, topath)
 
   newrefs = [
       'HavokWrapper',
@@ -175,11 +157,6 @@ if __name__ == '__main__':
       'VRage.OpenVRWrapper',
       'VRage.Scripting',
   ]
-  MSBNS = '{http://schemas.microsoft.com/developer/msbuild/2003}'
-  NSMAP = {None: 'http://schemas.microsoft.com/developer/msbuild/2003'}
-
-  def subelement(parent, name):
-    return etree.SubElement(parent, MSBNS + name)
   for project_name in os.listdir('Sources'):
     logging.info('Fixing %s...', project_name)
     project_dir = os.path.join('Sources', project_name)
@@ -200,21 +177,4 @@ if __name__ == '__main__':
           project.RemoveRef(refID, verbose=True)
           project.AddFileRef(refID, os.path.join(SE_ROOT_DIR, 'Bin64', refID + '.dll'), verbose=True)
         project.SaveToFile(filename)
-        '''
-        project = etree.Element(MSBNS + 'Project', nsmap=NSMAP)
-        project.attrib['ToolsVersion'] = '12.0'
-
-        itemgroup = subelement(project, 'ItemGroup')
-        project.append(itemgroup)
-        for refID in newrefs:
-          reference = subelement(itemgroup, 'Reference')
-          reference.attrib['Include'] = refID
-
-          hintpath = subelement(reference, 'HintPath')
-          hintpath.text = os.path.join(SE_ROOT_DIR, 'Bin64', refID + '.dll')
-
-        with open(filename+'.new', 'w') as f:
-          f.write(etree.tostring(project, pretty_print=True))
-        logging.info('  Wrote %s.user.',filename)
-        '''
         break
