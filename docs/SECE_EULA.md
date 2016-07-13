@@ -13,4 +13,4 @@ to stay on (somewhat) good terms with them.
 7. Again, this is NOT open-source licensed code: It is only intended for use amongst owners of the Space Engineers game.
 8. Any modifications of SECE must be clearly labelled.
 9. Assume that any mods for SE will require some level of work to be compatible with SECE.
-10. Keen is permitted to import our changes downstream.  Attribution would be nice, though.
+10. Keen is permitted to import our changes upstream.  Attribution would be nice, though.
