@@ -1135,7 +1135,8 @@ namespace Sandbox.Game.Entities
 
         private void OnControlEntityChanged(IMyControllableEntity oldControl, IMyControllableEntity newControl)
         {
-            if (m_enableShipControl && oldControl != null)
+            // SECE - Fixed NullRef caused by oldControl.Entity being null. - 7/17/2016
+            if (m_enableShipControl && oldControl != null && oldControl.Entity != null)
             {
                 if (CubeGrid.IsMainCockpit(oldControl.Entity as MyTerminalBlock))
                 {
