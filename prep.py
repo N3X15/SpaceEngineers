@@ -101,13 +101,13 @@ class VS2015Project:
 
   def SaveToFile(self, filename):
     with open(filename, 'w') as f:
-      f.write(etree.tostring(self.project, pretty_print=True, xml_declaration=True))
+      f.write(etree.tostring(self.project, pretty_print=True, xml_declaration=True).replace('/>',' />'))
 
   def subelement(self, parent, name):
     return etree.SubElement(parent, self.MSBNS + name)
 
   def HasReference(self, refid):
-    return refid in self.references or redid in self.projectrefs
+    return refid in self.references or refid in self.projectrefs
 
   def AddFileRef(self, refID, hintpath, **kwargs):
     if kwargs.get('verbose', False):
@@ -154,8 +154,8 @@ if __name__ == '__main__':
       'SharpDX.Toolkit',
       'SteamSDK',
       'VRage.Native',
-      'VRage.OpenVRWrapper',
-      'VRage.Scripting',
+      #'VRage.OpenVRWrapper',
+      #'VRage.Scripting',
   ]
   for project_name in os.listdir('Sources'):
     logging.info('Fixing %s...', project_name)
@@ -174,7 +174,8 @@ if __name__ == '__main__':
         project = VS2015Project()
         project.LoadFromFile(filename)
         for refID in newrefs:
-          project.RemoveRef(refID, verbose=True)
-          project.AddFileRef(refID, os.path.join(SE_ROOT_DIR, 'Bin64', refID + '.dll'), verbose=True)
+          if project.HasReference(refID):
+            project.RemoveRef(refID, verbose=True)
+            project.AddFileRef(refID, os.path.join(SE_ROOT_DIR, 'Bin64', refID + '.dll'), verbose=True)
         project.SaveToFile(filename)
         break

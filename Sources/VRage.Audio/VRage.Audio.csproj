@@ -1,5 +1,5 @@
-<?xml version='1.0' encoding='ASCII'?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -12,7 +12,7 @@
     <AssemblyName>VRage.Audio</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile/>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DebugSymbols>true</DebugSymbols>
@@ -124,58 +124,37 @@
     <Reference Include="SharpDX.XAudio2">
       <HintPath>..\..\3rd\SharpDX\SharpDX.XAudio2.dll</HintPath>
     </Reference>
-    <Reference Include="System"/>
-    <Reference Include="System.XML"/>
-    <Reference Include="HavokWrapper">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\HavokWrapper.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.DirectInput">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.DirectInput.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.Toolkit">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Toolkit.dll</HintPath>
-    </Reference>
-    <Reference Include="SteamSDK">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SteamSDK.dll</HintPath>
-    </Reference>
-    <Reference Include="VRage.Native">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Native.dll</HintPath>
-    </Reference>
-    <Reference Include="VRage.OpenVRWrapper">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.OpenVRWrapper.dll</HintPath>
-    </Reference>
-    <Reference Include="VRage.Scripting">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Scripting.dll</HintPath>
-    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MyDistanceCurves.cs"/>
-    <Compile Include="MyEffectBank.cs"/>
-    <Compile Include="MyEffectInstance.cs"/>
-    <Compile Include="MyMusicState.cs"/>
-    <Compile Include="X3DAudio\CalculateFlags.cs"/>
-    <Compile Include="X3DAudio\ChannelAzimuts.cs"/>
-    <Compile Include="X3DAudio\Cone.cs"/>
-    <Compile Include="X3DAudio\CurvePoint.cs"/>
-    <Compile Include="X3DAudio\DistanceCurve.cs"/>
-    <Compile Include="X3DAudio\DspSettingsRef.cs"/>
-    <Compile Include="X3DAudio\Emitter.cs"/>
-    <Compile Include="MyXAudio2.cs"/>
-    <Compile Include="MyCueBank.cs"/>
-    <Compile Include="MyInMemoryWave.cs"/>
-    <Compile Include="MyWaveBank.cs"/>
-    <Compile Include="MySourceVoice.cs"/>
-    <Compile Include="MySourceVoicePool.cs"/>
-    <Compile Include="X3DAudio\Listener.cs"/>
-    <Compile Include="X3DAudio\MyX3DAudio.cs"/>
-    <Compile Include="NativeSourceVoice.cs"/>
-    <Compile Include="Properties\AssemblyInfo.cs"/>
-    <Compile Include="X3DAudio\DspSettings.cs"/>
-    <Compile Include="X3DAudio\X3DAudioExtensions.cs"/>
-    <Compile Include="X3DAudio\X3DAudioHandle.cs"/>
+    <Compile Include="MyDistanceCurves.cs" />
+    <Compile Include="MyEffectBank.cs" />
+    <Compile Include="MyEffectInstance.cs" />
+    <Compile Include="MyMusicState.cs" />
+    <Compile Include="X3DAudio\CalculateFlags.cs" />
+    <Compile Include="X3DAudio\ChannelAzimuts.cs" />
+    <Compile Include="X3DAudio\Cone.cs" />
+    <Compile Include="X3DAudio\CurvePoint.cs" />
+    <Compile Include="X3DAudio\DistanceCurve.cs" />
+    <Compile Include="X3DAudio\DspSettingsRef.cs" />
+    <Compile Include="X3DAudio\Emitter.cs" />
+    <Compile Include="MyXAudio2.cs" />
+    <Compile Include="MyCueBank.cs" />
+    <Compile Include="MyInMemoryWave.cs" />
+    <Compile Include="MyWaveBank.cs" />
+    <Compile Include="MySourceVoice.cs" />
+    <Compile Include="MySourceVoicePool.cs" />
+    <Compile Include="X3DAudio\Listener.cs" />
+    <Compile Include="X3DAudio\MyX3DAudio.cs" />
+    <Compile Include="NativeSourceVoice.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="X3DAudio\DspSettings.cs" />
+    <Compile Include="X3DAudio\X3DAudioExtensions.cs" />
+    <Compile Include="X3DAudio\X3DAudioHandle.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}"/>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VRage\VRage.csproj">
@@ -191,8 +170,8 @@
       <Name>VRage.Math</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup/>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   -->

@@ -1,5 +1,5 @@
-<?xml version='1.0' encoding='ASCII'?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{5CD034C8-A242-4BD6-94F4-F20C655A69E8}</ProjectGuid>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -12,7 +12,7 @@
     <ApplicationIcon>SpaceEngineers.ico</ApplicationIcon>
     <Thumbnail>GameThumbnail.png</Thumbnail>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <TargetFrameworkProfile/>
+    <TargetFrameworkProfile />
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -175,13 +175,13 @@
     <Reference Include="System">
       <Private>False</Private>
     </Reference>
-    <Reference Include="System.Data"/>
-    <Reference Include="System.Drawing"/>
-    <Reference Include="System.IdentityModel"/>
-    <Reference Include="System.Management"/>
-    <Reference Include="System.Runtime.Serialization"/>
-    <Reference Include="System.ServiceModel"/>
-    <Reference Include="System.Windows.Forms"/>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IdentityModel" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml">
       <Private>False</Private>
     </Reference>
@@ -191,53 +191,32 @@
     <Reference Include="System.Xml.Linq">
       <Private>False</Private>
     </Reference>
-    <Reference Include="HavokWrapper">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\HavokWrapper.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.DirectInput">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.DirectInput.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.Toolkit">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Toolkit.dll</HintPath>
-    </Reference>
-    <Reference Include="SteamSDK">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SteamSDK.dll</HintPath>
-    </Reference>
-    <Reference Include="VRage.Native">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Native.dll</HintPath>
-    </Reference>
-    <Reference Include="VRage.OpenVRWrapper">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.OpenVRWrapper.dll</HintPath>
-    </Reference>
-    <Reference Include="VRage.Scripting">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Scripting.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Content\Data\Scripts\StatLogic\SpaceStatEffect.cs"/>
-    <Compile Include="MyProgram.cs"/>
-    <Compile Include="GUI\DebugScreens\MyGuiScreenDebugShipLargeProperties.cs"/>
-    <Compile Include="GUI\DebugScreens\MyGuiScreenDebugShipSmallProperties.cs"/>
-    <Compile Include="Properties\AssemblyInfo.cs"/>
+    <Compile Include="Content\Data\Scripts\StatLogic\SpaceStatEffect.cs" />
+    <Compile Include="MyProgram.cs" />
+    <Compile Include="GUI\DebugScreens\MyGuiScreenDebugShipLargeProperties.cs" />
+    <Compile Include="GUI\DebugScreens\MyGuiScreenDebugShipSmallProperties.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="eula.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="GameThumbnail.png"/>
+    <Content Include="GameThumbnail.png" />
     <Content Include="SpaceEngineers.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <None Include="App.config"/>
-    <None Include="Content\Data\Characters_animals.sbc"/>
-    <None Include="Content\Data\Decals.sbc"/>
+    <None Include="App.config" />
+    <None Include="Content\Data\Characters_animals.sbc" />
+    <None Include="Content\Data\Decals.sbc" />
     <None Include="Content\Data\EntityComponents.sbc">
       <SubType>Designer</SubType>
     </None>
     <None Include="Content\Data\EntityContainers.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\Environment\EnvironmentModules.sbc"/>
+    <None Include="Content\Data\Environment\EnvironmentModules.sbc" />
     <None Include="Content\Data\Environment\VoxelMapCollections.sbc">
       <SubType>Designer</SubType>
     </None>
@@ -250,13 +229,13 @@
     <None Include="Content\Data\Environment\PhysicalModels_Bushes.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\Environment\VoxelMapCollections.sbc"/>
-    <None Include="Content\Data\GoodAIControlHandTools.sbc"/>
+    <None Include="Content\Data\Environment\VoxelMapCollections.sbc" />
+    <None Include="Content\Data\GoodAIControlHandTools.sbc" />
     <None Include="Content\Data\AmmoMagazines.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\Ammos.sbc"/>
-    <None Include="Content\Data\Animations.sbc"/>
+    <None Include="Content\Data\Ammos.sbc" />
+    <None Include="Content\Data\Animations.sbc" />
     <None Include="Content\Data\Audio.sbc">
       <SubType>Designer</SubType>
     </None>
@@ -269,7 +248,7 @@
     <None Include="Content\Data\Blueprints.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\Bushes.sbc"/>
+    <None Include="Content\Data\Bushes.sbc" />
     <None Include="Content\Data\Characters.sbc">
       <SubType>Designer</SubType>
     </None>
@@ -285,8 +264,8 @@
     <None Include="Content\Data\CubeBlocks.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\DebrisModels.sbc"/>
-    <None Include="Content\Data\Edges.sbc"/>
+    <None Include="Content\Data\DebrisModels.sbc" />
+    <None Include="Content\Data\Edges.sbc" />
     <None Include="Content\Data\Environment.sbc">
       <SubType>Designer</SubType>
     </None>
@@ -296,7 +275,7 @@
     <None Include="Content\Data\GasProperties.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\GlobalEvents.sbc"/>
+    <None Include="Content\Data\GlobalEvents.sbc" />
     <None Include="Content\Data\HandItems.sbc">
       <SubType>Designer</SubType>
     </None>
@@ -309,50 +288,50 @@
     <None Include="Content\Data\PhysicalItems.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\PhysicalMaterials.sbc"/>
+    <None Include="Content\Data\PhysicalMaterials.sbc" />
     <None Include="Content\Data\PlanetGeneratorDefinitions.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\Prefabs\Base1.sbc"/>
-    <None Include="Content\Data\Prefabs\Base4.sbc"/>
-    <None Include="Content\Data\Prefabs\BaseEasyStart1.sbc"/>
-    <None Include="Content\Data\Prefabs\BaseLoneSurvivor.sbc"/>
-    <None Include="Content\Data\Prefabs\CargoShip.sbc"/>
-    <None Include="Content\Data\Prefabs\ConstructionShip.sbc"/>
-    <None Include="Content\Data\Prefabs\EasyStart1Objects.sbs"/>
-    <None Include="Content\Data\Prefabs\Fighter.sbc"/>
-    <None Include="Content\Data\Prefabs\Fighter2.sbc"/>
-    <None Include="Content\Data\Prefabs\LargeShipBlue.sbc"/>
-    <None Include="Content\Data\Prefabs\LargeShipRed.sbc"/>
-    <None Include="Content\Data\Prefabs\LargeShipRedBuilding.sbc"/>
-    <None Include="Content\Data\Prefabs\LargeShipRedCrashed.sbc"/>
-    <None Include="Content\Data\Prefabs\LargeShipRedQS1.sbc"/>
-    <None Include="Content\Data\Prefabs\LargeShipUnderConstruction.sbc"/>
-    <None Include="Content\Data\Prefabs\Military1.sbc"/>
-    <None Include="Content\Data\Prefabs\Military2.sbc"/>
-    <None Include="Content\Data\Prefabs\Military3.sbc"/>
-    <None Include="Content\Data\Prefabs\MinerSmallShip.sbc"/>
-    <None Include="Content\Data\Prefabs\Mining1.sbc"/>
-    <None Include="Content\Data\Prefabs\Mining2.sbc"/>
-    <None Include="Content\Data\Prefabs\Mining3.sbc"/>
-    <None Include="Content\Data\Prefabs\NewLargeShipPrefab.sbc"/>
-    <None Include="Content\Data\Prefabs\NewLargeShipPrefabSurvival.sbc"/>
-    <None Include="Content\Data\Prefabs\NewSmallShipPrefab.sbc"/>
-    <None Include="Content\Data\Prefabs\NewSmallShipPrefabSurvival.sbc"/>
-    <None Include="Content\Data\Prefabs\NewStationPrefab.sbc"/>
-    <None Include="Content\Data\Prefabs\NewStationPrefabSurvival.sbc"/>
-    <None Include="Content\Data\Prefabs\RespawnShip.sbc"/>
-    <None Include="Content\Data\Prefabs\Small Ship 5418.sbc"/>
-    <None Include="Content\Data\Prefabs\SmallShip_SingleBlock.sbc"/>
-    <None Include="Content\Data\Prefabs\SpawnShipAssembler.sbc"/>
-    <None Include="Content\Data\Prefabs\SpawnShipDrill.sbc"/>
-    <None Include="Content\Data\Prefabs\SpawnShipEscapePod.sbc"/>
-    <None Include="Content\Data\Prefabs\SpawnShipRefineryAssembler.sbc"/>
-    <None Include="Content\Data\Prefabs\Station_8315622.sbc"/>
-    <None Include="Content\Data\Prefabs\SuicideShip.sbc"/>
-    <None Include="Content\Data\Prefabs\Trade1.sbc"/>
-    <None Include="Content\Data\Prefabs\Trade2.sbc"/>
-    <None Include="Content\Data\Prefabs\Trade3.sbc"/>
+    <None Include="Content\Data\Prefabs\Base1.sbc" />
+    <None Include="Content\Data\Prefabs\Base4.sbc" />
+    <None Include="Content\Data\Prefabs\BaseEasyStart1.sbc" />
+    <None Include="Content\Data\Prefabs\BaseLoneSurvivor.sbc" />
+    <None Include="Content\Data\Prefabs\CargoShip.sbc" />
+    <None Include="Content\Data\Prefabs\ConstructionShip.sbc" />
+    <None Include="Content\Data\Prefabs\EasyStart1Objects.sbs" />
+    <None Include="Content\Data\Prefabs\Fighter.sbc" />
+    <None Include="Content\Data\Prefabs\Fighter2.sbc" />
+    <None Include="Content\Data\Prefabs\LargeShipBlue.sbc" />
+    <None Include="Content\Data\Prefabs\LargeShipRed.sbc" />
+    <None Include="Content\Data\Prefabs\LargeShipRedBuilding.sbc" />
+    <None Include="Content\Data\Prefabs\LargeShipRedCrashed.sbc" />
+    <None Include="Content\Data\Prefabs\LargeShipRedQS1.sbc" />
+    <None Include="Content\Data\Prefabs\LargeShipUnderConstruction.sbc" />
+    <None Include="Content\Data\Prefabs\Military1.sbc" />
+    <None Include="Content\Data\Prefabs\Military2.sbc" />
+    <None Include="Content\Data\Prefabs\Military3.sbc" />
+    <None Include="Content\Data\Prefabs\MinerSmallShip.sbc" />
+    <None Include="Content\Data\Prefabs\Mining1.sbc" />
+    <None Include="Content\Data\Prefabs\Mining2.sbc" />
+    <None Include="Content\Data\Prefabs\Mining3.sbc" />
+    <None Include="Content\Data\Prefabs\NewLargeShipPrefab.sbc" />
+    <None Include="Content\Data\Prefabs\NewLargeShipPrefabSurvival.sbc" />
+    <None Include="Content\Data\Prefabs\NewSmallShipPrefab.sbc" />
+    <None Include="Content\Data\Prefabs\NewSmallShipPrefabSurvival.sbc" />
+    <None Include="Content\Data\Prefabs\NewStationPrefab.sbc" />
+    <None Include="Content\Data\Prefabs\NewStationPrefabSurvival.sbc" />
+    <None Include="Content\Data\Prefabs\RespawnShip.sbc" />
+    <None Include="Content\Data\Prefabs\Small Ship 5418.sbc" />
+    <None Include="Content\Data\Prefabs\SmallShip_SingleBlock.sbc" />
+    <None Include="Content\Data\Prefabs\SpawnShipAssembler.sbc" />
+    <None Include="Content\Data\Prefabs\SpawnShipDrill.sbc" />
+    <None Include="Content\Data\Prefabs\SpawnShipEscapePod.sbc" />
+    <None Include="Content\Data\Prefabs\SpawnShipRefineryAssembler.sbc" />
+    <None Include="Content\Data\Prefabs\Station_8315622.sbc" />
+    <None Include="Content\Data\Prefabs\SuicideShip.sbc" />
+    <None Include="Content\Data\Prefabs\Trade1.sbc" />
+    <None Include="Content\Data\Prefabs\Trade2.sbc" />
+    <None Include="Content\Data\Prefabs\Trade3.sbc" />
     <None Include="..\MedievalEngineers\Content\Data\RespawnShips.sbc">
       <Link>Content\Data\RespawnShips.sbc</Link>
     </None>
@@ -365,22 +344,22 @@
     <None Include="Content\Data\Screens\CubeBuilder.gsc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\Screens\CubeBuilderBar.gsc"/>
+    <None Include="Content\Data\Screens\CubeBuilderBar.gsc" />
     <None Include="Content\Data\Screens\DialogAmount.gsc">
       <SubType>Designer</SubType>
     </None>
     <None Include="Content\Data\Screens\JoinScreen.gsc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\Screens\MedicalsScreen.gsc"/>
-    <None Include="Content\Data\SoundBlock.sbc"/>
+    <None Include="Content\Data\Screens\MedicalsScreen.gsc" />
+    <None Include="Content\Data\SoundBlock.sbc" />
     <None Include="Content\Data\SpawnGroups.sbc">
       <SubType>Designer</SubType>
     </None>
     <None Include="Content\Data\Stats.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Content\Data\ShadowTextureSets.sbc"/>
+    <None Include="Content\Data\ShadowTextureSets.sbc" />
     <None Include="Content\Data\TransparentMaterials.sbc">
       <SubType>Designer</SubType>
     </None>
@@ -458,7 +437,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Properties\app.manifest"/>
+    <None Include="Properties\app.manifest" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.0">
@@ -483,43 +462,43 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}"/>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
   <ImportGroup Label="PropertySheets">
-    <Import Project="$(SolutionDir)\global.props" Condition="exists('$(SolutionDir)\global.props')"/>
+    <Import Project="$(SolutionDir)\global.props" Condition="exists('$(SolutionDir)\global.props')" />
   </ImportGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets"/>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
     <!-- Recreate content dir -->
-    <RemoveDir Directories="$(OutDir)..\Content" ContinueOnError="true"/>
-    <MakeDir Directories="$(OutDir)..\Content"/>
+    <RemoveDir Directories="$(OutDir)..\Content" ContinueOnError="true" />
+    <MakeDir Directories="$(OutDir)..\Content" />
     <!-- Link Effects and Shaders from Render projects to SpaceEngineers\Content dir -->
-    <RemoveDir Directories="$(ProjectDir)Content\Shaders" ContinueOnError="true"/>
-    <RemoveDir Directories="$(ProjectDir)Content\Effects2" ContinueOnError="true"/>
-    <Exec Command="mklink /J &quot;$(ProjectDir)Content\Shaders&quot; &quot;..\VRage.Render11\Shaders" IgnoreExitCode="true"/>
-    <Exec Command="mklink /J &quot;$(ProjectDir)Content\Effects2&quot; &quot;..\VRage.Render\Effects2" IgnoreExitCode="true"/>
+    <RemoveDir Directories="$(ProjectDir)Content\Shaders" ContinueOnError="true" />
+    <RemoveDir Directories="$(ProjectDir)Content\Effects2" ContinueOnError="true" />
+    <Exec Command="mklink /J &quot;$(ProjectDir)Content\Shaders&quot; &quot;..\VRage.Render11\Shaders" IgnoreExitCode="true" />
+    <Exec Command="mklink /J &quot;$(ProjectDir)Content\Effects2&quot; &quot;..\VRage.Render\Effects2" IgnoreExitCode="true" />
     <!-- Link Data and Effects from original source (always from source location) -->
-    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Data&quot; &quot;$(ProjectDir)Content\Data&quot;" IgnoreExitCode="true" Condition="$(DataFromSources)==true"/>
-    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Effects2&quot; &quot;$(ProjectDir)Content\Effects2&quot;" IgnoreExitCode="true" Condition="$(EffectsFromSources)==true"/>
-    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Shaders&quot; &quot;$(ProjectDir)Content\Shaders&quot;" IgnoreExitCode="true" Condition="$(EffectsFromSources)==true"/>
+    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Data&quot; &quot;$(ProjectDir)Content\Data&quot;" IgnoreExitCode="true" Condition="$(DataFromSources)==true" />
+    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Effects2&quot; &quot;$(ProjectDir)Content\Effects2&quot;" IgnoreExitCode="true" Condition="$(EffectsFromSources)==true" />
+    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Shaders&quot; &quot;$(ProjectDir)Content\Shaders&quot;" IgnoreExitCode="true" Condition="$(EffectsFromSources)==true" />
     <!-- This will create link for common texts -->
-    <RemoveDir Directories="$(OutDir)..\Content\Data\Localization\Common" ContinueOnError="true"/>
-    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Data\Localization\Common&quot; &quot;$(ProjectDir)..\VRage.Game\Content\Data\Localization&quot;" IgnoreExitCode="true"/>
+    <RemoveDir Directories="$(OutDir)..\Content\Data\Localization\Common" ContinueOnError="true" />
+    <Exec Command="mklink /J &quot;$(OutDir)..\Content\Data\Localization\Common&quot; &quot;$(ProjectDir)..\VRage.Game\Content\Data\Localization&quot;" IgnoreExitCode="true" />
     <!-- Link the rest of content subdirs (on GitHub, this is linked from Steam; on SVN this is linked from source location) -->
     <ItemGroup>
-      <ContentSubdirs Include="$([System.IO.Directory]::GetDirectories(&quot;$(ContentPath)&quot;))"/>
+      <ContentSubdirs Include="$([System.IO.Directory]::GetDirectories(&quot;$(ContentPath)&quot;))" />
     </ItemGroup>
-    <Exec Command="mklink /J &quot;$(OutDir)..\Content\$([System.IO.Path]::GetFilename(%(ContentSubdirs.Identity)))&quot; &quot;%(ContentSubdirs.Identity)&quot;" IgnoreExitCode="true"/>
-    <Exec Command="echo %time% Content copied"/>
+    <Exec Command="mklink /J &quot;$(OutDir)..\Content\$([System.IO.Path]::GetFilename(%(ContentSubdirs.Identity)))&quot; &quot;%(ContentSubdirs.Identity)&quot;" IgnoreExitCode="true" />
+    <Exec Command="echo %time% Content copied" />
     <!-- Copy redists -->
     <ItemGroup>
-      <Redists86 Include="$(ProjectDir)Redists\x86\*.*"/>
-      <Redists64 Include="$(ProjectDir)Redists\x64\*.*"/>
-      <BrainSimulatorBinaries Include="$(ProjectDir)..\..\3rd\BrainSimulator\**\*.*"/>
+      <Redists86 Include="$(ProjectDir)Redists\x86\*.*" />
+      <Redists64 Include="$(ProjectDir)Redists\x64\*.*" />
+      <BrainSimulatorBinaries Include="$(ProjectDir)..\..\3rd\BrainSimulator\**\*.*" />
     </ItemGroup>
-    <Copy Condition="'$(Configuration)|$(Platform)' == 'Release Official|x86'" SourceFiles="@(Redists86)" DestinationFolder="$(OutDir)"/>
-    <Copy Condition="'$(Configuration)|$(Platform)' == 'Release Official|x64'" SourceFiles="@(Redists64)" DestinationFolder="$(OutDir)"/>
-    <Copy Condition="'$(Configuration)|$(Platform)' == 'Release Official|x64'" SourceFiles="@(BrainSimulatorBinaries)" DestinationFolder="$(OutDir)%(RecursiveDir)"/>
+    <Copy Condition="'$(Configuration)|$(Platform)' == 'Release Official|x86'" SourceFiles="@(Redists86)" DestinationFolder="$(OutDir)" />
+    <Copy Condition="'$(Configuration)|$(Platform)' == 'Release Official|x64'" SourceFiles="@(Redists64)" DestinationFolder="$(OutDir)" />
+    <Copy Condition="'$(Configuration)|$(Platform)' == 'Release Official|x64'" SourceFiles="@(BrainSimulatorBinaries)" DestinationFolder="$(OutDir)%(RecursiveDir)" />
   </Target>
   <PropertyGroup>
     <PostBuildEvent>xcopy /y /s "$(ProjectDir)..\..\3rd\SQLite\*.*" "$(TargetDir)"
