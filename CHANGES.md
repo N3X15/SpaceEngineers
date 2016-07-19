@@ -13,3 +13,6 @@
   * See [Porting Gravity Generator Mods](docs/porting/gravity_generators.md)
   * <s>DX11 renderer now uses user's skybox preferences, and is (somewhat) backwards-compatible with DX9 skyboxes.</s>
     * This is a stock thing now.
+
+## Bugfixes
+ * Fixed NullReferenceException in MyShipController - 7/17/2016
