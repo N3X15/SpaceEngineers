@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='ASCII'?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -202,6 +202,7 @@
     <Compile Include="Definitions\MyGasProperties.cs" />
     <Compile Include="Definitions\MyGhostCharacterDefinition.cs" />
     <Compile Include="Definitions\MyGpsCollectionDefinition.cs" />
+    <Compile Include="Definitions\MyGravityProviderDefinition.cs" />
     <Compile Include="Definitions\MyHandDrillDefinition.cs" />
     <Compile Include="Definitions\MyLootBagDefinition.cs" />
     <Compile Include="Definitions\MyOxygenTankDefinition.cs" />
@@ -1525,6 +1526,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Game\Screens\Terminal\MyTerminalFactionController.cs" />
+    <None Include="app.config" />
     <None Include="Game\Entities\Cube\Blocks.cd" />
     <None Include="Game\Localization\MySpaceTexts.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
