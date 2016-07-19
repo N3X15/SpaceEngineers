@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import sys
+import re
 
 from lxml import etree
 
@@ -10,60 +11,8 @@ from lxml import etree
 # Guess.
 SE_ROOT_DIR = os.path.abspath(sys.argv[1])
 
-Configurations = ('Release', 'Debug')
-#Platforms = ('x86', 'x64')
-Platforms = ('x64',)
-Libraries = {
-    'HavokWrapper_SE': {
-        #'x86': [
-        #    'Bin/HavokWrapper.dll',
-        #    'Bin/HavokWrapper.xml',
-        #],
-        'x64': [
-            'Bin64/HavokWrapper.dll',
-            'Bin64/HavokWrapper.xml',
-        ],
-    },
-    'VRage.Native': {
-        #'x86': [
-        #    'Bin/VRage.Native.dll'
-        #],
-        'x64': [
-            'Bin64/VRage.Native.dll'
-        ],
-    },
-    # 'RakNet': {
-    #    'x86': ['Bin/RakNet.dll'],
-    #    'x64': ['Bin64/RakNet.dll'],
-    # },
-    'SteamSDK': {
-        #'x86': [
-        #    'Bin/SteamSDK.dll',
-        #    'Bin/steam_api.dll',
-        #],
-        'x64': [
-            'Bin64/SteamSDK.dll',
-            'Bin64/steam_api.dll',
-            'Bin64/steam_api64.dll',
-        ],
-    },
-    'SharpDX': {
-        'x64': [
-            'Bin64/SharpDX.D3DCompiler.dll',
-            'Bin64/SharpDX.Desktop.dll',
-            'Bin64/SharpDX.Direct2D1.dll',
-            'Bin64/SharpDX.Direct3D11.dll',
-            'Bin64/SharpDX.Direct3D9.dll',
-            'Bin64/SharpDX.DirectInput.dll',
-            'Bin64/SharpDX.dll',
-            'Bin64/SharpDX.DXGI.dll',
-            'Bin64/SharpDX.Mathematics.dll',
-            'Bin64/SharpDX.Toolkit.dll',
-            'Bin64/SharpDX.XAudio2.dll',
-        ]
-    }
-}
-
+REG_FIND_BAD_SELFCLOSERS=re.compile(r'([^ ])/>')
+FIX_BAD_SELFCLOSERS='\\1 />'
 
 class Reference:
 
@@ -101,7 +50,7 @@ class VS2015Project:
 
   def SaveToFile(self, filename):
     with open(filename, 'w') as f:
-      f.write(etree.tostring(self.project, pretty_print=True, xml_declaration=True).replace('/>',' />'))
+      f.write(REG_FIND_BAD_SELFCLOSERS.sub(FIX_BAD_SELFCLOSERS, etree.tostring(self.project, pretty_print=True, xml_declaration=True)))
 
   def subelement(self, parent, name):
     return etree.SubElement(parent, self.MSBNS + name)

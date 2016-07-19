@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<?xml version='1.0' encoding='ASCII'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <PropertyGroup>
     <ProjectGuid>{0E3C8169-55FC-4AFA-88AB-F0C0488AFEBA}</ProjectGuid>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -270,13 +270,13 @@
        Other similar extension points exist, see Microsoft.Common.targets. -->
   <!--
   <ItemGroup>
-    <YourFilesToCopy Include="$(ProjectDir)Content\**\*.*" Exclude="$(ProjectDir)Content\VoxelMaps\*.bmp"/>
+    <YourFilesToCopy Include="$(ProjectDir)Content\**\*.*" Exclude="$(ProjectDir)Content\VoxelMaps\*.bmp" />
   </ItemGroup>
   -->
   <Target Name="AfterBuild">
     <Exec Command="echo %time% Copying content..." />
     <!-- This will create Content junction (directory hardlink) in output, takes few ms -->
-     <!-- <RemoveDir Directories="$(OutDir)..\Content" /> -->
+    <!-- <RemoveDir Directories="$(OutDir)..\Content" /> -->
     <Exec Command="mklink /J &quot;$(OutDir)..\Content&quot; &quot;$(ContentPath)&quot;" IgnoreExitCode="true" />
     <Exec Command="echo %time% Content copied" />
     <Copy Condition="'$(Configuration)|$(Platform)' == 'Release Official|x86'" SourceFiles="@(Redists86)" DestinationFolder="$(OutDir)" />
