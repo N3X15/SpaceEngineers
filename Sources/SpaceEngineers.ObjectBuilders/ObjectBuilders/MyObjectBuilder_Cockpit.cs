@@ -20,7 +20,7 @@ namespace Sandbox.Common.ObjectBuilders
         public MyPositionAndOrientation? PilotRelativeWorld;
 
         [ProtoMember]
-        [Serialize(MyObjectFlags.Nullable | MyObjectFlags.Dynamic ,DynamicSerializerType = typeof(MyObjectBuilderDynamicSerializer))]
+        [Serialize(MyObjectFlags.Nullable | MyObjectFlags.Dynamic, DynamicSerializerType = typeof(MyObjectBuilderDynamicSerializer))]
         public MyObjectBuilder_AutopilotBase Autopilot;
 
         public void ClearPilotAndAutopilot()

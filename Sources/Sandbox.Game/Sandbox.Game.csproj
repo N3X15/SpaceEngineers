@@ -1526,7 +1526,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Game\Screens\Terminal\MyTerminalFactionController.cs" />
-    <None Include="app.config" />
     <None Include="Game\Entities\Cube\Blocks.cd" />
     <None Include="Game\Localization\MySpaceTexts.tt">
       <Generator>TextTemplatingFileGenerator</Generator>

@@ -379,6 +379,7 @@ namespace VRage.Scripting
                 {
                     throw new ArgumentNullException("assemblyLocations");
                 }
+                Console.WriteLine("Adding {0} to reffed assemblies...", location);
                 if (m_assemblyLocations.Add(location))
                 {
                     m_metadataReferences.Add(MetadataReference.CreateFromFile(location));

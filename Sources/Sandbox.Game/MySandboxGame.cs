@@ -1273,11 +1273,11 @@ namespace Sandbox
                 Log.Error("Mod API Whitelist Integrity: {0}", e.Message);
                 ShowWhitelistPopup = true;
             }
-            catch (Exception e)
-            {
-                Log.Error("Error during ModAPI initialization: {0}", e.Message);
-                ShowHotfixPopup = true;
-            }
+            //catch (Exception e)
+            //{
+            //    Log.Error("Error during ModAPI initialization: {0}", e.Message);
+            //    ShowHotfixPopup = true;
+            //}
         }
 
         private static void OnDotNetHotfixPopupClosed(MyGuiScreenMessageBox.ResultEnum result)

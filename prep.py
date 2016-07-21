@@ -97,15 +97,18 @@ if __name__ == '__main__':
     logging.info('USAGE: python prep.py <path\\to\\SpaceEngineers>')
     sys.exit(1)
 
-  newrefs = [
+  newrefs = {
       'HavokWrapper',
       'SharpDX.DirectInput',
       'SharpDX.Toolkit',
       'SteamSDK',
       'VRage.Native',
-      #'VRage.OpenVRWrapper',
-      #'VRage.Scripting',
-  ]
+      # Roslyn shit.
+      #'Microsoft.CodeAnalysis',
+      #'Microsoft.CodeAnalysis.CSharp',
+      #'System.Collections.Immutable',
+      #'System.Reflection.Metadata',
+  }
   for project_name in os.listdir('Sources'):
     logging.info('Fixing %s...', project_name)
     project_dir = os.path.join('Sources', project_name)

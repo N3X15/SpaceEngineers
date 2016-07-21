@@ -4596,6 +4596,12 @@ namespace Sandbox.Game.Entities
             }
         }
 
+        // SECE - Used in ModAPI. 7/19/2016
+        public void RemoveBlock(IMySlimBlock block, bool updatePhysics = false)
+        {
+            RemoveBlock((MySlimBlock)block, updatePhysics);
+        }
+
         public void RemoveBlockWithId(MySlimBlock block, bool updatePhysics = false)
         {
             var cb = GetCubeBlock(block.Min);

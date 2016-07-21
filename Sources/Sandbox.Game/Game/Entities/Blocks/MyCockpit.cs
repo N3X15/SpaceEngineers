@@ -70,6 +70,7 @@ namespace Sandbox.Game.Entities
         MyCharacter m_savedPilot = null;
 
         MyAutopilotBase m_aiPilot = null;
+
         public MyAutopilotBase AiPilot { get { return m_aiPilot; } }
         protected readonly Sync<Matrix?> m_pilotRelativeWorld;
         protected MyDefinitionId? m_pilotGunDefinition = null;
