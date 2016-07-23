@@ -7471,6 +7471,7 @@ namespace Sandbox.Game.Entities
         {
             Debug.Assert(Sync.IsServer);
             Debug.Assert(MySession.Static.Settings.EnableOxygen);
+            Debug.Assert(MySession.Static.Settings.EnableOxygenPressurization);
             MyMultiplayer.RaiseEvent(this, x => x.UpdateOxygenAmount_Implementation, oxygenAmount);
         }
 
@@ -7479,6 +7480,7 @@ namespace Sandbox.Game.Entities
         private void UpdateOxygenAmount_Implementation(float[] oxygenAmount)
         {
             Debug.Assert(MySession.Static.Settings.EnableOxygen);
+            Debug.Assert(MySession.Static.Settings.EnableOxygenPressurization);
             if (GridSystems != null && GridSystems.GasSystem != null)
             {
                 GridSystems.GasSystem.UpdateOxygenAmount(oxygenAmount);

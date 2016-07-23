@@ -151,7 +151,7 @@ namespace VRage.Scripting
                     typeof(NotSupportedException),
                     typeof(System.Nullable<>),
                     typeof(StringComparer),
-                    //typeof(System.IEquatable<>),
+                    typeof(System.IEquatable<>),
                     typeof(System.IComparable),
                     typeof(System.IComparable<>),
                     typeof(System.BitConverter), // Useful for serializing custom messages/data in non-xml format
@@ -163,8 +163,7 @@ namespace VRage.Scripting
                     typeof(StringSplitOptions),
                     typeof(DateTimeKind),
                     typeof(MidpointRounding),
-                    typeof(EventArgs)//,
-                    //typeof(System.IEquatable<>)
+                    typeof(EventArgs)
                 );
 
                 handle.AllowMembers(MyWhitelistTarget.Both,
