@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="Windows-1252"?>
+<?xml version='1.0' encoding='ASCII'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -108,11 +108,11 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="HavokWrapper">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\HavokWrapper.dll</HintPath>
-    </Reference>
     <Reference Include="SteamSDK">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SteamSDK.dll</HintPath>
+    </Reference>
+    <Reference Include="HavokWrapper">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\HavokWrapper.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

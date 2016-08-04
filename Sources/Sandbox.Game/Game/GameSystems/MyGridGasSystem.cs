@@ -202,7 +202,7 @@ namespace Sandbox.Game.GameSystems
             public int ForceCount;
         }
 
-        private static bool DEBUG_MODE = false;
+        private static bool DEBUG_MODE = false; // Never, ever enable this - N3X
 
         private readonly MyCubeGrid m_cubeGrid;
         private readonly MySoundPair m_airleakSound = new MySoundPair("EventAirVent");
