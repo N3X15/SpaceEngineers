@@ -142,6 +142,9 @@ namespace SpaceEngineers.Game.Entities.Blocks
         public MyGravityGeneratorBase()
             : base()
         {
+#if XB1 // XB1_SYNC_NOREFLECTION
+            m_gravityAcceleration = SyncType.CreateAndAddProp<float>();
+#endif // XB1
             m_gravityAcceleration.ValueChanged += (x) => AccelerationChanged();
         }
 
@@ -201,7 +204,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
                     else if (!entity.Physics.IsKinematic && 
                         !entity.Physics.IsStatic &&
                         entity.Physics.RigidBody2 == null && //jn: TODO this is actualy check for large grid
-                        (character == null || character.IsDead)) 
+                        character == null) 
                     {
                         if (entity.Physics.RigidBody != null && entity.Physics.RigidBody.IsActive)
                             entity.Physics.AddForce(MyPhysicsForceType.APPLY_WORLD_FORCE, gravity * entity.Physics.RigidBody.Mass, null, null);
