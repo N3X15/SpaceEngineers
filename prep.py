@@ -99,8 +99,18 @@ if __name__ == '__main__':
 
   newrefs = {
       'HavokWrapper',
+      #'RakNet',
+      'SharpDX',
+      'SharpDX.D3DCompiler',
+      'SharpDX.DXGI',
+      'SharpDX.Desktop',
+      'SharpDX.Direct2D1',
+      'SharpDX.Direct3D11',
+      'SharpDX.Direct3D9',
       'SharpDX.DirectInput',
+      'SharpDX.Mathematics',
       'SharpDX.Toolkit',
+      'SharpDX.XAudio2',
       'SteamSDK',
       'VRage.Native',
       # Roslyn shit.

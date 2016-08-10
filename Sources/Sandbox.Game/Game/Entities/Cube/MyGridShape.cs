@@ -180,11 +180,14 @@ namespace Sandbox.Game.Entities.Cube
             }
             foreach (var shape in m_blocksShapes.Values)
             {
+                /*
+                // SECE - Decompiled 8/9/2016 from dev due to https://github.com/KeenSoftwareHouse/SpaceEngineers/issues/554
+                // According to decompile, this was removed.
                 if (!shape.IsReferenceValid())
                 {
                     MyLog.Default.WriteLine("Block shape was disposed already in MyGridShape.Dispose!");
                 }
-
+                */
                 if (shape.Shape.IsValid())
                     shape.Shape.RemoveReference();
                 shape.RemoveReference();
@@ -621,12 +624,23 @@ namespace Sandbox.Game.Entities.Cube
             if (BlocksConnectedToWorld.Count == 0)
                 return;
             HkdFixedConnectivity conn = HkdFixedConnectivity.Create();
+            /*
             foreach (var pos in BlocksConnectedToWorld)
             {
                 HkdFixedConnectivity.Connection c = new HkdFixedConnectivity.Connection(Vector3.Zero, Vector3.Up, 1, m_blocksShapes[pos].Shape, havokWorld.GetFixedBody(), 0);
                 conn.AddConnection(ref c);
                 c.RemoveReference();
             }
+            */
+            // SECE - Decompiled 8/9/2016 from dev due to https://github.com/KeenSoftwareHouse/SpaceEngineers/issues/554
+            MyVoxelBase myVoxelBase = MySession.Static.VoxelMaps.Instances.Single<MyVoxelBase>();
+            foreach (Vector3I current in this.BlocksConnectedToWorld)
+            {
+                HkdFixedConnectivity.Connection connection = new HkdFixedConnectivity.Connection(Vector3.Zero, Vector3.Up, 1f, this.m_blocksShapes[current].Shape, myVoxelBase.Physics.RigidBody, 0);
+                conn.AddConnection(ref connection);
+                connection.RemoveReference();
+            }
+            // SECE - End decompiled
             destructionBody.SetFixedConnectivity(conn);
             conn.RemoveReference();
         }

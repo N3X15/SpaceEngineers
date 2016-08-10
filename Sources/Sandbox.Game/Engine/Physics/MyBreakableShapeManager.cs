@@ -197,6 +197,9 @@ namespace Sandbox.Engine.Physics
             m_tracker.CancelAll();
             using (m_poolLock.AcquireExclusiveUsing())
             {
+                /*
+                // SECE - According to decompile (8/9/2016 dev), this section was removed.
+                // Fixes https://github.com/KeenSoftwareHouse/SpaceEngineers/issues/554
                 foreach (var pool in m_pools.Values)
                 {
                     foreach (var model in pool.Values)
@@ -211,13 +214,15 @@ namespace Sandbox.Engine.Physics
                             releasedShapes.Add(shape.NativeDebug);
                         }
                 }
+                */
 
                 foreach (var pool in m_pools.Values)
                 {
                     foreach (var model in pool.Values)
                         foreach (var shape in model)
                         {
-                            var native = shape.NativeDebug;
+                            // SECE - As above, removed.
+                            //var native = shape.NativeDebug;
                             shape.RemoveReference();
                         }
                 }
