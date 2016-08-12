@@ -96,29 +96,10 @@ if __name__ == '__main__':
     logging.error('{0} is not a directory.', sys.args[1])
     logging.info('USAGE: python prep.py <path\\to\\SpaceEngineers>')
     sys.exit(1)
-
-  newrefs = {
-      'HavokWrapper',
-      #'RakNet',
-      'SharpDX',
-      'SharpDX.D3DCompiler',
-      'SharpDX.DXGI',
-      'SharpDX.Desktop',
-      'SharpDX.Direct2D1',
-      'SharpDX.Direct3D11',
-      'SharpDX.Direct3D9',
-      'SharpDX.DirectInput',
-      'SharpDX.Mathematics',
-      'SharpDX.Toolkit',
-      'SharpDX.XAudio2',
-      'SteamSDK',
-      'VRage.Native',
-      # Roslyn shit.
-      #'Microsoft.CodeAnalysis',
-      #'Microsoft.CodeAnalysis.CSharp',
-      #'System.Collections.Immutable',
-      #'System.Reflection.Metadata',
-  }
+  config={}
+  with open('config.yml','r') as f:
+    config=yaml.load(f)
+  newrefs = config.get('reference-fixes',{})
   for project_name in os.listdir('Sources'):
     logging.info('Fixing %s...', project_name)
     project_dir = os.path.join('Sources', project_name)

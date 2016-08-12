@@ -52,3 +52,5 @@ user.props
 /3rd/SteamSDK/debug/x86/steam_api.dll
 /3rd/SteamSDK/release/x86/steam_api.dll
 /packages
+/user-config.yml
+/dist

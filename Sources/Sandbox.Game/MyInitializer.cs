@@ -64,6 +64,7 @@ namespace Sandbox
             m_appName = appName;
 
             var logName = new StringBuilder(m_appName);
+            logName.Append("_SECE"); // SECE
             if (addDateToLog)
             {
                 logName.Append("_");
