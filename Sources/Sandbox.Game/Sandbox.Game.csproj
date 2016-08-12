@@ -186,6 +186,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Definitions\GUI\MyButtonListStyleDefinition.cs" />
+    <Compile Include="Definitions\GUI\MyGuiSkinDefinition.cs" />
     <Compile Include="Definitions\MyAdvancedDoorDefinition.cs" />
     <Compile Include="Definitions\MyAiCommandBehaviorDefinition.cs" />
     <Compile Include="Definitions\MyAirtightDoorGenericDefinition.cs" />
@@ -210,6 +212,7 @@
     <Compile Include="Definitions\MyGravityProviderDefinition.cs" />
     <Compile Include="Definitions\MyHandDrillDefinition.cs" />
     <Compile Include="Definitions\MyLootBagDefinition.cs" />
+    <Compile Include="Definitions\MyMechanicalConnectionBlockBaseDefinition.cs" />
     <Compile Include="Definitions\MyOxygenTankDefinition.cs" />
     <Compile Include="Definitions\MyPhysicalModelCollectionDefinition.cs" />
     <Compile Include="Definitions\MyPirateAntennaDefinition.cs" />
@@ -526,6 +529,8 @@
     <Compile Include="Game\Entities\Character\Components\MyInventorySpawnComponent.cs" />
     <Compile Include="Game\Entities\Character\Components\MyCharacterJetpackComponent.cs" />
     <Compile Include="Game\Entities\Character\Components\MyCharacterOxygenComponent.cs" />
+    <Compile Include="Game\Entities\Cube\IMyPlacementProvider.cs" />
+    <Compile Include="Game\Entities\Cube\MyDefaultPlacementProvider.cs" />
     <Compile Include="Game\Entities\Interfaces\IMyBlockPlacerBase.cs" />
     <Compile Include="Game\Entities\Interfaces\IMyAngleGrinder.cs" />
     <Compile Include="Game\Entities\Interfaces\IMyEngineerToolBase.cs" />
@@ -548,6 +553,8 @@
     <Compile Include="Game\GUI\DebugInputComponents\VoxelsDebugInputComponent\MyVoxelDebugInputComponent.StorageWriteCache.cs" />
     <Compile Include="Game\GUI\DebugInputComponents\VoxelsDebugInputComponent\MyVoxelDebugInputComponent.Physics.cs" />
     <Compile Include="Game\GUI\HudViewers\MyHudMarkerRenderBase.cs" />
+    <Compile Include="Game\Multiplayer\MyPerPlayerData.cs" />
+    <Compile Include="Game\GUI\MyGuiSkinManager.cs" />
     <Compile Include="Game\Multiplayer\MySyncDamage.cs" />
     <Compile Include="Game\Entities\Cube\MyGridPhysicalDynamicGroupData.cs" />
     <Compile Include="Game\Entities\Cube\MyGridPhysics.Destruction.cs" />
@@ -599,6 +606,7 @@
     <Compile Include="Game\GameSystems\CoordinateSystem\MyLocalCoordSys.cs" />
     <Compile Include="Game\GameSystems\ContextHandling\MyGameFocusManager.cs" />
     <Compile Include="Game\GUI\DebugInputComponents\PlanetsDebugInputComponent\MyPlanetsDebugInputComponent.SectorTree.cs" />
+    <Compile Include="Game\Replication\MyComponentReplicableBase.cs" />
     <Compile Include="Game\SessionComponents\MySectorWeatherComponent.cs" />
     <Compile Include="Game\SessionComponents\MyPlanetTrackComponent.cs" />
     <Compile Include="Game\SessionComponents\MyUniformGravityProviderComponent.cs" />
