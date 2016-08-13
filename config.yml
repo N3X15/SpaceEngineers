@@ -5,7 +5,7 @@ version:
   # F:\Projects\SpaceEngineers-CE\Sources\SpaceEngineers.Game\SpaceEngineersGame.cs
   file: Sources/SpaceEngineers.Game/SpaceEngineersGame.cs
   type: ksh
-references-fixes:
+reference-fixes:
   - HavokWrapper
   # Only used on XB1.
   #- RakNet
@@ -23,7 +23,7 @@ references-fixes:
   - SteamSDK
   - VRage.Native
   # Roslyn shit.
-  #- Microsoft.CodeAnalysis
-  #- Microsoft.CodeAnalysis.CSharp
-  #- System.Collections.Immutable
-  #- System.Reflection.Metadata
+  - Microsoft.CodeAnalysis
+  - Microsoft.CodeAnalysis.CSharp
+  - System.Collections.Immutable
+  - System.Reflection.Metadata

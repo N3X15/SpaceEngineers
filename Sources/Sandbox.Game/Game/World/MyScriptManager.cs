@@ -49,6 +49,9 @@ namespace Sandbox.Game.World
         public void LoadData()
         {
             VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("MyScriptManager.LoadData");
+            //////////////
+            Gui.CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Mod Scripts");
+            //////////////
             MySandboxGame.Log.WriteLine("MyScriptManager.LoadData() - START");
             MySandboxGame.Log.IncreaseIndent();
             Static = this;
@@ -73,6 +76,9 @@ namespace Sandbox.Game.World
                 }
             }
 
+            //////////////
+            Gui.CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Mod Assemblies");
+            //////////////
             foreach (var ass in Scripts.Values)
             {
 #if XB1 // XB1_ALLINONEASSEMBLY

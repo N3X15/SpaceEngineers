@@ -1,9 +1,10 @@
 import logging
 import os
+import re
 import shutil
 import sys
-import re
 
+import yaml
 from lxml import etree
 
 # CONFIGURATION
@@ -11,8 +12,9 @@ from lxml import etree
 # Guess.
 SE_ROOT_DIR = os.path.abspath(sys.argv[1])
 
-REG_FIND_BAD_SELFCLOSERS=re.compile(r'([^ ])/>')
-FIX_BAD_SELFCLOSERS='\\1 />'
+REG_FIND_BAD_SELFCLOSERS = re.compile(r'([^ ])/>')
+FIX_BAD_SELFCLOSERS = '\\1 />'
+
 
 class Reference:
 
@@ -79,7 +81,7 @@ class VS2015Project:
       del self.references[refID]
     if refID in self.projectrefs:
       if verbose:
-        logging.info('Removed project reference %s.', self.projectrefs[refID].find(self.MSBNS+'Name').text)
+        logging.info('Removed project reference %s.', self.projectrefs[refID].find(self.MSBNS + 'Name').text)
       self.projectref_group.remove(self.projectrefs[refID])
       del self.projectrefs[refID]
 
@@ -96,10 +98,10 @@ if __name__ == '__main__':
     logging.error('{0} is not a directory.', sys.args[1])
     logging.info('USAGE: python prep.py <path\\to\\SpaceEngineers>')
     sys.exit(1)
-  config={}
-  with open('config.yml','r') as f:
-    config=yaml.load(f)
-  newrefs = config.get('reference-fixes',{})
+  config = {}
+  with open('config.yml', 'r') as f:
+    config = yaml.load(f)
+  newrefs = config.get('reference-fixes', [])
   for project_name in os.listdir('Sources'):
     logging.info('Fixing %s...', project_name)
     project_dir = os.path.join('Sources', project_name)

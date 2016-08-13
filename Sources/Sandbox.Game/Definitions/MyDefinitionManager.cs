@@ -52,6 +52,7 @@ using Sandbox.Game.EntityComponents;
 using Sandbox.Game.World;
 using Sandbox.Graphics.GUI;
 using VRage.Library;
+using Sandbox.Game.Gui;
 
 #endregion
 
@@ -207,14 +208,24 @@ namespace Sandbox.Definitions
             MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadData() - START");
 
             ProfilerShort.Begin("Wait for preload to complete");
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Waiting for Preload Completion");
+            //////////////
             while (MySandboxGame.IsPreloading)
             {
                 System.Threading.Thread.Sleep(1);
             }
             ProfilerShort.End();
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Unloading Data");
+            //////////////
             UnloadData();
             Loading = true;
+            
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Scenarios");
+            //////////////
             LoadScenarios();
 
             using (MySandboxGame.Log.IndentUsing(LoggingOptions.NONE))
@@ -225,7 +236,9 @@ namespace Sandbox.Definitions
                 var baseDefinitionSet = m_modDefinitionSets[""];
 
                 ProfilerShort.Begin("Parse Base Definitions");
-
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Base Definitions");
+                //////////////
                 LoadDefinitions(MyModContext.BaseGame, baseDefinitionSet);
 
                 ProfilerShort.End();
@@ -245,7 +258,9 @@ namespace Sandbox.Definitions
                 ProfilerShort.End();
 
                 ProfilerShort.Begin("Parse Mod Definitions");
-
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Mod Definitions");
+                //////////////
                 foreach (var mod in mods)
                 {
                     MyModContext context = new MyModContext();
@@ -260,12 +275,18 @@ namespace Sandbox.Definitions
                 }
 
                 ProfilerShort.BeginNextBlock("Post Process Definitions");
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Post-processing Definitions");
+                //////////////
                 if (MySandboxGame.Static != null)
                 {
                     LoadPostProcess();
                 }
 
                 ProfilerShort.BeginNextBlock("Test Models");
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Performing Tests");
+                //////////////
                 if (MyFakes.TEST_MODELS && (Sandbox.AppCode.MyExternalAppBase.Static == null))
                 {
                     var s = Stopwatch.GetTimestamp();
@@ -299,6 +320,9 @@ namespace Sandbox.Definitions
                 }
 
                 ProfilerShort.BeginNextBlock("Postprocess environment item classes.");
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Post-processing Environment");
+                //////////////
                 var classes = MyDefinitionManager.Static.GetEnvironmentItemClassDefinitions();
                 foreach (var cl in classes)
                 {
@@ -374,7 +398,7 @@ namespace Sandbox.Definitions
             //*
 
             // Spread testing of models over the available workers
-            ParallelTasks.Parallel.ForEach<string>(GetDefinitionPairNames(), delegate(string pair)
+            ParallelTasks.Parallel.ForEach<string>(GetDefinitionPairNames(), delegate (string pair)
             {
                 var group = GetDefinitionGroup(pair);
                 TestCubeBlockModel(group.Small);
@@ -688,7 +712,7 @@ namespace Sandbox.Definitions
             }
         }
 
-        private static void ReadPrefabHeader(string file, ref  List<MyObjectBuilder_PrefabDefinition> prefabs, XmlReader reader)
+        private static void ReadPrefabHeader(string file, ref List<MyObjectBuilder_PrefabDefinition> prefabs, XmlReader reader)
         {
             MyObjectBuilder_PrefabDefinition definition = new MyObjectBuilder_PrefabDefinition();
             definition.PrefabPath = file;
@@ -756,96 +780,96 @@ namespace Sandbox.Definitions
 
             if (objBuilder.GridCreators != null)
             {
-                MySandboxGame.Log.WriteLine("Loading grid creators");
+                SECEUpdateLoadStatus("Loading grid creators");
                 InitGridCreators(context, definitionSet.m_gridCreateDefinitions, definitionSet.m_definitionsById, objBuilder.GridCreators, failOnDebug);
             }
 
             if (objBuilder.Ammos != null)
             {
-                MySandboxGame.Log.WriteLine("Loading ammo definitions");
+                SECEUpdateLoadStatus("Loading ammo definitions");
                 InitAmmos(context, definitionSet.m_ammoDefinitionsById, objBuilder.Ammos, failOnDebug);
             }
             if (objBuilder.AmmoMagazines != null)
             {
-                MySandboxGame.Log.WriteLine("Loading ammo magazines");
+                SECEUpdateLoadStatus("Loading ammo magazines");
                 InitAmmoMagazines(context, definitionSet.m_definitionsById, objBuilder.AmmoMagazines, failOnDebug);
             }
             if (objBuilder.Animations != null)
             {
-                MySandboxGame.Log.WriteLine("Loading animations");
+                SECEUpdateLoadStatus("Loading animations");
                 InitAnimations(context, definitionSet.m_definitionsById, objBuilder.Animations, definitionSet.m_animationsBySkeletonType, failOnDebug);
             }
             if (objBuilder.CategoryClasses != null)
             {
-                MySandboxGame.Log.WriteLine("Loading category classes");
+                SECEUpdateLoadStatus("Loading category classes");
                 InitCategoryClasses(context, definitionSet.m_categoryClasses, objBuilder.CategoryClasses, failOnDebug);
             }
             if (objBuilder.Debris != null)
             {
-                MySandboxGame.Log.WriteLine("Loading debris");
+                SECEUpdateLoadStatus("Loading debris");
                 InitDebris(context, definitionSet.m_definitionsById, objBuilder.Debris, failOnDebug);
             }
             if (objBuilder.Edges != null)
             {
-                MySandboxGame.Log.WriteLine("Loading edges");
+                SECEUpdateLoadStatus("Loading edges");
                 InitEdges(context, definitionSet.m_definitionsById, objBuilder.Edges, failOnDebug);
             }
             if (objBuilder.Factions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading factions");
+                SECEUpdateLoadStatus("Loading factions");
                 InitDefinitionsGeneric<MyObjectBuilder_FactionDefinition, MyFactionDefinition>
                     (context, definitionSet.m_definitionsById, objBuilder.Factions, failOnDebug);
             }
             if (objBuilder.BlockPositions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading block positions");
+                SECEUpdateLoadStatus("Loading block positions");
                 InitBlockPositions(definitionSet.m_blockPositions, objBuilder.BlockPositions, failOnDebug);
             }
             if (objBuilder.BlueprintClasses != null)
             {
-                MySandboxGame.Log.WriteLine("Loading blueprint classes");
+                SECEUpdateLoadStatus("Loading blueprint classes");
                 InitBlueprintClasses(context, definitionSet.m_blueprintClasses, objBuilder.BlueprintClasses, failOnDebug);
             }
             if (objBuilder.BlueprintClassEntries != null)
             {
-                MySandboxGame.Log.WriteLine("Loading blueprint class entries");
+                SECEUpdateLoadStatus("Loading blueprint class entries");
                 InitBlueprintClassEntries(context, definitionSet.m_blueprintClassEntries, objBuilder.BlueprintClassEntries, failOnDebug);
             }
             if (objBuilder.Blueprints != null)
             {
-                MySandboxGame.Log.WriteLine("Loading blueprints");
+                SECEUpdateLoadStatus("Loading blueprints");
                 InitBlueprints(context, definitionSet.m_blueprintsById, definitionSet.m_blueprintsByResultId, objBuilder.Blueprints, failOnDebug);
             }
             if (objBuilder.Components != null)
             {
-                MySandboxGame.Log.WriteLine("Loading components");
+                SECEUpdateLoadStatus("Loading components");
                 InitComponents(context, definitionSet.m_definitionsById, objBuilder.Components, failOnDebug);
             }
             if (objBuilder.Configuration != null)
             {
-                MySandboxGame.Log.WriteLine("Loading configuration");
+                SECEUpdateLoadStatus("Loading configuration");
                 Check(failOnDebug, "Configuration", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitConfiguration(definitionSet, objBuilder.Configuration);
             }
             if (objBuilder.ContainerTypes != null)
             {
-                MySandboxGame.Log.WriteLine("Loading container types");
+                SECEUpdateLoadStatus("Loading container types");
                 InitContainerTypes(context, definitionSet.m_containerTypeDefinitions, objBuilder.ContainerTypes, failOnDebug);
             }
             if (objBuilder.Environments != null)
             {
-                MySandboxGame.Log.WriteLine("Loading environment definition");
+                SECEUpdateLoadStatus("Loading environment definition");
                 Check(failOnDebug, "Environment", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitEnvironment(context, definitionSet, objBuilder.Environments, failOnDebug);
             }
             if (objBuilder.EnvironmentItemsEntries != null)
             {
-                MySandboxGame.Log.WriteLine("Loading environment items entries");
+                SECEUpdateLoadStatus("Loading environment items entries");
                 InitEnvironmentItemsEntries(context, definitionSet.m_environmentItemsEntries, objBuilder.EnvironmentItemsEntries, failOnDebug);
             }
             if (objBuilder.GlobalEvents != null)
             {
-                MySandboxGame.Log.WriteLine("Loading event definitions");
+                SECEUpdateLoadStatus("Loading event definitions");
                 InitGlobalEvents(context, definitionSet.m_definitionsById, objBuilder.GlobalEvents, failOnDebug);
             }
             if (objBuilder.HandItems != null)
@@ -862,232 +886,232 @@ namespace Sandbox.Definitions
             }
             if (objBuilder.PhysicalItems != null)
             {
-                MySandboxGame.Log.WriteLine("Loading physical items");
+                SECEUpdateLoadStatus("Loading physical items");
                 InitPhysicalItems(context, definitionSet.m_definitionsById, definitionSet.m_physicalItemDefinitions, objBuilder.PhysicalItems, failOnDebug);
             }
 
             if (objBuilder.TransparentMaterials != null)
             {
-                MySandboxGame.Log.WriteLine("Loading transparent material properties");
+                SECEUpdateLoadStatus("Loading transparent material properties");
                 InitTransparentMaterials(context, definitionSet.m_definitionsById, objBuilder.TransparentMaterials);
             }
             if (objBuilder.VoxelMaterials != null)
             {
                 if (MySandboxGame.Static != null)
                 {
-                    MySandboxGame.Log.WriteLine("Loading voxel material definitions");
+                    SECEUpdateLoadStatus("Loading voxel material definitions");
                     InitVoxelMaterials(context, definitionSet.m_voxelMaterialsByName, objBuilder.VoxelMaterials, failOnDebug);
                 }
             }
             if (objBuilder.Characters != null)
             {
-                MySandboxGame.Log.WriteLine("Loading character definitions");
+                SECEUpdateLoadStatus("Loading character definitions");
                 InitCharacters(context, definitionSet.m_characters, definitionSet.m_definitionsById, objBuilder.Characters, failOnDebug);
             }
 
             if (objBuilder.CompoundBlockTemplates != null)
             {
-                MySandboxGame.Log.WriteLine("Loading compound block template definitions");
+                SECEUpdateLoadStatus("Loading compound block template definitions");
                 InitDefinitionsGeneric<MyObjectBuilder_CompoundBlockTemplateDefinition, MyCompoundBlockTemplateDefinition>
                     (context, definitionSet.m_definitionsById, objBuilder.CompoundBlockTemplates, failOnDebug);
             }
 
             if (objBuilder.Sounds != null)
             {
-                MySandboxGame.Log.WriteLine("Loading sound definitions");
+                SECEUpdateLoadStatus("Loading sound definitions");
                 InitSounds(context, definitionSet.m_sounds, objBuilder.Sounds, failOnDebug);
             }
 
             if (objBuilder.MultiBlocks != null)
             {
-                MySandboxGame.Log.WriteLine("Loading multi cube block definitions");
+                SECEUpdateLoadStatus("Loading multi cube block definitions");
                 InitDefinitionsGeneric<MyObjectBuilder_MultiBlockDefinition, MyMultiBlockDefinition>
                     (context, definitionSet.m_definitionsById, objBuilder.MultiBlocks, failOnDebug);
             }
 
             if (objBuilder.SoundCategories != null)
             {
-                MySandboxGame.Log.WriteLine("Loading sound categories");
+                SECEUpdateLoadStatus("Loading sound categories");
                 InitSoundCategories(context, definitionSet.m_definitionsById, objBuilder.SoundCategories, failOnDebug);
             }
 
             if (objBuilder.ShipSoundGroups != null)
             {
-                MySandboxGame.Log.WriteLine("Loading ship sound groups");
+                SECEUpdateLoadStatus("Loading ship sound groups");
                 InitShipSounds(context, definitionSet.m_shipSounds, objBuilder.ShipSoundGroups, failOnDebug);
             }
 
             if (objBuilder.ShipSoundSystem != null)
             {
-                MySandboxGame.Log.WriteLine("Loading ship sound groups");
+                SECEUpdateLoadStatus("Loading ship sound groups");
                 InitShipSoundSystem(context, ref definitionSet.m_shipSoundSystem, objBuilder.ShipSoundSystem, failOnDebug);
             }
 
             if (objBuilder.LCDTextures != null)
             {
-                MySandboxGame.Log.WriteLine("Loading LCD texture categories");
+                SECEUpdateLoadStatus("Loading LCD texture categories");
                 InitLCDTextureCategories(context, definitionSet.m_definitionsById, objBuilder.LCDTextures, failOnDebug);
             }
 
             if (objBuilder.AIBehaviors != null)
             {
-                MySandboxGame.Log.WriteLine("Loading behaviors");
+                SECEUpdateLoadStatus("Loading behaviors");
                 InitAIBehaviors(context, definitionSet.m_behaviorDefinitions, objBuilder.AIBehaviors, failOnDebug);
             }
 
             if (objBuilder.VoxelMapStorages != null)
             {
-                MySandboxGame.Log.WriteLine("Loading voxel map storage definitions");
+                SECEUpdateLoadStatus("Loading voxel map storage definitions");
                 InitVoxelMapStorages(context, definitionSet.m_voxelMapStorages, objBuilder.VoxelMapStorages, failOnDebug);
             }
 
             if (objBuilder.RopeTypes != null)
             {
-                MySandboxGame.Log.WriteLine("Loading Rope type definitions");
+                SECEUpdateLoadStatus("Loading Rope type definitions");
                 InitGenericObjects(context, definitionSet.m_definitionsById, objBuilder.RopeTypes, failOnDebug);
             }
 
             if (objBuilder.Bots != null)
             {
-                MySandboxGame.Log.WriteLine("Loading agent definitions");
+                SECEUpdateLoadStatus("Loading agent definitions");
                 InitBots(context, definitionSet.m_definitionsById, objBuilder.Bots, failOnDebug);
             }
 
             if (objBuilder.PhysicalMaterials != null)
             {
-                MySandboxGame.Log.WriteLine("Loading physical material properties");
+                SECEUpdateLoadStatus("Loading physical material properties");
                 InitPhysicalMaterials(context, definitionSet.m_definitionsById, objBuilder.PhysicalMaterials);
             }
 
             if (objBuilder.AiCommands != null)
             {
-                MySandboxGame.Log.WriteLine("Loading bot commands");
+                SECEUpdateLoadStatus("Loading bot commands");
                 InitBotCommands(context, definitionSet.m_definitionsById, objBuilder.AiCommands, failOnDebug);
             }
 
             if (objBuilder.AreaMarkerDefinitions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading area definitions");
+                SECEUpdateLoadStatus("Loading area definitions");
                 InitDefinitionsGeneric<MyObjectBuilder_AreaMarkerDefinition, MyAreaMarkerDefinition>
                     (context, definitionSet.m_definitionsById, objBuilder.AreaMarkerDefinitions, failOnDebug);
             }
 
             if (objBuilder.BlockNavigationDefinitions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading navigation definitions");
+                SECEUpdateLoadStatus("Loading navigation definitions");
                 InitNavigationDefinitions(context, definitionSet.m_definitionsById, objBuilder.BlockNavigationDefinitions, failOnDebug);
             }
 
             if (objBuilder.Cuttings != null)
             {
-                MySandboxGame.Log.WriteLine("Loading cutting definitions");
+                SECEUpdateLoadStatus("Loading cutting definitions");
                 InitGenericObjects(context, definitionSet.m_definitionsById, objBuilder.Cuttings, failOnDebug);
             }
 
             if (objBuilder.ControllerSchemas != null)
             {
-                MySandboxGame.Log.WriteLine("Loading controller schemas definitions");
+                SECEUpdateLoadStatus("Loading controller schemas definitions");
                 InitControllerSchemas(context, definitionSet.m_definitionsById, objBuilder.ControllerSchemas, failOnDebug);
             }
 
             if (objBuilder.CurveDefinitions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading curve definitions");
+                SECEUpdateLoadStatus("Loading curve definitions");
                 InitCurves(context, definitionSet.m_definitionsById, objBuilder.CurveDefinitions, failOnDebug);
             }
 
             if (objBuilder.CharacterNames != null)
             {
-                MySandboxGame.Log.WriteLine("Loading character names");
+                SECEUpdateLoadStatus("Loading character names");
                 InitCharacterNames(context, definitionSet.m_characterNames, objBuilder.CharacterNames, failOnDebug);
             }
 
             if (objBuilder.Battle != null)
             {
-                MySandboxGame.Log.WriteLine("Loading battle definition");
+                SECEUpdateLoadStatus("Loading battle definition");
                 Check(failOnDebug, "Battle", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitBattle(context, ref definitionSet.m_battleDefinition, objBuilder.Battle, failOnDebug);
             }
 
             if (objBuilder.DecalGlobals != null)
             {
-                MySandboxGame.Log.WriteLine("Loading decal global definitions");
+                SECEUpdateLoadStatus("Loading decal global definitions");
                 Check(failOnDebug, "DecalGlobals", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitDecalGlobals(context, objBuilder.DecalGlobals, failOnDebug);
             }
 
             if (objBuilder.Decals != null)
             {
-                MySandboxGame.Log.WriteLine("Loading decal definitions");
+                SECEUpdateLoadStatus("Loading decal definitions");
                 Check(failOnDebug, "Decals", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitDecals(context, objBuilder.Decals, failOnDebug);
             }
 
             if (objBuilder.PlanetGeneratorDefinitions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading planet definition");
+                SECEUpdateLoadStatus("Loading planet definition");
                 Check(failOnDebug, "Planet", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitPlanetGeneratorDefinitions(context, definitionSet, objBuilder.PlanetGeneratorDefinitions, failOnDebug);
             }
 
             if (objBuilder.StatDefinitions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading stat definitions");
+                SECEUpdateLoadStatus("Loading stat definitions");
                 Check(failOnDebug, "Stat", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitGenericObjects(context, definitionSet.m_definitionsById, objBuilder.StatDefinitions, failOnDebug);
             }
 
             if (objBuilder.GasProperties != null)
             {
-                MySandboxGame.Log.WriteLine("Loading gas property definitions");
+                SECEUpdateLoadStatus("Loading gas property definitions");
                 Check(failOnDebug, "Gas", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitGenericObjects(context, definitionSet.m_definitionsById, objBuilder.GasProperties, failOnDebug);
             }
 
             if (objBuilder.ResourceDistributionGroups != null)
             {
-                MySandboxGame.Log.WriteLine("Loading resource distribution groups");
+                SECEUpdateLoadStatus("Loading resource distribution groups");
                 Check(failOnDebug, "DistributionGroup", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitGenericObjects(context, definitionSet.m_definitionsById, objBuilder.ResourceDistributionGroups, failOnDebug);
             }
 
             if (objBuilder.ComponentGroups != null)
             {
-                MySandboxGame.Log.WriteLine("Loading component group definitions");
+                SECEUpdateLoadStatus("Loading component group definitions");
                 Check(failOnDebug, "Component groups", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitComponentGroups(context, definitionSet.m_componentGroups, objBuilder.ComponentGroups, failOnDebug);
             }
 
             if (objBuilder.ComponentSubstitutions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading component substitution definitions");
+                SECEUpdateLoadStatus("Loading component substitution definitions");
                 Check(failOnDebug, "Component groups", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitComponentSubstitutions(context, definitionSet.m_componentSubstitutions, objBuilder.ComponentSubstitutions, failOnDebug);
             }
 
             if (objBuilder.ComponentBlocks != null)
             {
-                MySandboxGame.Log.WriteLine("Loading component block definitions");
+                SECEUpdateLoadStatus("Loading component block definitions");
                 InitComponentBlocks(context, definitionSet.m_componentBlockEntries, objBuilder.ComponentBlocks, failOnDebug);
             }
 
             if (objBuilder.PlanetPrefabs != null)
             {
-                MySandboxGame.Log.WriteLine("Loading planet prefabs");
+                SECEUpdateLoadStatus("Loading planet prefabs");
                 Check(failOnDebug, "Planet prefabs", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitPlanetPrefabDefinitions(context, ref definitionSet.m_planetPrefabDefinitions, objBuilder.PlanetPrefabs, failOnDebug);
             }
 
             if (objBuilder.EnvironmentGroups != null)
             {
-                MySandboxGame.Log.WriteLine("Loading environment groups");
+                SECEUpdateLoadStatus("Loading environment groups");
                 Check(failOnDebug, "Environment groups", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitGroupedIds(context, "EnvGroups", definitionSet.m_groupedIds, objBuilder.EnvironmentGroups, failOnDebug);
             }
 
             if (objBuilder.ScriptedGroups != null)
             {
-                MySandboxGame.Log.WriteLine("Loading scripted groups");
+                SECEUpdateLoadStatus("Loading scripted groups");
                 Check(failOnDebug, "Scripted groups", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitDefinitionsGeneric<MyObjectBuilder_ScriptedGroupDefinition, MyScriptedGroupDefinition>
                     (context, definitionSet.m_scriptedGroupDefinitions, objBuilder.ScriptedGroups, failOnDebug);
@@ -1095,7 +1119,7 @@ namespace Sandbox.Definitions
 
             if (objBuilder.PirateAntennas != null)
             {
-                MySandboxGame.Log.WriteLine("Loading pirate antennas");
+                SECEUpdateLoadStatus("Loading pirate antennas");
                 Check(failOnDebug, "Pirate antennas", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitDefinitionsGeneric<MyObjectBuilder_PirateAntennaDefinition, MyPirateAntennaDefinition>
                     (context, definitionSet.m_pirateAntennaDefinitions, objBuilder.PirateAntennas, failOnDebug);
@@ -1103,28 +1127,28 @@ namespace Sandbox.Definitions
 
             if (objBuilder.Destruction != null)
             {
-                MySandboxGame.Log.WriteLine("Loading destruction definition");
+                SECEUpdateLoadStatus("Loading destruction definition");
                 Check(failOnDebug, "Destruction", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitDestruction(context, ref definitionSet.m_destructionDefinition, objBuilder.Destruction, failOnDebug);
             }
 
             if (objBuilder.EntityComponents != null)
             {
-                MySandboxGame.Log.WriteLine("Loading entity components");
+                SECEUpdateLoadStatus("Loading entity components");
                 Check(failOnDebug, "Entity components", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitDefinitionsGeneric<MyObjectBuilder_ComponentDefinitionBase, MyComponentDefinitionBase>(context, definitionSet.m_entityComponentDefinitions, objBuilder.EntityComponents, failOnDebug);
             }
 
             if (objBuilder.EntityContainers != null)
             {
-                MySandboxGame.Log.WriteLine("Loading component containers");
+                SECEUpdateLoadStatus("Loading component containers");
                 Check(failOnDebug, "Entity containers", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitDefinitionsGeneric<MyObjectBuilder_ContainerDefinition, MyContainerDefinition>(context, definitionSet.m_entityContainers, objBuilder.EntityContainers, failOnDebug);
             }
 
             if (objBuilder.ShadowTextureSets != null)
             {
-                MySandboxGame.Log.WriteLine("Loading shadow textures definitions");
+                SECEUpdateLoadStatus("Loading shadow textures definitions");
                 Check(failOnDebug, "Text shadow sets", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitShadowTextureSets(context, objBuilder.ShadowTextureSets, failOnDebug);
             }
@@ -1134,53 +1158,53 @@ namespace Sandbox.Definitions
         {
             if (objBuilder.ParticleEffects != null)
             {
-                MySandboxGame.Log.WriteLine("Loading particle effect definitions");
+                SECEUpdateLoadStatus("Loading particle effect definitions");
                 InitParticleEffects(context, definitionSet.m_definitionsById, objBuilder.ParticleEffects, failOnDebug);
             }
 
             //Dependent on physical materials
             if (objBuilder.EnvironmentItems != null)
             {
-                MySandboxGame.Log.WriteLine("Loading environment item definitions");
+                SECEUpdateLoadStatus("Loading environment item definitions");
                 InitDefinitionsEnvItems(context, definitionSet.m_definitionsById, objBuilder.EnvironmentItems, failOnDebug);
             }
 
             if (objBuilder.EnvironmentItemsDefinitions != null)
             {
-                MySandboxGame.Log.WriteLine("Loading environment items definitions");
+                SECEUpdateLoadStatus("Loading environment items definitions");
                 InitDefinitionsGeneric<MyObjectBuilder_EnvironmentItemsDefinition, MyEnvironmentItemsDefinition>
                     (context, definitionSet.m_definitionsById, objBuilder.EnvironmentItemsDefinitions, failOnDebug);
             }
 
             if (objBuilder.MaterialProperties != null)
             {
-                MySandboxGame.Log.WriteLine("Loading physical material properties");
+                SECEUpdateLoadStatus("Loading physical material properties");
                 InitMaterialProperties(context, definitionSet.m_definitionsById, objBuilder.MaterialProperties);
             }
 
             if (objBuilder.Weapons != null)
             {
-                MySandboxGame.Log.WriteLine("Loading weapon definitions");
+                SECEUpdateLoadStatus("Loading weapon definitions");
                 InitWeapons(context, definitionSet.m_weaponDefinitionsById, objBuilder.Weapons, failOnDebug);
             }
 
             //dependent on curves
             if (objBuilder.AudioEffects != null)
             {
-                MySandboxGame.Log.WriteLine("Audio effects definitions");
+                SECEUpdateLoadStatus("Audio effects definitions");
                 InitAudioEffects(context, definitionSet.m_definitionsById, objBuilder.AudioEffects, failOnDebug);
             }
 
             if (objBuilder.FloraElements != null)
             {
-                MySandboxGame.Log.WriteLine("Loading flora elements definitions");
+                SECEUpdateLoadStatus("Loading flora elements definitions");
                 Check(failOnDebug, "Flora", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitGenericObjects(context, definitionSet.m_definitionsById, objBuilder.FloraElements, failOnDebug);
             }
 
             if (objBuilder.ScriptedGroupsMap != null)
             {
-                MySandboxGame.Log.WriteLine("Loading scripted groups map");
+                SECEUpdateLoadStatus("Loading scripted groups map");
                 Check(failOnDebug, "Scripted groups map", failOnDebug, WARNING_ON_REDEFINITION_MESSAGE);
                 InitScriptedGroupsMap(context, objBuilder.ScriptedGroupsMap, failOnDebug);
             }
@@ -1190,12 +1214,12 @@ namespace Sandbox.Definitions
         {
             if (objBuilder.CubeBlocks != null)
             {
-                MySandboxGame.Log.WriteLine("Loading cube blocks");
+                SECEUpdateLoadStatus("Loading cube blocks");
                 InitCubeBlocks(context, definitionSet.m_blockPositions, objBuilder.CubeBlocks);
 
                 ToDefinitions(context, definitionSet.m_definitionsById, definitionSet.m_uniqueCubeBlocksBySize, objBuilder.CubeBlocks, failOnDebug);
 
-                MySandboxGame.Log.WriteLine( "Created block definitions" );
+                SECEUpdateLoadStatus("Created block definitions");
                 foreach (var size in definitionSet.m_uniqueCubeBlocksBySize)
                     PrepareBlockBlueprints(context, definitionSet.m_blueprintsById, size);
             }
@@ -1207,7 +1231,7 @@ namespace Sandbox.Definitions
             {
                 if (MySandboxGame.Static != null)
                 {
-                    MySandboxGame.Log.WriteLine("Loading prefab: " + context.CurrentFile);
+                    SECEUpdateLoadStatus("Loading prefab: " + context.CurrentFile);
                     InitPrefabs(context, definitionSet.m_prefabs, objBuilder.Prefabs, failOnDebug);
                 }
             }
@@ -1225,7 +1249,7 @@ namespace Sandbox.Definitions
             {
                 if (MySandboxGame.Static != null)
                 {
-                    MySandboxGame.Log.WriteLine("Loading spawn groups");
+                    SECEUpdateLoadStatus("Loading spawn groups");
                     InitSpawnGroups(context, definitionSet.m_spawnGroupDefinitions, definitionSet.m_definitionsById, objBuilder.SpawnGroups);
                 }
             }
@@ -1234,7 +1258,7 @@ namespace Sandbox.Definitions
             {
                 if (MySandboxGame.Static != null)
                 {
-                    MySandboxGame.Log.WriteLine("Loading respawn ships");
+                    SECEUpdateLoadStatus("Loading respawn ships");
                     InitRespawnShips(context, definitionSet.m_respawnShips, objBuilder.RespawnShips, failOnDebug);
                 }
             }
@@ -2034,8 +2058,8 @@ namespace Sandbox.Definitions
                 Check(!output.ContainsKey(res[i].Id), res[i].Id, failOnDebug);
                 output[res[i].Id] = res[i];
 
-                if(!context.IsBaseGame)
-                    MySandboxGame.Log.WriteLine( "Loaded component: " + res[i].Id );
+                if (!context.IsBaseGame)
+                    MySandboxGame.Log.WriteLine("Loaded component: " + res[i].Id);
             }
         }
 
@@ -2155,8 +2179,8 @@ namespace Sandbox.Definitions
             {
                 var cubeBlock = entry.Value;
 
-                if(!context.IsBaseGame)
-                    MySandboxGame.Log.WriteLine( "Loading cube block: " + entry.Key );
+                if (!context.IsBaseGame)
+                    MySandboxGame.Log.WriteLine("Loading cube block: " + entry.Key);
 
                 if (!MyFakes.ENABLE_NON_PUBLIC_BLOCKS && cubeBlock.Public == false) continue;
 
@@ -2676,8 +2700,8 @@ namespace Sandbox.Definitions
                 Check(!output.ContainsKey(res[i].Id.SubtypeName), res[i].Id.SubtypeName, failOnDebug);
                 output[res[i].Id.SubtypeName] = res[i];
 
-                if(!context.IsBaseGame)
-                    MySandboxGame.Log.WriteLine( "Loaded voxel material: " + res[i].Id.SubtypeName );
+                if (!context.IsBaseGame)
+                    MySandboxGame.Log.WriteLine("Loaded voxel material: " + res[i].Id.SubtypeName);
             }
         }
 
@@ -4075,8 +4099,8 @@ namespace Sandbox.Definitions
                 Check(!outputDefinitions.ContainsKey(result.Id), result.Id, failOnDebug);
                 outputDefinitions[result.Id] = result;
 
-                if(!context.IsBaseGame)
-                    MySandboxGame.Log.WriteLine( "Created definition for: " + result.DisplayNameText );
+                if (!context.IsBaseGame)
+                    MySandboxGame.Log.WriteLine("Created definition for: " + result.DisplayNameText);
 
                 //if (currentDef.Variants != null)
                 //{
@@ -4185,8 +4209,8 @@ namespace Sandbox.Definitions
 
             if (extensions.IsNullOrEmpty())
             {
-                if ( logNoExtensions )
-                    MyDefinitionErrors.Add( context, "No file extensions.", TErrorSeverity.Warning );
+                if (logNoExtensions)
+                    MyDefinitionErrors.Add(context, "No file extensions.", TErrorSeverity.Warning);
                 return;
             }
 
@@ -4286,5 +4310,8 @@ namespace Sandbox.Definitions
 
         #endregion
 
+        void SECEUpdateLoadStatus(string state) {
+            CEGuiScreenLoading.SECEUpdateLoadStatus(state);
+        }
     }
 }

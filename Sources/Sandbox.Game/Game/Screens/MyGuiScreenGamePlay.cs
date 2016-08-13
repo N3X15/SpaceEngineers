@@ -119,7 +119,9 @@ namespace Sandbox.Game.Gui
             var newGameplayScreen = new MyGuiScreenGamePlay();
             newGameplayScreen.OnLoadingAction += loadingAction;
 
-            var loadScreen = new MyGuiScreenLoading(newGameplayScreen, MyGuiScreenGamePlay.Static);
+            var loadScreen = new CEGuiScreenLoading(newGameplayScreen, MyGuiScreenGamePlay.Static);
+            System.Diagnostics.Debug.Assert(CEGuiScreenLoading.Static == null);
+            CEGuiScreenLoading.Static = loadScreen;
             loadScreen.OnScreenLoadingFinished += delegate
             {
                 MyModAPIHelper.OnSessionLoaded();

@@ -157,23 +157,23 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="SharpDX.Direct3D11">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Direct3D11.dll</HintPath>
-    </Reference>
-    <Reference Include="VRage.Native">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Native.dll</HintPath>
-    </Reference>
     <Reference Include="HavokWrapper">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\HavokWrapper.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.DXGI">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.DXGI.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.dll</HintPath>
     </Reference>
+    <Reference Include="SharpDX.DXGI">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.DXGI.dll</HintPath>
+    </Reference>
     <Reference Include="SharpDX.Desktop">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Desktop.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Direct3D11">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Direct3D11.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Mathematics">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Mathematics.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX.Toolkit">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Toolkit.dll</HintPath>
@@ -181,8 +181,8 @@
     <Reference Include="SteamSDK">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SteamSDK.dll</HintPath>
     </Reference>
-    <Reference Include="SharpDX.Mathematics">
-      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\SharpDX.Mathematics.dll</HintPath>
+    <Reference Include="VRage.Native">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Native.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -607,6 +607,7 @@
     <Compile Include="Game\GameSystems\ContextHandling\MyGameFocusManager.cs" />
     <Compile Include="Game\GUI\DebugInputComponents\PlanetsDebugInputComponent\MyPlanetsDebugInputComponent.SectorTree.cs" />
     <Compile Include="Game\Replication\MyComponentReplicableBase.cs" />
+    <Compile Include="Game\Screens\CEGuiScreenLoading.cs" />
     <Compile Include="Game\SessionComponents\MySectorWeatherComponent.cs" />
     <Compile Include="Game\SessionComponents\MyPlanetTrackComponent.cs" />
     <Compile Include="Game\SessionComponents\MyUniformGravityProviderComponent.cs" />
@@ -1493,7 +1494,6 @@
     <Compile Include="Game\Screens\MyGuiScreenGameCredits.cs" />
     <Compile Include="Game\Screens\MyGuiScreenHelpSpace.cs" />
     <Compile Include="Game\Screens\MyGuiScreenIntroVideo.cs" />
-    <Compile Include="Game\Screens\MyGuiScreenLoading.cs" />
     <Compile Include="Game\Screens\MyGuiScreenMainMenu.cs" />
     <Compile Include="Game\Screens\MyGuiScreenOptionsAudio.cs" />
     <Compile Include="Game\Screens\MyGuiScreenOptionsControls.cs" />

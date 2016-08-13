@@ -950,20 +950,33 @@ namespace Sandbox.Game.World
         internal static void LoadMultiplayer(MyObjectBuilder_World world, MyMultiplayerBase multiplayerSession)
         {
             //MyAudio.Static.Mute = true;
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Multiplayer Session");
+            //////////////
             Static = new MySession(multiplayerSession.SyncLayer);
             Static.Mods = world.Checkpoint.Mods;
             Static.Settings = world.Checkpoint.Settings;
             Static.CurrentPath = MyLocalCache.GetSessionSavesPath(MyUtils.StripInvalidChars(world.Checkpoint.SessionName), false, false);
+
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Scenario");
+            //////////////
             if (!MyDefinitionManager.Static.TryGetDefinition<MyScenarioDefinition>(world.Checkpoint.Scenario, out Static.Scenario))
                 Static.Scenario = MyDefinitionManager.Static.GetScenarioDefinitions().FirstOrDefault();
             FixIncorrectSettings(Static.Settings);
 
             Static.InGameTime = MyObjectBuilder_Checkpoint.DEFAULT_DATE;
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading World Members");
+            //////////////
             Static.LoadMembersFromWorld(world, multiplayerSession);
 
             MySandboxGame.Static.SessionCompatHelper.FixSessionComponentObjectBuilders(world.Checkpoint, world.Sector);
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Preparing Base Session");
+            //////////////
             Static.PrepareBaseSession(world.Checkpoint, world.Sector);
 
             // No controlled object
@@ -978,10 +991,16 @@ namespace Sandbox.Game.World
 
             Static.CameraController = MySpectatorCameraController.Static;
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading World");
+            //////////////
             Static.LoadWorld(world.Checkpoint, world.Sector);
 
             if (Sync.IsServer)
             {
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Initializing Factions");
+                //////////////
                 Static.InitializeFactions();
             }
 
@@ -1037,6 +1056,10 @@ namespace Sandbox.Game.World
 
             MyLog.Default.WriteLineAndConsole("Loading session: " + sessionPath);
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Session");
+            //////////////
+
             //MyAudio.Static.Mute = true;
 
             MyLocalCache.SaveLastLoadedTime(sessionPath, DateTime.Now);
@@ -1045,6 +1068,10 @@ namespace Sandbox.Game.World
 
             ulong sectorSizeInBytes;
             ProfilerShort.Begin("MyLocalCache.LoadSector");
+
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Sector");
+            //////////////
 
             var sector = MyLocalCache.LoadSector(sessionPath, checkpoint.CurrentSector, out sectorSizeInBytes);
             ProfilerShort.End();
@@ -1063,6 +1090,9 @@ namespace Sandbox.Game.World
                 MyBBSetSampler.ResetRandomSeed();
 #endif
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Preloading CubeGrids");
+            //////////////
             MyCubeGrid.Preload();
 
             Static = new MySession();
@@ -1076,14 +1106,23 @@ namespace Sandbox.Game.World
 
             MySandboxGame.Static.SessionCompatHelper.FixSessionComponentObjectBuilders(checkpoint, sector);
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Preparing Session");
+            //////////////
             Static.PrepareBaseSession(checkpoint, sector);
 
             ProfilerShort.Begin("MySession.Static.LoadWorld");
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading World");
+            //////////////
             Static.LoadWorld(checkpoint, sector);
             ProfilerShort.End();
 
             if (Sync.IsServer)
             {
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Initializing Factions");
+                //////////////
                 Static.InitializeFactions();
             }
 

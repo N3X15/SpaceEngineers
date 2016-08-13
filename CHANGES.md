@@ -10,8 +10,7 @@ NOTE: SECE may not connect to stock servers due to differences.
 
 ### UI
   * When starting a local game, mod loading progress is displayed to the user.
-  * When loading or starting a local game, the loading screen displays more details about what is going on in the background.
-    * Currently broken - 7/12/2016
+  * When loading or starting a local game, the loading screen displays more details about what is going on in the background. (Introduced 8/13/2016)
 
 ### Modding
   * Gravity Generators

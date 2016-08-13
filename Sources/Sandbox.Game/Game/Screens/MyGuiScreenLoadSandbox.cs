@@ -356,6 +356,9 @@ namespace Sandbox.Game.Gui
         {
             MyLog.Default.WriteLine("LoadSession() - Start");
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Checking Mods");
+            //////////////
             if (!MySteamWorkshop.CheckLocalModsAllowed(world.Checkpoint.Mods, false))
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
