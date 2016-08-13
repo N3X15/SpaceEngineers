@@ -54,3 +54,4 @@ user.props
 /packages
 /user-config.yml
 /dist
+/staging
