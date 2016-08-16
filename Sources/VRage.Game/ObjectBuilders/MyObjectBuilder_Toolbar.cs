@@ -30,6 +30,7 @@ namespace VRage.Game
     public class MyObjectBuilder_Toolbar : MyObjectBuilder_Base
     {
         [ProtoContract]
+        [XmlInclude(typeof(MyObjectBuilder_ToolbarItem))]
         public struct Slot
         {
             [ProtoMember]
