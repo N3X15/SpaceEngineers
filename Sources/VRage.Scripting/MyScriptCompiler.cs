@@ -179,7 +179,7 @@ namespace VRage.Scripting
                     break;
 
                 case MyApiTarget.Mod:
-                    analyticCompilation = CreateCompilation(assemblyName, scripts, EnableDebugInformation || enableDebugInformation)
+                    analyticCompilation = CreateCompilation(assemblyName, scripts, true)
                         .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(m_modApiWhitelistDiagnosticAnalyzer));
                     await WriteDiagnostics(target, assemblyName, analyticCompilation.Compilation.SyntaxTrees).ConfigureAwait(false);
                     compilation = (CSharpCompilation)analyticCompilation.Compilation;
@@ -199,25 +199,29 @@ namespace VRage.Scripting
                     throw new ArgumentOutOfRangeException("target", target, "Invalid compilation target");
             }
 
-            using (var assemblyStream = new MemoryStream())
+            using (var pdbStream = new MemoryStream())  // SECE - Added pdbStream for debugging.
             {
-                var result = compilation.Emit(assemblyStream);
-                var success = result.Success;
-                AnalyzeDiagnostics(result.Diagnostics, messages, ref success);
-                if (analyticCompilation != null)
+                using (var assemblyStream = new MemoryStream())
                 {
-                    AnalyzeDiagnostics(await analyticCompilation.GetAllDiagnosticsAsync().ConfigureAwait(false), messages, ref success);
+                    System.Diagnostics.Debugger.Log(0,"COMPILER",string.Format("COMPILING {0} {1}\n",target,assemblyName));
+                    var result = compilation.Emit(assemblyStream, pdbStream);
+                    var success = result.Success;
+                    AnalyzeDiagnostics(result.Diagnostics, messages, ref success);
+                    if (analyticCompilation != null)
+                    {
+                        AnalyzeDiagnostics(await analyticCompilation.GetAllDiagnosticsAsync().ConfigureAwait(false), messages, ref success);
+                    }
+
+                    await WriteDiagnostics(target, assemblyName, messages, success).ConfigureAwait(false);
+
+                    if (success)
+                    {
+                        assemblyStream.Seek(0, SeekOrigin.Begin);
+                        return Assembly.Load(assemblyStream.ToArray(),pdbStream.ToArray()); // SECE - Added pdbStream for debugging.
+                    }
+
+                    return null;
                 }
-
-                await WriteDiagnostics(target, assemblyName, messages, success).ConfigureAwait(false);
-
-                if (success)
-                {
-                    assemblyStream.Seek(0, SeekOrigin.Begin);
-                    return Assembly.Load(assemblyStream.ToArray());
-                }
-
-                return null;
             }
         }
 
@@ -363,7 +367,7 @@ namespace VRage.Scripting
             IEnumerable<SyntaxTree> syntaxTrees = null;
             if (scripts != null)
             {
-                syntaxTrees = scripts.Select(s => CSharpSyntaxTree.ParseText(s.Code, options: m_conditionalParseOptions.WithPreprocessorSymbols(ConditionalCompilationSymbols), path: s.Name));
+                syntaxTrees = scripts.Select(s => CSharpSyntaxTree.ParseText(s.Code, encoding: Encoding.UTF8, options: m_conditionalParseOptions.WithPreprocessorSymbols(ConditionalCompilationSymbols), path: s.Name));
             }
             if (assemblyFileName != null)
             {

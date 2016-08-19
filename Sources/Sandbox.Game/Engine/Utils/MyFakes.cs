@@ -243,7 +243,7 @@ namespace Sandbox.Engine.Utils
 
         public static bool ENABLE_ISO_MESHER_FROM_PLUGIN = true;
 
-        public static bool ENABLE_SCRIPTS_PDB = false;
+        public static bool ENABLE_SCRIPTS_PDB = true;
 
         public static bool ENABLE_TURRET_CONTROL = true;
 

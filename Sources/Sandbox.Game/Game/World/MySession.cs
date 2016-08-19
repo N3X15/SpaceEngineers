@@ -1131,6 +1131,9 @@ namespace Sandbox.Game.World
             // CH: I don't think it's needed. If there are problems with missing characters, look at it
             //FixMissingCharacter();
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Saving Session Info");
+            //////////////
             MyLocalCache.SaveLastSessionInfo(sessionPath);
 
             Static.SendSessionStartStats();
@@ -1145,6 +1148,9 @@ namespace Sandbox.Game.World
             MyNetworkStats.Static.ClearStats();
             Sync.Layer.TransportLayer.ClearStats();
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Waking Components");
+            //////////////
             Static.BeforeStartComponents();
             
             MyLog.Default.WriteLineAndConsole("Session loaded");
