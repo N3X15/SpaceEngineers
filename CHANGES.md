@@ -13,6 +13,7 @@ NOTE: SECE may not connect to stock servers due to differences.
   * When loading or starting a local game, the loading screen displays more details about what is going on in the background. (Introduced 8/13/2016)
 
 ### Modding
+  * Mods are compiled with debugging information, which provides line numbers in stack traces, among other things. - 8/18/2016
   * Gravity Generators
     * Mods based on Gravity Generators can now define a default field size and strength.
     * Mods can now re-implement some gravity generator code, if needed.

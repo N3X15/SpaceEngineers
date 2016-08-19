@@ -70,6 +70,9 @@ namespace Sandbox.Game.Gui
         MyGuiControlLabel m_enableCopyPasteLabel, m_maxPlayersLabel, m_maxFloatingObjectsLabel, m_maxBackupSavesLabel, m_sunRotationPeriod, m_sunRotationPeriodValue, m_enableCyberhoundsLabel, m_enableSpidersLabel;
         MyGuiControlSlider m_maxFloatingObjectsSlider;
         MyGuiControlSlider m_maxBackupSavesSlider;
+
+        // SECE
+        MyGuiControlSlider m_maxSpeedLargeShip, m_maxSpeedSmallShip;
         StringBuilder m_tempBuilder = new StringBuilder();
         int m_customWorldSize = 0;
         int m_customViewDistance = 20000;
@@ -125,7 +128,9 @@ namespace Sandbox.Game.Gui
 
         public void BuildControls()
         {
-            MyGuiControlParent parent = new MyGuiControlParent(size: new Vector2(Size.Value.X - 0.05f, Size.Value.Y+0.4f));
+            // SECE: Increased size since it clips a bit.
+            //MyGuiControlParent parent = new MyGuiControlParent(size: new Vector2(Size.Value.X - 0.05f, Size.Value.Y+0.4f));
+            MyGuiControlParent parent = new MyGuiControlParent(size: new Vector2(Size.Value.X - 0.05f, Size.Value.Y + 0.8f));
             MyGuiControlScrollablePanel scrollPanel = new MyGuiControlScrollablePanel(parent);
             scrollPanel.ScrollbarVEnabled = true;
             scrollPanel.Size = new Vector2(Size.Value.X - 0.05f, 0.8f);
@@ -546,7 +551,37 @@ namespace Sandbox.Game.Gui
 
             parent.Controls.Add(m_sunRotationPeriod);
             parent.Controls.Add(m_sunRotationIntervalSlider);
-        
+
+            // SECE
+            m_maxSpeedLargeShip = new MyGuiControlSlider(
+                position: Vector2.Zero,
+                width: m_onlineMode.Size.X,
+                minValue: 0,
+                maxValue: 400,
+                labelText: new StringBuilder("{0}").ToString(),
+                labelDecimalPlaces: 0,
+                labelSpaceWidth: 0.05f,
+                intValue: true
+                );
+            m_maxSpeedLargeShip.SetToolTip(MyStringId.GetOrCompute("Set the maximum speed of large ships."));
+            parent.Controls.Add(MakeLabel(MyStringId.GetOrCompute("Max Speed (Large Ship)")));
+            parent.Controls.Add(m_maxSpeedLargeShip);
+
+            m_maxSpeedSmallShip = new MyGuiControlSlider(
+                position: Vector2.Zero,
+                width: m_onlineMode.Size.X,
+                minValue: 0,
+                maxValue: 400,
+                labelText: new StringBuilder("{0}").ToString(),
+                labelDecimalPlaces: 0,
+                labelSpaceWidth: 0.05f,
+                intValue: true
+                );
+            m_maxSpeedSmallShip.SetToolTip(MyStringId.GetOrCompute("Set the maximum speed of small ships."));
+            parent.Controls.Add(MakeLabel(MyStringId.GetOrCompute("Max Speed (Small Ship)")));
+            parent.Controls.Add(m_maxSpeedSmallShip);
+            // END SECE
+
             float labelSize = 0.21f;
 
             float MARGIN_TOP = 0.03f;
@@ -1018,6 +1053,10 @@ namespace Sandbox.Game.Gui
             output.PhysicsIterations = (int)m_physicsOptionsCombo.GetSelectedKey();
 
             output.GameMode = GetGameMode();
+
+            // SECE
+            output.MaxSpeedLargeShip = m_maxSpeedLargeShip.Value > 0 ? m_maxSpeedLargeShip.Value : 100f;
+            output.MaxSpeedSmallShip = m_maxSpeedSmallShip.Value > 0 ? m_maxSpeedSmallShip.Value : 100f;
         }
 
         public void SetSettings(MyObjectBuilder_SessionSettings settings)
@@ -1093,6 +1132,10 @@ namespace Sandbox.Game.Gui
             {
                 m_enableSpiders.IsChecked = true;
             }
+
+            // SECE
+            m_maxSpeedLargeShip.Value = settings.MaxSpeedLargeShip > 0 ? settings.MaxSpeedLargeShip : 100f;
+            m_maxSpeedSmallShip.Value = settings.MaxSpeedSmallShip > 0 ? settings.MaxSpeedSmallShip : 100f;
 
             CheckButton(settings.AssemblerSpeedMultiplier, m_assembler_x1, m_assembler_x3, m_assembler_x10);
             CheckButton(settings.InventorySizeMultiplier, m_inventory_x1, m_inventory_x3, m_inventory_x10);

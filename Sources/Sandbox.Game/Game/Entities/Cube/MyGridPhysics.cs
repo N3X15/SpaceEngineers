@@ -73,12 +73,14 @@ namespace Sandbox.Game.Entities.Cube
 
         public static float LargeShipMaxLinearVelocity()
         {
-            return Math.Max(0, Math.Min(MAX_SHIP_SPEED, MySector.EnvironmentDefinition.LargeShipMaxSpeed));
+            // SECE
+            return Math.Max(0, Math.Min(MAX_SHIP_SPEED, MySession.Static.MaxSpeedLargeShip));
         }
 
         public static float SmallShipMaxLinearVelocity()
         {
-            return Math.Max(0, Math.Min(MAX_SHIP_SPEED, MySector.EnvironmentDefinition.SmallShipMaxSpeed));
+            // SECE
+            return Math.Max(0, Math.Min(MAX_SHIP_SPEED, MySession.Static.MaxSpeedSmallShip));
         }
 
         public static float GetShipMaxAngularVelocity(MyCubeSize size)

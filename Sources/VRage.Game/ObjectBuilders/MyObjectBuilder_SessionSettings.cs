@@ -352,6 +352,19 @@ namespace VRage.Game
         //Max of any fracture pieces
         public int MaxActiveFracturePieces = 50;
 
+        // SECE
+        [ProtoMember]
+        [Display(Name = "Max Speed - Large Ship")]
+        [GameRelation(Game.SpaceEngineers)]
+        [Range(0, 400)]
+        public float MaxSpeedLargeShip = 100f;
+
+        [ProtoMember]
+        [Display(Name = "Max Speed - Small Ship")]
+        [GameRelation(Game.SpaceEngineers)]
+        [Range(0, 400)]
+        public float MaxSpeedSmallShip = 100f;
+
         public void LogMembers(MyLog log, LoggingOptions options)
         {
             log.WriteLine("Settings:");
@@ -391,6 +404,10 @@ namespace VRage.Game
                 log.WriteLine("Voxel destruction = " + EnableVoxelDestruction);
                 log.WriteLine("EnableStructuralSimulation = " + EnableStructuralSimulation);
                 log.WriteLine("MaxActiveFracturePieces = " + MaxActiveFracturePieces);
+
+                // SECE
+                log.WriteLine("MaxSpeedLargeShip = " + MaxSpeedLargeShip);
+                log.WriteLine("MaxSpeedSmallShip = " + MaxSpeedSmallShip);
             }
         }
     }

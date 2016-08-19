@@ -167,6 +167,10 @@ namespace Sandbox.Game.World
         public bool StartInRespawnScreen { get { return Settings.StartInRespawnScreen; } }
         public bool EnableVoxelDestruction { get { return Settings.EnableVoxelDestruction; } }
 
+        // SECE
+        public float MaxSpeedLargeShip { get { return Settings.MaxSpeedLargeShip; } }
+        public float MaxSpeedSmallShip { get { return Settings.MaxSpeedSmallShip; } }
+
         public bool Battle { get { return MyFakes.ENABLE_BATTLE_SYSTEM && Settings.Battle; } }
 
         public bool EnableSpiders
@@ -1670,6 +1674,10 @@ namespace Sandbox.Game.World
             {
                 settings.WorldSizeKm = Static.Scenario.HasPlanets ? 0 : settings.WorldSizeKm;
             }
+
+            // SECE
+            if (settings.MaxSpeedLargeShip <= 0.0f) settings.MaxSpeedLargeShip = defaultSettings.MaxSpeedLargeShip;
+            if (settings.MaxSpeedSmallShip <= 0.0f) settings.MaxSpeedSmallShip = defaultSettings.MaxSpeedSmallShip;
         }
 
         private void ShowLoadingError()
