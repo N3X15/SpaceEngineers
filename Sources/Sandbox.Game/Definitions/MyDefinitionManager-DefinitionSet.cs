@@ -156,6 +156,8 @@ namespace Sandbox.Definitions
                 }
 
                 m_lootBagDefinition = null;
+
+                m_behaviourDefinitionsById = new DefinitionDictionary<SECEBehaviourDefinition>(100); // SECE
             }
 
             public void OverrideBy(DefinitionSet definitionSet)
@@ -410,6 +412,7 @@ namespace Sandbox.Definitions
                 m_entityContainers.Merge(definitionSet.m_entityContainers);
 
                 m_lootBagDefinition = definitionSet.m_lootBagDefinition;
+                m_behaviourDefinitionsById.Merge(definitionSet.m_behaviourDefinitionsById); // SECE
             }
 
             static void MergeDefinitionLists<T>(List<T> output, List<T> input) where T : MyDefinitionBase
@@ -534,6 +537,9 @@ namespace Sandbox.Definitions
             internal DefinitionDictionary<MyContainerDefinition> m_entityContainers;
 
             internal MyLootBagDefinition m_lootBagDefinition;
+
+            // SECE
+            internal DefinitionDictionary<SECEBehaviourDefinition> m_behaviourDefinitionsById;
         }
     }
 }

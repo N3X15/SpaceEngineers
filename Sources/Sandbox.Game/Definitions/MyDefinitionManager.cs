@@ -53,6 +53,7 @@ using Sandbox.Game.World;
 using Sandbox.Graphics.GUI;
 using VRage.Library;
 using Sandbox.Game.Gui;
+using VRage.Game.ObjectBuilders.Definitions.Behaviours;
 
 #endregion
 
@@ -1188,6 +1189,13 @@ namespace Sandbox.Definitions
                 InitWeapons(context, definitionSet.m_weaponDefinitionsById, objBuilder.Weapons, failOnDebug);
             }
 
+            // SECE
+            if (objBuilder.Behaviours != null)
+            {
+                SECEUpdateLoadStatus("Loading Block Behaviours");
+                InitBehaviours(context, definitionSet.m_behaviourDefinitionsById, objBuilder.Behaviours, failOnDebug);
+            }
+
             //dependent on curves
             if (objBuilder.AudioEffects != null)
             {
@@ -1216,7 +1224,6 @@ namespace Sandbox.Definitions
             {
                 SECEUpdateLoadStatus("Loading cube blocks");
                 InitCubeBlocks(context, definitionSet.m_blockPositions, objBuilder.CubeBlocks);
-
                 ToDefinitions(context, definitionSet.m_definitionsById, definitionSet.m_uniqueCubeBlocksBySize, objBuilder.CubeBlocks, failOnDebug);
 
                 SECEUpdateLoadStatus("Created block definitions");
@@ -4306,6 +4313,28 @@ namespace Sandbox.Definitions
                 MyObjectBuilderSerializer.SerializeXML(defPair.Key, false, objBuilder);
             }
 #endif
+        }
+
+        // SECE
+        private static void InitBehaviours(MyModContext context,
+            DefinitionDictionary<SECEBehaviourDefinition> output, MyObjectBuilder_SECEBehaviourDefinition[] behaviours, bool failOnDebug = true)
+        {
+            var res = new SECEBehaviourDefinition[behaviours.Length];
+
+            for (int i = 0; i < behaviours.Length; ++i)
+            {
+                res[i] = InitDefinition<SECEBehaviourDefinition>(context, behaviours[i]);
+
+                Check(!output.ContainsKey(res[i].Id), res[i].Id, failOnDebug);
+                output[res[i].Id] = res[i];
+            }
+        }
+
+        public SECEBehaviourDefinition GetBlockBehaviourById(MyDefinitionId id)
+        {
+            Debug.Assert(m_definitions.m_behaviourDefinitionsById.ContainsKey(id));
+            //CheckDefinition<MyWeaponDefinition>(ref id);
+            return m_definitions.m_behaviourDefinitionsById[id];
         }
 
         #endregion

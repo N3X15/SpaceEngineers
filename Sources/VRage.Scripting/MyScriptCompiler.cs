@@ -340,7 +340,7 @@ namespace VRage.Scripting
             foreach (var syntaxTree in syntaxTrees)
             {
                 var root = await syntaxTree.GetRootAsync().ConfigureAwait(false);
-                var normalizedTree = CSharpSyntaxTree.Create((CSharpSyntaxNode)root.NormalizeWhitespace(), path: syntaxTree.FilePath);
+                var normalizedTree = CSharpSyntaxTree.Create((CSharpSyntaxNode)root.NormalizeWhitespace(), path: syntaxTree.FilePath, encoding: Encoding.UTF8); // SECE: MUST be UTF8
                 var fileName = Path.Combine(outputPath, Path.GetFileNameWithoutExtension(syntaxTree.FilePath) + suffix + Path.GetExtension(syntaxTree.FilePath));
                 if (!fileName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
                 {

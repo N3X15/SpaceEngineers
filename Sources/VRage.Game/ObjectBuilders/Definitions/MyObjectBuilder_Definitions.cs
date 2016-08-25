@@ -3,6 +3,7 @@ using System.Xml.Serialization;
 using VRage.ObjectBuilders;
 using VRage.Game.ObjectBuilders;
 using VRage.Game.ObjectBuilders.Definitions;
+using VRage.Game.ObjectBuilders.Definitions.Behaviours;
 
 namespace VRage.Game
 {
@@ -311,5 +312,10 @@ namespace VRage.Game
         [ProtoMember]
         [XmlArrayItem("ShadowTextureSet")]
         public MyObjectBuilder_ShadowTextureSetDefinition[] ShadowTextureSets;
+
+        // SECE
+        [XmlArrayItem("Behaviour", Type = typeof(MyAbstractXmlSerializer<MyObjectBuilder_SECEBehaviourDefinition>))]
+        [ProtoMember]
+        public MyObjectBuilder_SECEBehaviourDefinition[] Behaviours;
     }
 }

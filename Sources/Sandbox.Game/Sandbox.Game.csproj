@@ -186,6 +186,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Definitions\Behaviours\SECEBehaviourDefinition.cs" />
     <Compile Include="Definitions\GUI\MyButtonListStyleDefinition.cs" />
     <Compile Include="Definitions\GUI\MyGuiSkinDefinition.cs" />
     <Compile Include="Definitions\MyAdvancedDoorDefinition.cs" />
@@ -338,6 +339,7 @@
     <Compile Include="Definitions\MyPlanetGeneratorDefinition.cs" />
     <Compile Include="Definitions\MyGridCreateToolDefinition.cs" />
     <Compile Include="Definitions\MyWelderDefinition.cs" />
+    <Compile Include="Definitions\SECEComponentBlockDefinition.cs" />
     <Compile Include="Definitions\VoxelHand\MyVoxelHandDefinition.cs" />
     <Compile Include="Engine\AI\MyAIActionsParser.cs" />
     <Compile Include="Engine\GUI\FunctionalBlocks\MyGuiControlGenericFunctionalBlock.cs" />

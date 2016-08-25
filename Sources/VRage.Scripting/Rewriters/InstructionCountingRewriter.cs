@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using VRage.Compiler;
+using System.Text;
 
 namespace VRage.Scripting.Rewriters
 {
@@ -629,7 +630,7 @@ namespace VRage.Scripting.Rewriters
             var root = (CSharpSyntaxNode)await m_syntaxTree.GetRootAsync().ConfigureAwait(false);
             m_semanticModel = m_compilation.GetSemanticModel(m_syntaxTree);
             root = (CSharpSyntaxNode)Visit(root);
-            return CSharpSyntaxTree.Create(root, path: m_syntaxTree.FilePath);
+            return CSharpSyntaxTree.Create(root, path: m_syntaxTree.FilePath, encoding: Encoding.UTF8); // SECE: MUST be UTF8
         }
     }
 }
