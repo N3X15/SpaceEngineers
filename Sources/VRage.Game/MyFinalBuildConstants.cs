@@ -11,7 +11,8 @@ namespace VRage.Game
         //  This is version of application
         //  FINAL BUILD VALUE: Increase before every major build.
         //  This should be setup in the individual game initialization (e.g. SpaceEngineersGame.SetupBasicGameInfo() ...)
-        public static MyVersion APP_VERSION = 0; 
+        public static MyVersion APP_VERSION = null;
+        public static int SECE_BUILD = 0; // SECE
 
         // For OnLive, CiiNOW and other cloud gaming services (disabled HW cursor, editor, multiplayer)
         public const bool IS_CLOUD_GAMING = false;

@@ -40,13 +40,14 @@ namespace VRage.Utils
             return buildNumberInt - ((buildNumberInt / mask) * mask);
         }
 
-        public static string ConvertBuildNumberFromIntToString(int buildNumberInt)
+        public static string ConvertBuildNumberFromIntToString(int buildNumberInt,int SECEBuild)
         {
             string str = MyUtils.AlignIntToRight(buildNumberInt, LENGTH_MAJOR + LENGTH_MINOR1 + LENGTH_MINOR2, '0');
             return 
                 str.Substring(0, LENGTH_MAJOR) +
                 SEPARATOR + str.Substring(LENGTH_MAJOR, LENGTH_MINOR1) +
-                SEPARATOR + str.Substring(LENGTH_MAJOR + LENGTH_MINOR1, LENGTH_MINOR2);
+                SEPARATOR + str.Substring(LENGTH_MAJOR + LENGTH_MINOR1, LENGTH_MINOR2)
+                + SEPARATOR + "CE" + SECEBuild; // SECE
         }
 
         //  Check if specified build number is valid
@@ -122,9 +123,11 @@ namespace VRage.Utils
                 LENGTH_MAJOR + SEPARATOR.Length + LENGTH_MINOR1 + SEPARATOR.Length + LENGTH_MINOR2));
         }
 
+        /* This doesn't do anything.
         public static string GetFilenameFromBuildNumber(int buildNumber, string executableFileName)
         {
-            return executableFileName + SEPARATOR + ConvertBuildNumberFromIntToString(buildNumber) + ".exe";
+            return executableFileName + SEPARATOR + ConvertBuildNumberFromIntToString(buildNumber,0) + ".exe";
         }
+        */
     }
 }

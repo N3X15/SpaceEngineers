@@ -10,6 +10,7 @@ using System.ServiceProcess;
 using VRage.Dedicated;
 using VRage.Game;
 using VRage.Game.SessionComponents;
+using VRage.Utils;
 
 #endregion
 
@@ -42,7 +43,7 @@ namespace SpaceEngineersDedicated
                 SpaceEngineersGame.SetupBasicGameInfo();
                 SpaceEngineersGame.SetupPerGameSettings();
             };
-            MyFinalBuildConstants.APP_VERSION = MyPerGameSettings.BasicGameInfo.GameVersion;
+            MyFinalBuildConstants.APP_VERSION = new MyVersion(MyPerGameSettings.BasicGameInfo.GameVersion.Value,MyPerGameSettings.BasicGameInfo.SECEBuild); // SECE
 
             DedicatedServer.Run<MyObjectBuilder_SessionSettings>(args);
         }

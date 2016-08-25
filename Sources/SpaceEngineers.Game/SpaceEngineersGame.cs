@@ -31,6 +31,7 @@ namespace SpaceEngineers.Game
     public partial class SpaceEngineersGame : MySandboxGame
     {
         const int SE_VERSION = 01148001;
+        const int SECE_BUILD = 3; // SECE Build #
 
         #region Constructor
 
@@ -44,6 +45,7 @@ namespace SpaceEngineers.Game
         public static void SetupBasicGameInfo()
         {
             MyPerGameSettings.BasicGameInfo.GameVersion = SE_VERSION;
+            MyPerGameSettings.BasicGameInfo.SECEBuild = SECE_BUILD;
 
             MyPerGameSettings.BasicGameInfo.GameName = "Space Engineers: Community Edition";
             MyPerGameSettings.BasicGameInfo.GameNameSafe = "SpaceEngineers";

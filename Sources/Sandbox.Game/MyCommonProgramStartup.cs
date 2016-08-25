@@ -50,7 +50,7 @@ namespace Sandbox
         {
             Debug.Assert(GameInfo.CheckIsSetup(), "Please fill-in the MyPerGameSettings.BasicGameInfo structure before launching the program startup!");
 
-            MyFinalBuildConstants.APP_VERSION = GameInfo.GameVersion;
+            MyFinalBuildConstants.APP_VERSION = new MyVersion(GameInfo.GameVersion.Value,GameInfo.SECEBuild);
 
             m_args = args;
         }

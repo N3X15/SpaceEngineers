@@ -134,7 +134,7 @@ namespace VRage.Dedicated
 
             VRageRender.MyRenderProxy.Initialize(MySandboxGame.IsDedicated ? (IMyRender)new MyNullRender() : new MyDX9Render());
             VRageRender.MyRenderProxy.IS_OFFICIAL = MyFinalBuildConstants.IS_OFFICIAL;
-            MyFinalBuildConstants.APP_VERSION = MyPerGameSettings.BasicGameInfo.GameVersion;
+            MyFinalBuildConstants.APP_VERSION = new MyVersion(MyPerGameSettings.BasicGameInfo.GameVersion.Value, MyPerGameSettings.BasicGameInfo.SECEBuild);
 
             using (MySteamService steamService = new MySteamService(MySandboxGame.IsDedicated, MyPerServerSettings.AppId))
             {

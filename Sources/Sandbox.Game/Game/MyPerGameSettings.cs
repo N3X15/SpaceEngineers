@@ -89,6 +89,7 @@ namespace Sandbox.Game
     public struct MyBasicGameInfo
     {
         public int? GameVersion;
+        public int SECEBuild;
         public string GameName;
         /// <summary>
         /// Game name without any spaces and generally usable for folder names.

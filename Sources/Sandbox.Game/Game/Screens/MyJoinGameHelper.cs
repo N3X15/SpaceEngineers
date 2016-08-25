@@ -39,8 +39,8 @@ namespace Sandbox.Game.Gui
             if (!MyMultiplayerLobby.IsLobbyCorrectVersion(lobby))
             {
                 var formatString = MyTexts.GetString(MyCommonTexts.MultiplayerError_IncorrectVersion);
-                var myVersion = MyBuildNumbers.ConvertBuildNumberFromIntToString(MyFinalBuildConstants.APP_VERSION);
-                var serverVersion = MyBuildNumbers.ConvertBuildNumberFromIntToString(MyMultiplayerLobby.GetLobbyAppVersion(lobby));
+                var myVersion = MyBuildNumbers.ConvertBuildNumberFromIntToString(MyFinalBuildConstants.APP_VERSION,MyFinalBuildConstants.SECE_BUILD);
+                var serverVersion = MyBuildNumbers.ConvertBuildNumberFromIntToString(MyMultiplayerLobby.GetLobbyAppVersion(lobby), MyFinalBuildConstants.SECE_BUILD);
                 MyGuiSandbox.Show(new StringBuilder(String.Format(formatString, myVersion, serverVersion)));
                 return false;
             }
