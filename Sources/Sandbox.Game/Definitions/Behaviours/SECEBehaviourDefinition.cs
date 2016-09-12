@@ -16,7 +16,7 @@ namespace Sandbox.Definitions
         /// <summary>
         /// Override to handle initialization.
         /// </summary>
-        public virtual void Init()
+        public virtual void Init(MyObjectBuilder_SECEBehaviourDefinition def)
         {
         }
     }

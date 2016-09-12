@@ -1420,7 +1420,7 @@ namespace Sandbox
                         typeof(VRage.ObjectBuilders.MyObjectBuilder_Base),
                         typeof(VRage.Game.Components.MyIngameScript),
                         typeof(Sandbox.Game.EntityComponents.MyResourceSourceComponent),
-                        typeof(Sandbox.Game.Entities.Character.Components.MyCharacterOxygenComponent)                        
+                        typeof(Sandbox.Game.Entities.Character.Components.MyCharacterOxygenComponent) 
                         );
 
                     // space & medieval object builders/definition object builders. Move to game dlls when sandbox's finally gone.

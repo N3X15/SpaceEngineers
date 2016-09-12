@@ -187,6 +187,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Definitions\Behaviours\SECEBehaviourDefinition.cs" />
+    <Compile Include="Definitions\Behaviours\SECEMergeBehaviourDefinition.cs" />
     <Compile Include="Definitions\GUI\MyButtonListStyleDefinition.cs" />
     <Compile Include="Definitions\GUI\MyGuiSkinDefinition.cs" />
     <Compile Include="Definitions\MyAdvancedDoorDefinition.cs" />
@@ -516,6 +517,7 @@
     <Compile Include="Game\Audio\MyAudioExtensions.cs" />
     <Compile Include="Game\Audio\MyEntity3DSoundEmitter.cs" />
     <Compile Include="Game\Audio\MyMusicController.cs" />
+    <Compile Include="Game\Behaviours\SECEBehaviour.cs" />
     <Compile Include="Game\Entities\Blocks\IMyTriggerableBlock.cs" />
     <Compile Include="Game\Entities\Blocks\MyAirtightSlideDoor.cs" />
     <Compile Include="Game\Entities\Blocks\MyAttachableTopBlockBase.cs" />
@@ -541,6 +543,7 @@
     <Compile Include="Game\Entities\Interfaces\IMyAutomaticRifleGun.cs" />
     <Compile Include="Game\Entities\Cube\CubeBuilder\MyCubeBuilderState.cs" />
     <Compile Include="Game\Entities\Cube\MyCubeGrids.cs" />
+    <Compile Include="Game\Entities\SECEBehaviourFactory.cs" />
     <Compile Include="Game\Entities\Planet\MyPlanetSectorId.cs" />
     <Compile Include="Game\EntityComponents\MyAtmosphereDetectorComponent.cs" />
     <Compile Include="Game\EntityComponents\MyEntityReferenceComponent.cs" />

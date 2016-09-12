@@ -73,7 +73,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
         /// <summary>
         /// The Gravity Generator's maximum <see cref="Gravity"/>. 
         /// </summary>
-        public float MaxGravity
+        public new float MaxGravity
         {
             get { return BlockDefinition.Gravity.Max; }
         }
@@ -81,7 +81,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
         /// <summary>
         /// The Gravity Generator's minimum <see cref="Gravity"/>. 
         /// </summary>
-        public float MinGravity
+        public new float MinGravity
         {
             get { return BlockDefinition.Gravity.Min; }
         }
@@ -90,7 +90,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
         /// The Gravity Generator's default <see cref="Gravity"/>. 
         /// Must be within <see cref="MinGravity"/> and <see cref="MaxGravity"/>
         /// </summary>
-        public float DefaultGravity
+        public new float DefaultGravity
         {
             get { return BlockDefinition.Gravity.Default; }
         }
@@ -177,7 +177,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
             );
             gravityAcceleration.DefaultValueGetter = (g) => g.DefaultGravity;
             gravityAcceleration.Getter = (x) => x.m_gravityAcceleration / MyGravityProviderSystem.G;
-            gravityAcceleration.Setter = (x, v) => x.GravityAcceleration = v;
+            gravityAcceleration.Setter = (x, v) => x.GravityAcceleration = v * MyGravityProviderSystem.G;
             gravityAcceleration.Writer = (x, result) => result.AppendDecimal(x.m_gravityAcceleration / MyGravityProviderSystem.G, 2).Append(" G");
             gravityAcceleration.EnableActions();
             MyTerminalControlFactory.AddControl(gravityAcceleration);
@@ -189,6 +189,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
 
             var builder = (MyObjectBuilder_GravityGenerator)objectBuilder;
             m_fieldSize.Value = Vector3.Clamp(builder.FieldSize.GetOrDefault(BlockDefinition.FieldSize.Default), BlockDefinition.FieldSize.Min, BlockDefinition.FieldSize.Max);
+
             m_gravityAcceleration.Value = MathHelper.Clamp(builder.GravityAcceleration.GetOrDefault(BlockDefinition.Gravity.Default * MyGravityProviderSystem.G),
                 BlockDefinition.Gravity.Min * MyGravityProviderSystem.G,
                 BlockDefinition.Gravity.Max * MyGravityProviderSystem.G);

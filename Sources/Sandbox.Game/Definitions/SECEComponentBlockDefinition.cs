@@ -27,9 +27,6 @@ namespace Sandbox.Definitions
                 behaviour.container = this;
                 Behaviours.Add(behaviour);
             }
-            foreach(var behaviour in Behaviours) { 
-                behaviour.Init();
-            }
         }
 
         public override MyObjectBuilder_DefinitionBase GetObjectBuilder()

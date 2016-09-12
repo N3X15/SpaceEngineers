@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='ASCII'?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -124,6 +124,7 @@
     <Compile Include="AI\MyCyberhoundTarget.cs" />
     <Compile Include="AI\MySpiderTarget.cs" />
     <Compile Include="AI\MySpaceFaunaComponent.cs" />
+    <Compile Include="Behaviours\SECEBehaviour.cs" />
     <Compile Include="Definitions\MyDemoComponentDefinition.cs" />
     <Compile Include="Definitions\MyUpgradeModuleDefinition.cs" />
     <Compile Include="Entities\Blocks\MyAirVent.cs" />

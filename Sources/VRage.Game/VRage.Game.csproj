@@ -169,6 +169,7 @@
     <Compile Include="Entity\Inventory\MyPhysicalInventoryItem.cs" />
     <Compile Include="Entity\MyEntity.cs" />
     <Compile Include="Entity\MyEntitySubpart.cs" />
+    <Compile Include="Entity\SECEBehaviourTypeAttribute.cs" />
     <Compile Include="Entity\MyRelationsBetweenPlayers.cs" />
     <Compile Include="Entity\UseObject\MyUseObjectBase.cs" />
     <Compile Include="Graphics\Particles\IMyParticleGeneration.cs" />
@@ -247,6 +248,7 @@
     <Compile Include="ObjectBuilders\Animation\MyObjectBuilder_AnimationSMTransitionConditions.cs" />
     <Compile Include="ObjectBuilders\Animation\MyObjectBuilder_AnimationSMTransition.cs" />
     <Compile Include="ObjectBuilders\Animation\MyObjectBuilder_AnimationSMNode.cs" />
+    <Compile Include="ObjectBuilders\Behaviours\MyObjectBuilder_SECEBehaviour.cs" />
     <Compile Include="ObjectBuilders\ComponentSystem\MyObjectBuilder_AtmosphereDetectorComponent.cs" />
     <Compile Include="ObjectBuilders\ComponentSystem\MyObjectBuilder_CharacterPickupComponent.cs" />
     <Compile Include="ObjectBuilders\ComponentSystem\MyObjectBuilder_CraftingComponentInteractive.cs" />
@@ -264,6 +266,7 @@
     <Compile Include="ObjectBuilders\Components\MyObjectBuilder_SessionComponentResearch.cs" />
     <Compile Include="ObjectBuilders\Components\MyObjectBuilder_ItemAutoswitchComponent.cs" />
     <Compile Include="ObjectBuilders\Definitions\Behaviours\MyObjectBuilder_SECEBehaviourDefinition.cs" />
+    <Compile Include="ObjectBuilders\Definitions\Behaviours\MyObjectBuilder_SECEMergeBehaviourDefinition.cs" />
     <Compile Include="ObjectBuilders\Definitions\GUI\MyObjectBuilder_ButtonListStyleDefinition.cs" />
     <Compile Include="ObjectBuilders\Definitions\GUI\MyObjectBuilder_GuiSkinDefinition.cs" />
     <Compile Include="ObjectBuilders\Definitions\GUI\SerializableCompositeTexture.cs" />

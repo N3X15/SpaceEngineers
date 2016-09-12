@@ -54,6 +54,7 @@ using Sandbox.Graphics.GUI;
 using VRage.Library;
 using Sandbox.Game.Gui;
 using VRage.Game.ObjectBuilders.Definitions.Behaviours;
+using VRage.Game.ObjectBuilders.Behaviours;
 
 #endregion
 
@@ -1193,7 +1194,7 @@ namespace Sandbox.Definitions
             if (objBuilder.Behaviours != null)
             {
                 SECEUpdateLoadStatus("Loading Block Behaviours");
-                InitBehaviours(context, definitionSet.m_behaviourDefinitionsById, objBuilder.Behaviours, failOnDebug);
+                InitBehaviourDefs(context, definitionSet.m_behaviourDefinitionsById, objBuilder.Behaviours, failOnDebug);
             }
 
             //dependent on curves
@@ -4316,7 +4317,7 @@ namespace Sandbox.Definitions
         }
 
         // SECE
-        private static void InitBehaviours(MyModContext context,
+        private static void InitBehaviourDefs(MyModContext context,
             DefinitionDictionary<SECEBehaviourDefinition> output, MyObjectBuilder_SECEBehaviourDefinition[] behaviours, bool failOnDebug = true)
         {
             var res = new SECEBehaviourDefinition[behaviours.Length];

@@ -16679,6 +16679,13 @@
       <RequiredPowerInput>0.56713</RequiredPowerInput>
       <DamageEffectId>211</DamageEffectId>
       <DamagedSound>ParticleElectrical</DamagedSound>
+      <!--
+      <FieldSize>
+        <Min x="0" y="0" z="0" />
+        <Max x="150" y="150" z="150" />
+        <Default x="150" y="150" z="150" />
+      </FieldSize>
+      -->
     </Definition>
     <Definition xsi:type="MyObjectBuilder_GravityGeneratorSphereDefinition">
       <Id>
