@@ -21,6 +21,15 @@ Since this is actually a commercial project, Keen has some requirements before y
 * All contributors (coders, artists, bug reporters, janitors) MUST agree to the [SECE Contribution Agreement](CONTRIBUTING.md).  These are mostly rules and legal butt-covering, but it's very important that they be followed in order to keep an orderly, operational project that isn't sued into the stone age.
 
 ## Getting it Working
+SECE is currently only available for Windows.
+
+1. Download a [release](https://github.com/N3X15/SpaceEngineers-CE/releases)
+2. Run the Installer.exe and accept the UAC prompt
+3. Install to ...\SteamApps\common\SECE
+4. Wait
+5. Run RunGame.bat to start the game.
+
+## Compiling
 
 * [Windows (using Chocolatey NuGet)](https://github.com/N3X15/SpaceEngineers-CE/wiki/Install-Windows-Choco)
 * [Configuring Build Environment](https://github.com/N3X15/SpaceEngineers-CE/wiki/Configure-Build-Environment)
