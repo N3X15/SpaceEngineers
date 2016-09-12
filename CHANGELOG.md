@@ -2,11 +2,16 @@
 
 This page will record changes made to SECE.
 
-## IN DEVELOPMENT
-* Based on SE DEV 01_150_00X
+## 9/11/2016 - 01_148_002CE3
+* Based on SE DEV 01_148_002
 
 ### Installer
 * Installer will no longer finish silently.  A popup will detail file changes, and provide game start procedure.
+
+### Changes
+* **Added:** New versioning scheme (_CE# suffix indicating SECE release).  Breaks compatibility with all SE servers.
+* **Fixed:** Air Vents were not saving actions properly, leading to failed saves.
+* **Fixed:** Gravity generator was not symmetrically converting to Gs and back.
 
 ## 01_148_001-o-01_149_002
 * Translation: 01_148_001, overwrites 01_149_002
