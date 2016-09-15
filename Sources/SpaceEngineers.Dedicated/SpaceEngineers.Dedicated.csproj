@@ -215,10 +215,6 @@
       <Project>{40CE67D5-C89F-4A56-AE52-85DB1BEA07FE}</Project>
       <Name>VRage.Math</Name>
     </ProjectReference>
-    <ProjectReference Include="..\VRage.Render\VRage.Render.csproj">
-      <Project>{1713E6CD-808A-4A44-9532-04771499BB01}</Project>
-      <Name>VRage.Render</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="Properties\app.manifest" />

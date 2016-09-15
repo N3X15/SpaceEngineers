@@ -52,9 +52,166 @@ using Sandbox.Game.EntityComponents;
 using Sandbox.Game.World;
 using Sandbox.Graphics.GUI;
 using VRage.Library;
+using VRage.Profiler;
+using VRageRender.Utils;
 using Sandbox.Game.Gui;
 using VRage.Game.ObjectBuilders.Definitions.Behaviours;
 using VRage.Game.ObjectBuilders.Behaviours;
+
+#endregion
+
+namespace Sandbox.Definitions
+{
+    [PreloadRequired]
+    public partial class MyDefinitionManager : MyDefinitionManagerBase
+    {
+        #region Fields
+
+        public new static MyDefinitionManager Static
+        {
+            get { return MyDefinitionManagerBase.Static as MyDefinitionManager; }
+        }
+
+        Dictionary<string, DefinitionSet> m_modDefinitionSets = new Dictionary<string, DefinitionSet>();
+
+        private new DefinitionSet m_definitions
+        {
+            get { return (DefinitionSet)base.m_definitions; }
+        }
+
+        DefinitionSet m_currentLoadingSet;
+
+        /**
+         * Return the definition set currently being loaded.
+         */
+        internal DefinitionSet LoadingSet
+        {
+            get { return m_currentLoadingSet; }
+        }
+
+        public override MyDefinitionSet GetLoadingSet()
+        {
+            return LoadingSet;
+        }
+
+        public bool Loading { get; private set; }
+
+        private const string DUPLICATE_ENTRY_MESSAGE = "Duplicate entry of '{0}'";
+        private const string UNKNOWN_ENTRY_MESSAGE = "Unknown type '{0}'";
+        private const string WARNING_ON_REDEFINITION_MESSAGE = "WARNING: Unexpected behaviour may occur due to redefinition of '{0}'";
+        private bool m_transparentMaterialsInitialized = false;
+
+        #endregion
+
+        #region Constructor
+
+        static MyDefinitionManager()
+        {
+            MyDefinitionManagerBase.Static = new MyDefinitionManager();
+        }
+
+        private MyDefinitionManager()
+        {
+            Loading = false;
+            base.m_definitions = new DefinitionSet();
+        }
+
+        #endregion
+
+        #region Loading and unloading
+
+        public void PreloadDefinitions()
+        {
+            MySandboxGame.Log.WriteLine("MyDefinitionManager.PreloadDefinitions() - START");
+
+            m_definitions.Clear();
+
+            using (MySandboxGame.Log.IndentUsing(LoggingOptions.NONE))
+            {
+                //Load base definitions
+                if (!m_modDefinitionSets.ContainsKey(""))
+                    m_modDefinitionSets.Add("", new DefinitionSet());
+                var baseDefinitionSet = m_modDefinitionSets[""];
+                LoadDefinitions(MyModContext.BaseGame, baseDefinitionSet, false, true);
+            }
+
+            MySandboxGame.Log.WriteLine("MyDefinitionManager.PreloadDefinitions() - END");
+        }
+
+        public void PrepareBaseDefinitions()
+        {
+            MySandboxGame.Log.WriteLine("MyDefinitionManager.PrepareBaseDefinitions() - START");
+
+            using (MySandboxGame.Log.IndentUsing(LoggingOptions.NONE))
+            {
+                //Pre-load base definitions
+                if (MyFakes.ENABLE_PRELOAD_DEFINITIONS)
+                    GetDefinitionBuilders(MyModContext.BaseGame);
+            }
+
+            MySandboxGame.Log.WriteLine("MyDefinitionManager.PrepareBaseDefinitions() - END");
+        }
+
+        public void LoadScenarios()
+        {
+            MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadScenarios() - START");
+
+            //ProfilerShort.Begin("Wait for preload to complete");
+            while (MySandboxGame.IsPreloading)
+            {
+                System.Threading.Thread.Sleep(1);
+            }
+            //ProfilerShort.End();
+
+            using (MySandboxGame.Log.IndentUsing(LoggingOptions.NONE))
+            {
+                MyDataIntegrityChecker.ResetHash();
+
+                //Load base definitions
+                if (!m_modDefinitionSets.ContainsKey(""))
+                    m_modDefinitionSets.Add("", new DefinitionSet());
+                var baseDefinitionSet = m_modDefinitionSets[""];
+
+                foreach (var def in m_definitions.m_scenarioDefinitions)
+                    baseDefinitionSet.m_definitionsById.Remove(def.Id);
+
+                foreach (var def in m_definitions.m_scenarioDefinitions)
+                    m_definitions.m_definitionsById.Remove(def.Id);
+                m_definitions.m_scenarioDefinitions.Clear();
+
+                LoadScenarios(MyModContext.BaseGame, baseDefinitionSet);
+
+                // Not working yet
+                //foreach (var modDir in Directory.GetDirectories(MyFileSystem.ModsPath, "*", SearchOption.TopDirectoryOnly))
+                //{
+                //    context.ModName = mod.FriendlyName;
+                //    context.ModPath = MyFileSystem.ModsPath;
+                //    context.ModPathData = Path.Combine(MyFileSystem.ModsPath, mod.Name);
+
+                //    var definitionSet = new DefinitionSet();
+                //    string modName = modDir;
+                //    m_modDefinitionSets.Add(modName, definitionSet);
+                //    LoadScenarios(modDir, definitionSet, true);
+                //}
+            }
+            MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadScenarios() - END");
+        }
+
+        public void ReloadDecalMaterials()
+        {
+            var builder = Load<MyObjectBuilder_Definitions>(Path.Combine(MyModContext.BaseGame.ModPathData, "Decals.sbc"));
+            if (builder.Decals != null)
+                InitDecals(MyModContext.BaseGame, builder.Decals, true);
+
+            if (builder.DecalGlobals != null)
+                InitDecalGlobals(MyModContext.BaseGame, builder.DecalGlobals, true);
+        }
+
+        public void LoadData(List<MyObjectBuilder_Checkpoint.ModItem> mods)
+        {
+            MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadData() - START");
+
+            ProfilerShort.Begin("Wait for preload to complete");
 
 #endregion
 
@@ -1826,13 +1983,6 @@ namespace Sandbox.Definitions
             return result as T;
         }
 
-        private void Save<T>(T builder, string dataPath, string fileName) where T : MyObjectBuilder_Base
-        {
-            string filePath = Path.Combine(dataPath, fileName);
-            var path = Path.Combine(MyFileSystem.ContentPath, filePath);
-            MyObjectBuilderSerializer.SerializeXML(path, false, builder);
-        }
-
         private static void InitAmmoMagazines(MyModContext context,
             DefinitionDictionary<MyDefinitionBase> output, MyObjectBuilder_AmmoMagazineDefinition[] magazines, bool failOnDebug = true)
         {
@@ -2218,13 +2368,6 @@ namespace Sandbox.Definitions
             get { return MySector.EnvironmentDefinition; }
         }
 
-        [Obsolete]
-        public void SaveEnvironmentDefinition()
-        {
-            //string dataFolder = Path.Combine(MyFileSystem.ContentPath, "Data");
-            //Save(m_definitions.m_environmentDef.GetObjectBuilder(), dataFolder, "Environment.sbc");
-        }
-
         private static void InitGlobalEvents(MyModContext context,
             DefinitionDictionary<MyDefinitionBase> output, MyObjectBuilder_GlobalEventDefinition[] events, bool failOnDebug = true)
         {
@@ -2499,8 +2642,8 @@ namespace Sandbox.Definitions
 
             objBuilder.HandItems = defList.ToArray();
 
-            string dataFolder = Path.Combine(MyFileSystem.ContentPath, "Data");
-            Save(objBuilder, dataFolder, "HandItems.sbc");
+            string filepath = Path.Combine(MyFileSystem.ContentPath, "Data", "HandItems.sbc");
+            objBuilder.Save(filepath);
         }
 
         private static void InitPhysicalItems(MyModContext context,
@@ -2676,6 +2819,7 @@ namespace Sandbox.Definitions
             {
                 MyTransparentMaterials.AddMaterial(new MyTransparentMaterial(
                     material.Id.SubtypeName,
+                    material.TextureType,
                     material.Texture,
                     material.SoftParticleDistanceScale,
                     material.CanBeAffectedByLights,
@@ -2689,7 +2833,8 @@ namespace Sandbox.Definitions
                     material.AlphaMistingEnd,
                     material.AlphaSaturation,
                     material.Reflectivity,
-                    material.AlphaCutout
+                    material.AlphaCutout,
+                    material.TargetSize
                 ));
             }
 
@@ -3168,7 +3313,15 @@ namespace Sandbox.Definitions
         public MyCubeBlockDefinition GetCubeBlockDefinition(MyDefinitionId id)
         {
             CheckDefinition<MyCubeBlockDefinition>(ref id);
+            if (m_definitions.m_definitionsById.ContainsKey(id))
+            {
             return m_definitions.m_definitionsById[id] as MyCubeBlockDefinition;
+        }
+            else
+            {
+                Debug.Assert(false, "Key not in dictionary! " + id.ToString());
+                return null;
+            }
         }
 
         public MyComponentDefinition GetComponentDefinition(MyDefinitionId id)

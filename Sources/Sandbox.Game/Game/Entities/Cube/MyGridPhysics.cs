@@ -32,6 +32,7 @@ using Sandbox.Game.Replication;
 using VRage.Game.Entity;
 using VRage.Game;
 using VRage.Game.ModAPI;
+using VRage.Profiler;
 
 #endregion
 
@@ -520,7 +521,7 @@ namespace Sandbox.Game.Entities.Cube
             //if (separatingVelocity < 2)
             //    return false;
             var otherEntity = pt.CollidingBody.GetEntity(0);
-            if (otherEntity is MyEnvironmentItems) //jn:HACK
+            if (otherEntity is Sandbox.Game.WorldEnvironment.MyEnvironmentSector) //jn:HACK //ab:HACK
                 return false;
             pt.ContactPosition = ClusterToWorld(pt.ContactPoint.Position);
 
