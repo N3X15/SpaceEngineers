@@ -683,7 +683,7 @@ namespace Sandbox.Engine.Utils
 
         public static bool ENABLE_VR_DRONE_COLLISIONS = false;
         public static bool ENABLE_VR_BLOCK_DEFORMATION_RATIO = false;
-        public static bool ENABLE_VR_REMOTE_BLOCK_AUTOPILOT_SPEED_LIMIT = false;
+        public static bool ENABLE_VR_REMOTE_BLOCK_AUTOPILOT_SPEED_LIMIT = true; // SECE
         // Enable damage for some blocks even when grid is not destructible
         public static bool ENABLE_VR_FORCE_BLOCK_DESTRUCTIBLE = false;
         public static bool ENABLE_VR_REMOTE_CONTROL_WAYPOINTS_FAST_MOVEMENT = false;

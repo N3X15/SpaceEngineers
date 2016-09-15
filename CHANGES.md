@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-NOTE: SECE will not connect to stock servers due to protocol differences and a different version scheme.
+**NOTE:** SECE will not connect to stock servers due to protocol differences and a different version scheme.
 
 ### Compiling
   * SECE uses a python script to prepare the CSPROJ files for compile. (Otherwise, it'll fail to find dependencies.)
@@ -12,8 +12,9 @@ NOTE: SECE will not connect to stock servers due to protocol differences and a d
   * When starting a local game, mod loading progress is displayed to the user.
   * When loading or starting a local game, the loading screen displays more details about what is going on in the background. (Introduced 8/13/2016)
   * SECE adds a _CE### suffix to the version, making it easier to keep track of SECE hotfixes.
-  * `Edit Settings > Advanced` lets you change a save's max speed.  Works with any Skybox. -  8/18/2016
+  * `Edit Settings > Advanced` lets you **change a save's max speeds**.  Works with any Skybox. -  8/18/2016
     * Skybox hacks to change speeds no longer work, but won't break anything.
+  * A hidden SE feature that allows you to set the speed limit on autopilots has been unhidden. (MyFakes.ENABLE_VR_REMOTE_BLOCK_AUTOPILOT_SPEED_LIMIT)- 9/15/2016
 
 ### Modding
   * Mods are compiled with debugging information, which provides line numbers in stack traces, among other things. - 8/18/2016
