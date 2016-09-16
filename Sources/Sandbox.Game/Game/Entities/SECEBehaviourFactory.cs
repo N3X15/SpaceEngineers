@@ -8,6 +8,7 @@ using VRage.Game.Components;
 using VRage.Game.Entity;
 using Sandbox.Game.Behaviours;
 using VRage.Game.ObjectBuilders.Behaviours;
+using VRage.Profiler;
 
 namespace Sandbox.Game.Entities
 {

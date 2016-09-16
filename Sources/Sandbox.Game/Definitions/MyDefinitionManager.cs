@@ -212,161 +212,6 @@ namespace Sandbox.Definitions
             MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadData() - START");
 
             ProfilerShort.Begin("Wait for preload to complete");
-
-#endregion
-
-namespace Sandbox.Definitions
-{
-    [PreloadRequired]
-    public partial class MyDefinitionManager : MyDefinitionManagerBase
-    {
-        #region Fields
-
-        public new static MyDefinitionManager Static
-        {
-            get { return MyDefinitionManagerBase.Static as MyDefinitionManager; }
-        }
-
-        Dictionary<string, DefinitionSet> m_modDefinitionSets = new Dictionary<string, DefinitionSet>();
-
-        private new DefinitionSet m_definitions
-        {
-            get { return (DefinitionSet)base.m_definitions; }
-        }
-
-        DefinitionSet m_currentLoadingSet;
-
-        /**
-         * Return the definition set currently being loaded.
-         */
-        internal DefinitionSet LoadingSet
-        {
-            get { return m_currentLoadingSet; }
-        }
-
-        public override MyDefinitionSet GetLoadingSet()
-        {
-            return LoadingSet;
-        }
-
-        public bool Loading { get; private set; }
-
-        private const string DUPLICATE_ENTRY_MESSAGE = "Duplicate entry of '{0}'";
-        private const string UNKNOWN_ENTRY_MESSAGE = "Unknown type '{0}'";
-        private const string WARNING_ON_REDEFINITION_MESSAGE = "WARNING: Unexpected behaviour may occur due to redefinition of '{0}'";
-        private bool m_transparentMaterialsInitialized = false;
-
-        #endregion
-
-        #region Constructor
-
-        static MyDefinitionManager()
-        {
-            MyDefinitionManagerBase.Static = new MyDefinitionManager();
-        }
-
-        private MyDefinitionManager()
-        {
-            Loading = false;
-            base.m_definitions = new DefinitionSet();
-        }
-
-        #endregion
-
-        #region Loading and unloading
-
-        public void PreloadDefinitions()
-        {
-            MySandboxGame.Log.WriteLine("MyDefinitionManager.PreloadDefinitions() - START");
-
-            m_definitions.Clear();
-
-            using (MySandboxGame.Log.IndentUsing(LoggingOptions.NONE))
-            {
-                //Load base definitions
-                if (!m_modDefinitionSets.ContainsKey(""))
-                    m_modDefinitionSets.Add("", new DefinitionSet());
-                var baseDefinitionSet = m_modDefinitionSets[""];
-                LoadDefinitions(MyModContext.BaseGame, baseDefinitionSet, false, true);
-            }
-
-            MySandboxGame.Log.WriteLine("MyDefinitionManager.PreloadDefinitions() - END");
-        }
-
-        public void PrepareBaseDefinitions()
-        {
-            MySandboxGame.Log.WriteLine("MyDefinitionManager.PrepareBaseDefinitions() - START");
-
-            using (MySandboxGame.Log.IndentUsing(LoggingOptions.NONE))
-            {
-                //Pre-load base definitions
-                if (MyFakes.ENABLE_PRELOAD_DEFINITIONS)
-                    GetDefinitionBuilders(MyModContext.BaseGame);
-            }
-
-            MySandboxGame.Log.WriteLine("MyDefinitionManager.PrepareBaseDefinitions() - END");
-        }
-
-        public void LoadScenarios()
-        {
-            MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadScenarios() - START");
-
-            //ProfilerShort.Begin("Wait for preload to complete");
-            while (MySandboxGame.IsPreloading)
-            {
-                System.Threading.Thread.Sleep(1);
-            }
-            //ProfilerShort.End();
-
-            using (MySandboxGame.Log.IndentUsing(LoggingOptions.NONE))
-            {
-                MyDataIntegrityChecker.ResetHash();
-
-                //Load base definitions
-                if (!m_modDefinitionSets.ContainsKey(""))
-                    m_modDefinitionSets.Add("", new DefinitionSet());
-                var baseDefinitionSet = m_modDefinitionSets[""];
-
-                foreach (var def in m_definitions.m_scenarioDefinitions)
-                    baseDefinitionSet.m_definitionsById.Remove(def.Id);
-
-                foreach (var def in m_definitions.m_scenarioDefinitions)
-                    m_definitions.m_definitionsById.Remove(def.Id);
-                m_definitions.m_scenarioDefinitions.Clear();
-
-                LoadScenarios(MyModContext.BaseGame, baseDefinitionSet);
-
-                // Not working yet
-                //foreach (var modDir in Directory.GetDirectories(MyFileSystem.ModsPath, "*", SearchOption.TopDirectoryOnly))
-                //{
-                //    context.ModName = mod.FriendlyName;
-                //    context.ModPath = MyFileSystem.ModsPath;
-                //    context.ModPathData = Path.Combine(MyFileSystem.ModsPath, mod.Name);
-
-                //    var definitionSet = new DefinitionSet();
-                //    string modName = modDir;
-                //    m_modDefinitionSets.Add(modName, definitionSet);
-                //    LoadScenarios(modDir, definitionSet, true);
-                //}
-            }
-            MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadScenarios() - END");
-        }
-
-        public void ReloadDecalMaterials()
-        {
-            var builder = Load<MyObjectBuilder_Definitions>(Path.Combine(MyModContext.BaseGame.ModPathData, "Decals.sbc"));
-            if (builder.Decals != null)
-                InitDecals(MyModContext.BaseGame, builder.Decals, true);
-
-            if (builder.DecalGlobals != null)
-                InitDecalGlobals(MyModContext.BaseGame, builder.DecalGlobals, true);
-        }
-
-        public void LoadData(List<MyObjectBuilder_Checkpoint.ModItem> mods)
-        {
-            MySandboxGame.Log.WriteLine("MyDefinitionManager.LoadData() - START");
-
-            ProfilerShort.Begin("Wait for preload to complete");
             //////////////
             CEGuiScreenLoading.SECEUpdateLoadStatus("Waiting for Preload Completion");
             //////////////
@@ -1396,7 +1241,8 @@ namespace Sandbox.Definitions
             {
                 if (MySandboxGame.Static != null)
                 {
-                    SECEUpdateLoadStatus("Loading prefab: " + context.CurrentFile);
+					SECEUpdateLoadStatus("Loading prefabs...");
+                    MySandboxGame.Log.WriteLine("Loading prefab " + context.CurrentFile);
                     InitPrefabs(context, definitionSet.m_prefabs, objBuilder.Prefabs, failOnDebug);
                 }
             }
@@ -1455,34 +1301,46 @@ namespace Sandbox.Definitions
         private void LoadPostProcess()
         {
             ProfilerShort.Begin("InitVoxelMaterials");
+			SECEUpdateLoadStatus("Initializing Materials...");
             InitVoxelMaterials();
             if (m_transparentMaterialsInitialized == false)
             {
                 ProfilerShort.BeginNextBlock("CreateTransparentMaterials");
+				SECEUpdateLoadStatus("Initializing Transparent Materials...");
                 CreateTransparentMaterials();
                 m_transparentMaterialsInitialized = true;
             }
             ProfilerShort.BeginNextBlock("InitRopeDefinitions");
+			SECEUpdateLoadStatus("Initializing Ropes...");
             InitRopeDefinitions();
             ProfilerShort.BeginNextBlock("InitBlockGroups");
+			SECEUpdateLoadStatus("Initializing Block Groups...");
             InitBlockGroups();
             ProfilerShort.BeginNextBlock("PostprocessComponentGroups");
+			SECEUpdateLoadStatus("Initializing Component Groups...");
             PostprocessComponentGroups();
             ProfilerShort.BeginNextBlock("PostprocessComponentBlocks");
+			SECEUpdateLoadStatus("Initializing Component Blocks...");
             PostprocessComponentBlocks();
             ProfilerShort.BeginNextBlock("PostprocessBlueprints");
+			SECEUpdateLoadStatus("Initializing Blueprints...");
             PostprocessBlueprints();
             ProfilerShort.BeginNextBlock("AddEntriesToBlueprintClasses");
             AddEntriesToBlueprintClasses();
             ProfilerShort.BeginNextBlock("AddEntriesToEnvironmentItemClasses");
+			SECEUpdateLoadStatus("Initializing Item Classes...");
             AddEntriesToEnvironmentItemClasses();
             ProfilerShort.BeginNextBlock("PairPhysicalAndHandItems");
+			SECEUpdateLoadStatus("Pairing Physical and Hand Items...");
             PairPhysicalAndHandItems();
             ProfilerShort.BeginNextBlock("CheckWeaponRelatedDefinitions");
+			SECEUpdateLoadStatus("Setting Up Weapons...");
             CheckWeaponRelatedDefinitions();
             ProfilerShort.BeginNextBlock("UpdateShipSounds");
+			SECEUpdateLoadStatus("[SHIP NOISES INTENSIFY]");
             SetShipSoundSystem();
             ProfilerShort.BeginNextBlock("MoveNonPublicBlocksToSpecialCategory");
+			SECEUpdateLoadStatus("Hiding Secret Keen Blocks...");
             MoveNonPublicBlocksToSpecialCategory();
             if (MyAudio.Static != null)
             {
@@ -1490,15 +1348,20 @@ namespace Sandbox.Definitions
                 MyAudio.Static.ReloadData(MyAudioExtensions.GetSoundDataFromDefinitions(), MyAudioExtensions.GetEffectData());
             }
             ProfilerShort.BeginNextBlock("PostprocessPirateAntennas");
+			SECEUpdateLoadStatus("Initializing Pirate Antennas...");
             PostprocessPirateAntennas();
             ProfilerShort.BeginNextBlock("InitMultiBlockDefinitions");
+			SECEUpdateLoadStatus("Initializing Multiblocks...");
             InitMultiBlockDefinitions();
             ProfilerShort.BeginNextBlock("CreateMapMultiBlockDefinitionToBlockDefinition");
+			SECEUpdateLoadStatus("Mapping Multiblocks to Blocks...");
             CreateMapMultiBlockDefinitionToBlockDefinition();
             ProfilerShort.BeginNextBlock("PostprocessAllDefinitions");
+			SECEUpdateLoadStatus("Postprocessing...");
             PostprocessAllDefinitions();
 
             ProfilerShort.BeginNextBlock("AfterPostprocess");
+			SECEUpdateLoadStatus("Post-Postprocessing...");
             AfterPostprocess();
             ProfilerShort.End();
         }
@@ -3315,8 +3178,8 @@ namespace Sandbox.Definitions
             CheckDefinition<MyCubeBlockDefinition>(ref id);
             if (m_definitions.m_definitionsById.ContainsKey(id))
             {
-            return m_definitions.m_definitionsById[id] as MyCubeBlockDefinition;
-        }
+                return m_definitions.m_definitionsById[id] as MyCubeBlockDefinition;
+            }
             else
             {
                 Debug.Assert(false, "Key not in dictionary! " + id.ToString());
