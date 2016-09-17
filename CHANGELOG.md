@@ -3,11 +3,15 @@
 This page will record changes made to SECE.
 
 ## 9/16/2016 - 01_152_002CE4
-* UPDATED to use SE DEV 01_152_002.
+* Based on SE DEV 01_152_002
 
 ### Changes
-* **Added:** A hidden SE feature that allows you to set the speed limit on autopilots has been unhidden. (MyFakes.ENABLE_VR_REMOTE_BLOCK_AUTOPILOT_SPEED_LIMIT)
-* **Fixed:** Some verbose startup messages were made a bit more detailed, and some new ones were added.
+* **Added:** Keen was hiding a speed limit control for remote controls for unknown reasons.  This has been displayed.
+* **Fixed:** Some loading screen status messages were a bit too long.  Others were not specific.
+
+### KNOWN ISSUES
+* (Stock) The Kolt Command Consoles mod has a corrupt model that causes saves to show the "World is Corrupt" dialogue.  Reported to KSH developers.
+  * WORKAROUND: Use the DX11 conversion, it seems to work fine.
 
 ## 9/11/2016 - 01_148_002CE3
 * Based on SE DEV 01_148_002
@@ -16,7 +20,7 @@ This page will record changes made to SECE.
 * Installer will no longer finish silently.  A popup will detail file changes, and provide game start procedure.
 
 ### Changes
-* **Added:** New versioning scheme (_CE# suffix indicating SECE release).  Breaks compatibility with all SE servers.
+* **Added:** New versioning scheme (CE# suffix indicating SECE release).  Breaks compatibility with all SE servers.
 * **Fixed:** Air Vents were not saving actions properly, leading to failed saves.
 * **Fixed:** Gravity generator was not symmetrically converting to Gs and back.
 
