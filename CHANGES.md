@@ -14,7 +14,7 @@
   * SECE adds a _CE### suffix to the version, making it easier to keep track of SECE hotfixes.
   * `Edit Settings > Advanced` lets you **change a save's max speeds**.  Works with any Skybox. -  8/18/2016
     * Skybox hacks to change speeds no longer work, but won't break anything.
-  * A hidden SE feature that allows you to set the speed limit on autopilots has been unhidden. (MyFakes.ENABLE_VR_REMOTE_BLOCK_AUTOPILOT_SPEED_LIMIT)- 9/15/2016
+  * A hidden SE feature that allows you to set the speed limit on autopilots has been unhidden. (MyFakes.ENABLE_VR_REMOTE_BLOCK_AUTOPILOT_SPEED_LIMIT) - 9/15/2016
 
 ### Modding
   * Mods are compiled with debugging information, which provides line numbers in stack traces, among other things. - 8/18/2016

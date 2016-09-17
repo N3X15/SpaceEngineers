@@ -2,6 +2,13 @@
 
 This page will record changes made to SECE.
 
+## 9/16/2016 - 01_152_002CE4
+* UPDATED to use SE DEV 01_152_002.
+
+### Changes
+* **Added:** A hidden SE feature that allows you to set the speed limit on autopilots has been unhidden. (MyFakes.ENABLE_VR_REMOTE_BLOCK_AUTOPILOT_SPEED_LIMIT)
+* **Fixed:** Some verbose startup messages were made a bit more detailed, and some new ones were added.
+
 ## 9/11/2016 - 01_148_002CE3
 * Based on SE DEV 01_148_002
 
