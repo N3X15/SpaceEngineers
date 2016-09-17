@@ -71,6 +71,11 @@ namespace Sandbox.Game.Entities.Cube
             return Math.Max(LargeShipMaxLinearVelocity(), SmallShipMaxLinearVelocity());
         }
 
+        // SECE
+        public static float GetShipMaxLinearVelocity(MyCubeSize size)
+        {
+            return size == MyCubeSize.Large ? LargeShipMaxLinearVelocity() : SmallShipMaxLinearVelocity();
+        }
 
         public static float LargeShipMaxLinearVelocity()
         {
