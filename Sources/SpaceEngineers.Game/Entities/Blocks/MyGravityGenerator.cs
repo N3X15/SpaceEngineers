@@ -43,7 +43,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
             {
 
                 m_fieldSize.Value = value;           
-            }
+        }
         }
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
         /// The Gravity Generator's minimum allowable <see cref="FieldSize"/>.
         /// </summary>
         public Vector3 MinFieldSize
-        {
+            {
             get { return BlockDefinition.FieldSize.Min; }
         }
 
@@ -67,9 +67,9 @@ namespace SpaceEngineers.Game.Entities.Blocks
         /// Must be within <see cref="MinFieldSize"/> and <see cref="MaxFieldSize"/>.
         /// </summary>
         public Vector3 DefaultFieldSize
-        {
+                {
             get { return BlockDefinition.FieldSize.Default; }
-        }
+            }
 
         /// <summary>
         /// The Gravity Generator's maximum <see cref="Gravity"/>. 
