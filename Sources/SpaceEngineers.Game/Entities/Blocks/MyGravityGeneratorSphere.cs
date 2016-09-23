@@ -38,11 +38,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
         public float Radius
         {
             get { return m_radius; }
-            set
-            {
-
-                m_radius.Value = value;
-            }
+            set { m_radius.Value = value; }
         }
 
         public override float GetRadius()
@@ -218,9 +214,6 @@ namespace SpaceEngineers.Game.Entities.Blocks
         {
             return new HkSphereShape(m_radius);
         }
-
-        float ModAPI.Ingame.IMyGravityGeneratorSphere.Radius { get { return m_radius; } }
-        float ModAPI.Ingame.IMyGravityGeneratorSphere.Gravity { get { return GravityAcceleration; } }
     }
 }
 

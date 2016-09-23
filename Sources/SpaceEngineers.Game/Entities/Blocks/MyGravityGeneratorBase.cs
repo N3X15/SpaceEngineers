@@ -51,6 +51,12 @@ namespace SpaceEngineers.Game.Entities.Blocks
             }
         }
 
+        float IMyGravityGeneratorBase.Gravity
+        {
+            get { return GravityAcceleration / MyGravityProviderSystem.G; }
+            set { GravityAcceleration = value * MyGravityProviderSystem.G; }
+        }
+
         private MyBounds m_GravityBounds;
         /// <summary>
         /// The Gravity Generator's maximum <see cref="Gravity"/>. 
@@ -333,6 +339,14 @@ namespace SpaceEngineers.Game.Entities.Blocks
 		public float GetGravityMultiplier(Vector3D worldPoint)
 		{
 			return (IsPositionInRange(worldPoint) ? 1.0f : 0.0f);
-		}
+        }
+
+        public float Gravity
+        {
+            get { return m_gravityAcceleration / MyGravityProviderSystem.G; }
+            set { m_gravityAcceleration.Value = value * MyGravityProviderSystem.G; }
+        }
+
+
     }
 }

@@ -51,14 +51,14 @@ namespace SpaceEngineers.Game.Entities.Blocks
         /// </summary>
         public Vector3 MaxFieldSize
         {
-            get { return BlockDefinition.FieldSize.Max;  }
+            get { return BlockDefinition.FieldSize.Max; }
         }
 
         /// <summary>
         /// The Gravity Generator's minimum allowable <see cref="FieldSize"/>.
         /// </summary>
         public Vector3 MinFieldSize
-            {
+        {
             get { return BlockDefinition.FieldSize.Min; }
         }
 
@@ -67,9 +67,9 @@ namespace SpaceEngineers.Game.Entities.Blocks
         /// Must be within <see cref="MinFieldSize"/> and <see cref="MaxFieldSize"/>.
         /// </summary>
         public Vector3 DefaultFieldSize
-                {
+        {
             get { return BlockDefinition.FieldSize.Default; }
-            }
+        }
 
         /// <summary>
         /// The Gravity Generator's maximum <see cref="Gravity"/>. 
@@ -95,9 +95,9 @@ namespace SpaceEngineers.Game.Entities.Blocks
         {
             get { return BlockDefinition.Gravity.Default; }
         }
-        
-        
-        public override BoundingBox? GetBoundingBox()  
+
+
+        public override BoundingBox? GetBoundingBox()
         {
             m_gizmoBoundingBox.Min = PositionComp.LocalVolume.Center - FieldSize / 2.0f;
             m_gizmoBoundingBox.Max = PositionComp.LocalVolume.Center + FieldSize / 2.0f;
@@ -196,25 +196,25 @@ namespace SpaceEngineers.Game.Entities.Blocks
                 BlockDefinition.Gravity.Max * MyGravityProviderSystem.G);
         }
 
-	    protected override void InitializeSinkComponent()
-	    {
-			var sinkComp = new MyResourceSinkComponent();
-			sinkComp.Init(
-				BlockDefinition.ResourceSinkGroup,
-				BlockDefinition.RequiredPowerInput,
-				CalculateRequiredPowerInput);
-			ResourceSink = sinkComp;
+        protected override void InitializeSinkComponent()
+        {
+            var sinkComp = new MyResourceSinkComponent();
+            sinkComp.Init(
+                BlockDefinition.ResourceSinkGroup,
+                BlockDefinition.RequiredPowerInput,
+                CalculateRequiredPowerInput);
+            ResourceSink = sinkComp;
 
-			if (CubeGrid.CreatePhysics)
-			{
-				ResourceSink.IsPoweredChanged += Receiver_IsPoweredChanged;
-				ResourceSink.RequiredInputChanged += Receiver_RequiredInputChanged;
-				AddDebugRenderComponent(new MyDebugRenderComponentDrawPowerReciever(ResourceSink, this));
-			}
+            if (CubeGrid.CreatePhysics)
+            {
+                ResourceSink.IsPoweredChanged += Receiver_IsPoweredChanged;
+                ResourceSink.RequiredInputChanged += Receiver_RequiredInputChanged;
+                AddDebugRenderComponent(new MyDebugRenderComponentDrawPowerReciever(ResourceSink, this));
+            }
 
-	    }
+        }
 
-	    public override MyObjectBuilder_CubeBlock GetObjectBuilderCubeBlock(bool copy = false)
+        public override MyObjectBuilder_CubeBlock GetObjectBuilderCubeBlock(bool copy = false)
         {
             var builder = (MyObjectBuilder_GravityGenerator)base.GetObjectBuilderCubeBlock(copy);
 
@@ -224,7 +224,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
             return builder;
         }
 
-      
+
         protected override float CalculateRequiredPowerInput()
         {
             if (Enabled && IsFunctional)
@@ -243,7 +243,7 @@ namespace SpaceEngineers.Game.Entities.Blocks
             MyValueFormatter.AppendWorkInBestUnit(ResourceSink.MaxRequiredInput, DetailedInfo);
             DetailedInfo.Append("\n");
             DetailedInfo.AppendStringBuilder(MyTexts.Get(MySpaceTexts.BlockPropertyProperties_CurrentInput));
-			MyValueFormatter.AppendWorkInBestUnit(ResourceSink.IsPowered ? ResourceSink.RequiredInput : 0, DetailedInfo);
+            MyValueFormatter.AppendWorkInBestUnit(ResourceSink.IsPowered ? ResourceSink.RequiredInput : 0, DetailedInfo);
             RaisePropertiesChanged();
         }
 
@@ -265,10 +265,9 @@ namespace SpaceEngineers.Game.Entities.Blocks
             return new HkBoxShape(m_fieldSize.Value * 0.5f);
         }
 
-        float ModAPI.Ingame.IMyGravityGenerator.FieldWidth { get { return m_fieldSize.Value.X; } }
-        float ModAPI.Ingame.IMyGravityGenerator.FieldHeight { get { return m_fieldSize.Value.Y; } }
-        float ModAPI.Ingame.IMyGravityGenerator.FieldDepth { get { return m_fieldSize.Value.Z; } }
-        float ModAPI.Ingame.IMyGravityGenerator.Gravity { get { return GravityAcceleration / MyGravityProviderSystem.G; } }
+        public float FieldWidth { get { return m_fieldSize.Value.X; } }
+        public float FieldHeight { get { return m_fieldSize.Value.Y; } }
+        public float FieldDepth { get { return m_fieldSize.Value.Z; } }
     }
 }
 

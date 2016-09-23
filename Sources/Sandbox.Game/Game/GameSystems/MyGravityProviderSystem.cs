@@ -44,14 +44,14 @@ namespace Sandbox.Game.GameSystems
 				GravityVectors.Clear();
 
 			foreach (IMyGravityProvider generator in m_gravityGenerators)
-			{
+            {
 				if (generator.IsWorking && generator.IsPositionInRange(worldPoint))
-				{
+                {
 					Vector3 worldGravity = generator.GetWorldGravity(worldPoint)*gravityMultiplier;
 					resultGravity += worldGravity;
 					GravityVectors.Add(worldGravity);
-				}
-			}
+                }
+            }
 
 			return resultGravity;
 		}

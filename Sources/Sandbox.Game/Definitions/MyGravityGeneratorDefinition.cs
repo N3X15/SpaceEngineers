@@ -7,21 +7,20 @@ using VRageMath;
 namespace Sandbox.Definitions
 {
     [MyDefinitionType(typeof(MyObjectBuilder_GravityGeneratorDefinition))]
-    public class MyGravityGeneratorDefinition : MyGravityGeneratorBaseDefinition
+    public class MyGravityGeneratorDefinition : MyGravityProviderDefinition
     {
+	    public MyStringHash ResourceSinkGroup;
         public float RequiredPowerInput;
-        public Vector3 MinFieldSize;
-        public Vector3 MaxFieldSize;
-
+        public MyBoundedVector3 FieldSize;
         protected override void Init(MyObjectBuilder_DefinitionBase builder)
         {
             base.Init(builder);
 
             var obGenerator = builder as MyObjectBuilder_GravityGeneratorDefinition;
-            MyDebug.AssertDebug(obGenerator != null, "Initializing definition using wrong object builder.");
+            MyDebug.AssertDebug(obGenerator != null, "Initializing gravity generator definition using wrong object builder.");
+	        ResourceSinkGroup = MyStringHash.GetOrCompute(obGenerator.ResourceSinkGroup);
             RequiredPowerInput = obGenerator.RequiredPowerInput;
-            MinFieldSize = obGenerator.MinFieldSize;
-            MaxFieldSize = obGenerator.MaxFieldSize;
+            FieldSize = obGenerator.FieldSize;
         }
     }
 }
