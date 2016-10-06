@@ -29,6 +29,7 @@ reference-fixes:
     - SharpDX.XAudio2
     - SteamSDK
     - VRage.Native
+    - RecastDetourWrapper
     # Roslyn shit.
     - Microsoft.CodeAnalysis
     - Microsoft.CodeAnalysis.CSharp

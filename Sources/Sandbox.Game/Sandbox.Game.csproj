@@ -130,9 +130,6 @@
     <Reference Include="InfinarioSDK">
       <HintPath>..\..\3rd\Infinario\InfinarioSDK.dll</HintPath>
     </Reference>
-    <Reference Include="RecastDetourWrapper">
-      <HintPath>..\..\3rd\RecastDetourWrapper\release\x64\RecastDetourWrapper.dll</HintPath>
-    </Reference>
     <Reference Include="SharpDX">
       <HintPath>..\..\3rd\SharpDX\SharpDX.dll</HintPath>
     </Reference>
@@ -203,6 +200,9 @@
     </Reference>
     <Reference Include="VRage.Native">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\VRage.Native.dll</HintPath>
+    </Reference>
+    <Reference Include="RecastDetourWrapper">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RecastDetourWrapper.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

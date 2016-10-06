@@ -119,7 +119,6 @@ namespace Sandbox.Game.Gui
 
         public void BuildControls()
         {
-            MyGuiControlParent parent = new MyGuiControlParent(size: new Vector2(Size.Value.X - 0.05f, Size.Value.Y + 0.36f));
             // SECE: Increased size since it clips a bit.
             //MyGuiControlParent parent = new MyGuiControlParent(size: new Vector2(Size.Value.X - 0.05f, Size.Value.Y + 0.4f));
             MyGuiControlParent parent = new MyGuiControlParent(size: new Vector2(Size.Value.X - 0.05f, Size.Value.Y + 0.8f));
