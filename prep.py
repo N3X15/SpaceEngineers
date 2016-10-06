@@ -16,6 +16,7 @@ REG_FIND_BAD_SELFCLOSERS = re.compile(r'([^ ])/>')
 FIX_BAD_SELFCLOSERS = '\\1 />'
 
 
+
 class Reference:
 
   def __init__(self):

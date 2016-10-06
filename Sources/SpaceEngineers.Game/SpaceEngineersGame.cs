@@ -29,7 +29,7 @@ namespace SpaceEngineers.Game
 {
     public partial class SpaceEngineersGame : MySandboxGame
     {
-        const int SE_VERSION = 01153003;
+        const int SE_VERSION = 01155003;
         const int SECE_BUILD = 4; // SECE Build #
 
         #region Constructor
@@ -86,6 +86,13 @@ namespace SpaceEngineers.Game
 
             MyPerGameSettings.BallFriendlyPhysics = false;
 
+            if (MyFakes.ENABLE_CESTMIR_PATHFINDING)
+            {
+                MyPerGameSettings.PathfindingType = typeof(Sandbox.Game.AI.Pathfinding.MyPathfinding);
+            }
+            else
+                MyPerGameSettings.PathfindingType = typeof(Sandbox.Game.AI.Pathfinding.MyRDPathfinding);
+
             MyPerGameSettings.BotFactoryType = typeof(SpaceEngineers.Game.AI.MySpaceBotFactory);
 
             MyPerGameSettings.ControlMenuInitializerType = typeof(MySpaceControlMenuInitializer);
@@ -111,6 +118,7 @@ namespace SpaceEngineers.Game
             MyPerGameSettings.EnableKinematicMPCharacter = false;
 
             MyPerGameSettings.GUI.OptionsScreen = typeof(MyGuiScreenOptionsSpace);
+            MyPerGameSettings.GUI.PerformanceWarningScreen = typeof(MyGuiScreenPerformanceWarnings);
             MyPerGameSettings.GUI.CreateFactionScreen = typeof(MyGuiScreenCreateOrEditFactionSpace);
             MyPerGameSettings.DefaultGraphicsRenderer = MySandboxGame.DirectX11RendererKey;
 

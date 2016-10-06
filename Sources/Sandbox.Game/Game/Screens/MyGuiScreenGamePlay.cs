@@ -341,7 +341,7 @@ namespace Sandbox.Game.Gui
                         else if (MyInput.Static.IsAnyShiftKeyPressed())
                         {
                             MySpectatorCameraController.Static.AlignSpectatorToGravity = !MySpectatorCameraController.Static.AlignSpectatorToGravity;
-                        }
+                            }
 
                         if (MyInput.Static.IsAnyCtrlKeyPressed() && MySession.Static.ControlledEntity != null)
                         {
@@ -400,7 +400,7 @@ namespace Sandbox.Game.Gui
 
             if (MyInput.Static.IsNewGameControlPressed(MyControlsSpace.HELP_SCREEN))
             {
-                if (MyInput.Static.IsAnyCtrlKeyPressed())
+                if (MyInput.Static.IsAnyShiftKeyPressed())
                 {
                     switch (MySandboxGame.Config.DebugComponentsInfo)
                     {
@@ -416,6 +416,11 @@ namespace Sandbox.Game.Gui
                     }
 
                     MySandboxGame.Config.Save();
+                }
+                else if (MyInput.Static.IsAnyCtrlKeyPressed() && MyPerGameSettings.GUI.PerformanceWarningScreen != null)
+                {
+                    MyGuiAudio.PlaySound(MyGuiSounds.HudMouseClick);
+                    MyGuiSandbox.AddScreen(MyGuiScreenGamePlay.ActiveGameplayScreen = MyGuiSandbox.CreateScreen(MyPerGameSettings.GUI.PerformanceWarningScreen));
                 }
                 else
                     if (MyGuiScreenGamePlay.ActiveGameplayScreen == null)
