@@ -7,6 +7,8 @@
     <ContentPath>c:\Program Files (x86)\Steam\SteamApps\common\SpaceEngineers\Content</ContentPath>
     <EffectsFromSources>true</EffectsFromSources>
     <DataFromSources>true</DataFromSources>
+    <!-- This should always be false. (This is here for XB1 builds.) -->
+    <RakNetAvailable>false</RakNetAvailable>
   </PropertyGroup>
   <ItemDefinitionGroup />
   <ItemGroup />

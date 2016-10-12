@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<?xml version="1.0" encoding="Windows-1252"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -115,12 +115,12 @@
     <Compile Include="IMyServerCallback.cs" />
     <Compile Include="MyChannelEnum.cs" />
     <Compile Include="MyClientEntry.cs" />
-    <Compile Include="MyRakNetConnectionException.cs" />
-    <Compile Include="MyRakNetStartupException.cs" />
-    <Compile Include="MyRakNetClient.cs" />
-    <Compile Include="MyRakNetLogger.cs" />
-    <Compile Include="MyRakNetPeer.cs" />
-    <Compile Include="MyRakNetServer.cs" />
+    <Compile Include="MyRakNetConnectionException.cs" Condition="$(RakNetAvailable) == true" />
+    <Compile Include="MyRakNetStartupException.cs" Condition="$(RakNetAvailable) == true" />
+    <Compile Include="MyRakNetClient.cs" Condition="$(RakNetAvailable) == true" />
+    <Compile Include="MyRakNetLogger.cs" Condition="$(RakNetAvailable) == true" />
+    <Compile Include="MyRakNetPeer.cs" Condition="$(RakNetAvailable) == true" />
+    <Compile Include="MyRakNetServer.cs" Condition="$(RakNetAvailable) == true"/>
     <Compile Include="Rpc\CallSite.cs" />
     <Compile Include="Rpc\CallSiteCache.cs" />
     <Compile Include="Rpc\CallSite`1.cs" />
@@ -143,7 +143,7 @@
     <Compile Include="SyncLayer\StateDataAttribute.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="RakNet">
+    <Reference Include="RakNet" Condition="$(RakNetAvailable) == true">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\3rd\RakNet\$(Configuration)\$(Platform)\RakNet.dll</HintPath>
     </Reference>
