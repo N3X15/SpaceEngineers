@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-import shutil
+#import shutil
 import sys
 
 import yaml
@@ -16,41 +16,37 @@ REG_FIND_BAD_SELFCLOSERS = re.compile(r'([^ ])/>')
 FIX_BAD_SELFCLOSERS = '\\1 />'
 
 MSBNS = '{http://schemas.microsoft.com/developer/msbuild/2003}'
+
+
 class Reference:
+
     def __init__(self, refXML=None):
         self.Include = ''
-        self.Private=None
-        self.HintPath=None
+        self.Private = None
+        self.HintPath = None
         if refXML is not None:
-            #print(etree.tostring(refXML,pretty_print=True))
+            # print(etree.tostring(refXML,pretty_print=True))
             self.Include = refXML.get('Include').split(',')[0].strip()
-            self.Private = refXML.find(MSBNS+'Private')
+            self.Private = refXML.find(MSBNS + 'Private')
             if self.Private is not None:
                 self.Private = self.Private.text == 'True'
-            self.HintPath = refXML.find(MSBNS+'HintPath')
+            self.HintPath = refXML.find(MSBNS + 'HintPath')
             if self.HintPath is not None:
                 self.HintPath = self.HintPath.text.strip()
 
+
 class ProjectReference:
-    '''
-    <ProjectReference Include="..\XB1Interface\XB1Interface.csproj" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')">
-      <Project>{b6068a9d-54a1-425a-9dfb-87fd9ec5e822}</Project>
-      <Name>XB1Interface</Name>
-    </ProjectReference>
-    '''
+
     def __init__(self, refXML=None):
-        self.Include=''
-        self.Condition=''
-        self.Project=''
-        self.Name=''
+        self.Include = ''
+        self.Condition = ''
+        self.Project = ''
+        self.Name = ''
         if refXML is not None:
             self.Include = refXML.get('Include')
-            self.Condition = refXML.get('Condition','')
-            self.Project = refXML.find(MSBNS+'Project').text
-            self.Name = refXML.find(MSBNS+'Name').text
-
-
-
+            self.Condition = refXML.get('Condition', '')
+            self.Project = refXML.find(MSBNS + 'Project').text
+            self.Name = refXML.find(MSBNS + 'Name').text
 
 
 class VS2015Project:
@@ -102,10 +98,10 @@ class VS2015Project:
         for elementName, elementValue in kwargs.iteritems():
             self.subelement(reference, elementName).text = str(elementValue)
 
-    def GetReference(self,refID):
+    def GetReference(self, refID):
         tag = self.references[refID]
-        #print(tag.tag)
-        if tag.tag == MSBNS+'Reference':
+        # print(tag.tag)
+        if tag.tag == MSBNS + 'Reference':
             return Reference(tag)
         else:
             return ProjectReference(tag)
@@ -138,7 +134,7 @@ if __name__ == '__main__':
 
     config = {}
     if not os.path.isfile('user-config.yml'):
-        data={
+        data = {
             'SECE': {
                 'Builder': {
                     'Email': 'anonymous@change.me',
@@ -149,8 +145,8 @@ if __name__ == '__main__':
                 }
             }
         }
-        with open('user-config.yml','w') as f:
-            yaml.dump(data,f)
+        with open('user-config.yml', 'w') as f:
+            yaml.dump(data, f)
     with open('config.yml', 'r') as f:
         config = yaml.load(f)
     newrefs = config.get('reference-fixes', [])
@@ -172,9 +168,10 @@ if __name__ == '__main__':
                 project.LoadFromFile(filename)
                 for refID in newrefs:
                     if project.HasReference(refID):
-                        refInfo  = project.GetReference(refID)
-                        newHintPath=os.path.join(SE_ROOT_DIR, 'Bin64', refID + '.dll')
-                        if isinstance(refInfo, Reference) and refInfo.HintPath == newHintPath: continue
+                        refInfo = project.GetReference(refID)
+                        newHintPath = os.path.join(SE_ROOT_DIR, 'Bin64', refID + '.dll')
+                        if isinstance(refInfo, Reference) and refInfo.HintPath == newHintPath:
+                            continue
                         project.RemoveRef(refID, verbose=True)
                         project.AddFileRef(refID, newHintPath, verbose=True)
                 project.SaveToFile(filename)
