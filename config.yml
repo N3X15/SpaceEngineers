@@ -14,8 +14,12 @@ version:
         type: intver
 reference-fixes:
     - HavokWrapper
-    # Only used on XB1.
-    #- RakNet
+    # Only used by KSH.
+    - RakNet:
+        # You can uncomment the following, if you don't want RakNet in there at all.
+        #delete: true
+        # This directive sets the Condition attribute in the reference. Fixes some warnings.
+        Condition: "('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')"
     - SharpDX
     - SharpDX.D3DCompiler
     - SharpDX.DXGI

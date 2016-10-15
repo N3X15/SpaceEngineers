@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='ASCII'?>
+<?xml version="1.0" encoding="us-ascii"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -115,12 +115,12 @@
     <Compile Include="IMyServerCallback.cs" />
     <Compile Include="MyChannelEnum.cs" />
     <Compile Include="MyClientEntry.cs" />
-    <Compile Include="MyRakNetConnectionException.cs" />
-    <Compile Include="MyRakNetStartupException.cs" />
-    <Compile Include="MyRakNetClient.cs" />
-    <Compile Include="MyRakNetLogger.cs" />
-    <Compile Include="MyRakNetPeer.cs" />
-    <Compile Include="MyRakNetServer.cs" />
+    <Compile Include="MyRakNetConnectionException.cs" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')" />
+    <Compile Include="MyRakNetStartupException.cs" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')" />
+    <Compile Include="MyRakNetClient.cs" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')" />
+    <Compile Include="MyRakNetLogger.cs" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')" />
+    <Compile Include="MyRakNetPeer.cs" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')" />
+    <Compile Include="MyRakNetServer.cs" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')" />
     <Compile Include="Rpc\CallSite.cs" />
     <Compile Include="Rpc\CallSiteCache.cs" />
     <Compile Include="Rpc\CallSite`1.cs" />
@@ -143,11 +143,10 @@
     <Compile Include="SyncLayer\StateDataAttribute.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="RakNet">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\3rd\RakNet\$(Configuration)\$(Platform)\RakNet.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
+    <Reference Include="RakNet" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RakNet.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VRage.Library\VRage.Library.csproj">

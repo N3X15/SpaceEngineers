@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='ASCII'?>
+<?xml version="1.0" encoding="us-ascii"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -14,10 +14,8 @@
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
+    <FileUpgradeFlags></FileUpgradeFlags>
+    <UpgradeBackupLocation></UpgradeBackupLocation>
     <OldToolsVersion>4.0</OldToolsVersion>
     <_ResolveReferenceDependencies>true</_ResolveReferenceDependencies>
   </PropertyGroup>
@@ -154,10 +152,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\3rd\SteamSDK\$(Configuration)\$(Platform)\SteamSDK.dll</HintPath>
     </Reference>
-    <Reference Include="RakNet">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\3rd\RakNet\$(Configuration)\$(Platform)\RakNet.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data.SQLite">
@@ -203,6 +197,9 @@
     </Reference>
     <Reference Include="RecastDetourWrapper">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RecastDetourWrapper.dll</HintPath>
+    </Reference>
+    <Reference Include="RakNet" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')">
+      <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RakNet.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -1676,6 +1673,5 @@
     <Exec Command="..\..\3rd\Utils\RunTemplate.bat &quot;$(ProjectDir)Game\Localization\MySpaceTexts&quot;" />
     <Exec Command="echo %time% Templates completed" />
   </Target>
-  <Target Name="AfterBuild">
-  </Target>
+  <Target Name="AfterBuild"></Target>
 </Project>

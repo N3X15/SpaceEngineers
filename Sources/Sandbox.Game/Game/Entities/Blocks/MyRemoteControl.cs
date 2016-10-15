@@ -476,8 +476,8 @@ namespace Sandbox.Game.Entities
                 // SECE
                 //sliderSpeedLimit.SetLimits(1, 200);
                 sliderSpeedLimit.SetLimits(
-                    r => 1,
-                    r => MyGridPhysics.GetShipMaxLinearVelocity(r.CubeGrid.GridSizeEnum));
+                    (x) => 1,
+                    (x) => MyGridPhysics.GetShipMaxLinearVelocity(x.CubeGrid.GridSizeEnum));
                 sliderSpeedLimit.DefaultValueGetter = r => MyGridPhysics.GetShipMaxLinearVelocity(r.CubeGrid.GridSizeEnum);
                 sliderSpeedLimit.Getter = (x) => x.m_autopilotSpeedLimit;
                 sliderSpeedLimit.Setter = (x, v) => x.m_autopilotSpeedLimit.Value = v;
