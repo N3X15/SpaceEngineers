@@ -27,6 +27,7 @@ using VRage.ModAPI;
 using VRage.Network;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Game.GameSystems.CoordinateSystem;
+using VRage.Audio;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ObjectBuilders.Definitions.SessionComponents;
@@ -106,6 +107,8 @@ namespace Sandbox.Game.Entities.Cube
         /// Grids that are around pasted grid. (In proximity, possible for merge)
         /// </summary>
         protected List<MyCubeGrid> m_touchingGrids = new List<MyCubeGrid>();
+
+        private ParallelTasks.Task ActivationTask;
 
         protected delegate void UpdateAfterPasteCallback(List<MyObjectBuilder_CubeGrid> pastedBuilders);
 
@@ -279,11 +282,53 @@ namespace Sandbox.Game.Entities.Cube
             return null;
         }
 
-        public virtual void Activate()
+        public virtual void ActivateNoAlign(Action callback = null)
         {
+            if (!ActivationTask.IsComplete)
+                return;
 
+            ActivationTask = ParallelTasks.Parallel.Start(delegate() { ChangeClipboardPreview(true); }, delegate()
+            {
+                if (m_visible)
+                {
+                    foreach (var grid in m_previewGrids)
+                    {
+                        MyEntities.Add(grid);
+                        DisablePhysicsRecursively(grid);
+                    }
+                    if (callback != null)
+                        callback();
+
+                    IsActive = true;
+                }
+            });
+        }
+
+        public virtual void Activate(Action callback = null)
+        {
+            if (!ActivationTask.IsComplete)
+                return;
+
+            ActivationTask = ParallelTasks.Parallel.Start(ActivateInternal, delegate()
+            {
+                if (m_visible)
+                {
+                    foreach (var grid in m_previewGrids)
+                    {
+                        MyEntities.Add(grid);
+                        DisablePhysicsRecursively(grid);
+                    }
+                    if (callback != null)
+                        callback();
+
+                    IsActive = true;
+                }
+            });
+        }
+
+        private void ActivateInternal()
+        {
             ChangeClipboardPreview(true);
-            IsActive = true;
 
             if (EnableStationRotation)
             {
@@ -297,14 +342,12 @@ namespace Sandbox.Game.Entities.Cube
             }
 
             MyCoordinateSystem.OnCoordinateChange += OnCoordinateChange;
-
         }
 
         private bool m_isAligning = false;
         private int m_lastFrameAligned = 0;
         private void OnCoordinateChange()
         {
-
             if (MyCoordinateSystem.Static.LocalCoordExist && AnyCopiedGridIsStatic)
             {
                 this.EnableStationRotation = false;
@@ -474,7 +517,6 @@ namespace Sandbox.Game.Entities.Cube
                 }
             }
 
-            Activate();
         }
 
         public void CutGrid(MyCubeGrid grid)
@@ -493,7 +535,6 @@ namespace Sandbox.Game.Entities.Cube
             }
 
             grid.SyncObject.SendCloseRequest();
-            Deactivate();
         }
 
         public void CopyGrid(MyCubeGrid grid)
@@ -503,7 +544,6 @@ namespace Sandbox.Game.Entities.Cube
             m_copiedGrids.Clear();
             m_copiedGridOffsets.Clear();
             CopyGridInternal(grid);
-            Activate();
         }
 
         public void CutGroup(MyCubeGrid grid, GridLinkTypeEnum groupType)
@@ -539,7 +579,6 @@ namespace Sandbox.Game.Entities.Cube
                 }
                 grid.SyncObject.SendCloseRequest();
             }
-            Deactivate();
         }
 
         private void CopyGridInternal(MyCubeGrid toCopy)
@@ -865,7 +904,7 @@ namespace Sandbox.Game.Entities.Cube
                 SetGridFromBuilderInternal(grids[i], offset);
             }
 
-            Activate();
+            //Activate();
         }
 
         private void SetGridFromBuilderInternal(MyObjectBuilder_CubeGrid grid, Vector3 offset)
@@ -891,6 +930,7 @@ namespace Sandbox.Game.Entities.Cube
                 MyCubeBuilder.BuildComponent.BeforeCreateBlock(blockDef, GetClipboardBuilder(), block, buildAsAdmin: MySession.Static.IsAdminModeEnabled(Sync.MyId));
             }
         }
+
 
         protected virtual void ChangeClipboardPreview(bool visible)
         {
@@ -955,7 +995,8 @@ namespace Sandbox.Game.Entities.Cube
                     gridBuilder.PositionAndOrientation = position;
                 }
 
-                var previewGrid = MyEntities.CreateFromObjectBuilder(gridBuilder) as MyCubeGrid;
+                var previewGrid = MyEntities.CreateFromObjectBuilder(gridBuilder, false) as MyCubeGrid;
+                previewGrid.UpdateDirty();
 
                 gridBuilder.IsStatic = savedIsStatic;
 
@@ -974,16 +1015,15 @@ namespace Sandbox.Game.Entities.Cube
                 }
 
                 MakeTransparent(previewGrid);
-                IsActive = visible;
-                m_visible = visible;
-                MyEntities.Add(previewGrid);
 
                 previewGrid.IsPreview = true;
                 previewGrid.Save = false;
-                DisablePhysicsRecursively(previewGrid);
                 m_previewGrids.Add(previewGrid);
                 previewGrid.OnClose += previewGrid_OnClose;
+
             }
+            //IsActive = visible;
+            m_visible = visible;
         }
 
         void previewGrid_OnClose(MyEntity obj)
@@ -1437,6 +1477,8 @@ namespace Sandbox.Game.Entities.Cube
 
         protected void AlignRotationToCoordSys()
         {
+            if (m_previewGrids.Count <= 0)
+                return;
             double gridSize = m_previewGrids[0].GridSize;
             MyCoordinateSystem.CoordSystemData localCoordData = MyCoordinateSystem.Static.SnapWorldPosToClosestGrid(ref m_pastePosition, gridSize, m_settings.StaticGridAlignToCenter);
 
@@ -1777,6 +1819,7 @@ namespace Sandbox.Game.Entities.Cube
                 if (!visible)
                     break;
             }
+            //GR: Issue with render not all blocks are hidden (Cubeblocks are not hidden). Put visible to false to reproduce
             foreach (var grid in m_previewGrids)
                 grid.Render.Visible = visible;
         }

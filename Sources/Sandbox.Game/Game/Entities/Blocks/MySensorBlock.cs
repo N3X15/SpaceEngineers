@@ -303,11 +303,11 @@ namespace Sandbox.Game.Entities.Blocks
             m_fieldMin.ValueChanged +=(x) => UpdateField();
         }
 
-        static void CreateTerminalControls()
+        protected void CreateTerminalControls()
         {
             if (MyTerminalControlFactory.AreControlsCreated<MySensorBlock>())
                 return;
-
+            base.CreateTerminalControls();
             m_openedToolbars = new List<MyToolbar>();
 
             var toolbarButton = new MyTerminalControlButton<MySensorBlock>("Open Toolbar", MySpaceTexts.BlockPropertyTitle_SensorToolbarOpen, MySpaceTexts.BlockPropertyDescription_SensorToolbarOpen,
@@ -764,7 +764,7 @@ namespace Sandbox.Game.Entities.Blocks
         {
             UpdateEmissivity();
             Toolbar.UpdateItem(0);
-            if (Sync.IsServer && MySession.Static.ElapsedPlayTime.TotalSeconds > 5)
+            if (Sync.IsServer)
                 Toolbar.ActivateItemAtSlot(0, false, PlayProximitySound);
         }
 

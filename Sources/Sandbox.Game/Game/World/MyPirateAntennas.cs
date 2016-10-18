@@ -121,7 +121,6 @@ namespace Sandbox.Game.World
         // CH: TODO: Serialization (& sync)!
         private static CachingDictionary<long, DroneInfo> m_droneInfos;
 
-        private static List<MyCubeGrid> m_tmpGridList = new List<MyCubeGrid>();
         private static long m_piratesIdentityId = 0;
 
         public override bool IsRequiredByGame
@@ -506,10 +505,13 @@ namespace Sandbox.Game.World
             {
                 Vector3D shipPosition = Vector3D.Transform((Vector3D)shipPrefab.Position, originMatrix);
 
-                m_tmpGridList.Clear();
+                List<MyCubeGrid> tmpGridList = new List<MyCubeGrid>();
+
+                Stack<Action> callback = new Stack<Action>();
+                callback.Push(delegate() { ChangeDroneOwnership(tmpGridList, ownerId, antennaEntityId); });
 
                 MyPrefabManager.Static.SpawnPrefab(
-                    resultList: m_tmpGridList,
+                    resultList: tmpGridList,
                     prefabName: shipPrefab.SubtypeId,
                     position: shipPosition,
                     forward: direction,
@@ -518,36 +520,39 @@ namespace Sandbox.Game.World
                     beaconName: null,
                     spawningOptions: VRage.Game.ModAPI.SpawningOptions.None,
                     ownerId: ownerId,
-                    updateSync: true);
-
-                foreach (var grid in m_tmpGridList)
-                {
-                    grid.ChangeGridOwnership(ownerId, MyOwnershipShareModeEnum.None);
-
-                    MyRemoteControl firstRemote = null;
-
-                    foreach (var block in grid.CubeBlocks)
-                    {
-                        if (block.FatBlock == null) continue;
-
-                        var pb = block.FatBlock as MyProgrammableBlock;
-                        if (pb != null)
-                        {
-                            pb.SendRecompile();
-                        }
-
-                        var remote = block.FatBlock as MyRemoteControl;
-                        if (firstRemote == null)
-                            firstRemote = remote;
-                    }
-
-                    // If there's no remote control on the grid, we have to register it as is
-                    RegisterDrone(antennaEntityId, (MyEntity)firstRemote ?? (MyEntity)grid);
-                }
-
-                m_tmpGridList.Clear();
+                    updateSync: true, callbacks: callback);
             }
             return true;
+        }
+
+        private void ChangeDroneOwnership(List<MyCubeGrid> gridList, long ownerId, long antennaEntityId)
+        {
+            foreach (var grid in gridList)
+            {
+                grid.ChangeGridOwnership(ownerId, MyOwnershipShareModeEnum.None);
+
+                MyRemoteControl firstRemote = null;
+
+                foreach (var block in grid.CubeBlocks)
+                {
+                    if (block.FatBlock == null) continue;
+
+                    var pb = block.FatBlock as MyProgrammableBlock;
+                    if (pb != null)
+                    {
+                        pb.SendRecompile();
+                    }
+
+                    var remote = block.FatBlock as MyRemoteControl;
+                    if (firstRemote == null)
+                        firstRemote = remote;
+                }
+
+                // If there's no remote control on the grid, we have to register it as is
+                RegisterDrone(antennaEntityId, (MyEntity)firstRemote ?? (MyEntity)grid);
+            }
+
+            gridList.Clear();
         }
 
         private void RegisterDrone(long antennaEntityId, MyEntity droneMainEntity, bool immediate = true)

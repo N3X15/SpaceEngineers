@@ -13,6 +13,7 @@ using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
 using System;
 using VRage;
+using VRage.Audio;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Network;
@@ -113,9 +114,9 @@ namespace Sandbox.Game.Entities.Character.Components
             NeedsAtmosphereForInfluence = thrustProperties.NeedsAtmosphereForInfluence;
             ConsumptionFactorPerG = thrustProperties.ConsumptionFactorPerG;
 
-            MyEntityThrustComponent thrustComp = new MyJetpackThrustComponent();
-            thrustComp.Init();
-            Character.Components.Add(thrustComp);
+			MyEntityThrustComponent thrustComp = new MyJetpackThrustComponent();
+			thrustComp.Init();
+			Character.Components.Add(thrustComp);
 
             ThrustComp.DampenersEnabled = characterBuilder.DampenersEnabled;
 
@@ -131,7 +132,12 @@ namespace Sandbox.Game.Entities.Character.Components
         public virtual void GetObjectBuilder(MyObjectBuilder_Character characterBuilder)
         {
             characterBuilder.DampenersEnabled = DampenersTurnedOn;
-            characterBuilder.JetpackEnabled = TurnedOn;
+            bool jetpackEnabled = TurnedOn;
+            if (MySession.Static.ControlledEntity is MyCockpit)
+            {
+                jetpackEnabled = (MySession.Static.ControlledEntity as MyCockpit).PilotJetpackEnabledBackup;
+            }
+            characterBuilder.JetpackEnabled = jetpackEnabled;
             characterBuilder.AutoenableJetpackDelay = CurrentAutoEnableDelay;
         }
 

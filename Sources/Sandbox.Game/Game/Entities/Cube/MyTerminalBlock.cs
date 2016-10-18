@@ -33,6 +33,7 @@ namespace Sandbox.Game.Entities.Cube
         private Sync<bool> m_showOnHUD;
         private Sync<bool> m_showInTerminal;
         private Sync<bool> m_showInToolbarConfig;
+        private Sync<bool> m_showInInventory;
 
         /// <summary>
         /// Name in terminal
@@ -63,6 +64,19 @@ namespace Sandbox.Game.Entities.Cube
                 {
                     m_showInTerminal.Value = value;
                     RaiseShowInTerminalChanged();
+                }
+            }
+        }
+
+        public bool ShowInInventory
+        {
+            get { return m_showInInventory; }
+            set
+            {
+                if (m_showInInventory != value)
+                {
+                    m_showInInventory.Value = value;
+                    RaiseShowInInventoryChanged();
                 }
             }
         }
@@ -98,9 +112,12 @@ namespace Sandbox.Game.Entities.Cube
         public event Action<MyTerminalBlock> VisibilityChanged;
         public event Action<MyTerminalBlock> ShowOnHUDChanged;
         public event Action<MyTerminalBlock> ShowInTerminalChanged;
+        public event Action<MyTerminalBlock> ShowInIventoryChanged;
         public event Action<MyTerminalBlock> ShowInToolbarConfigChanged;
         public event Action<MyTerminalBlock, StringBuilder> AppendingCustomInfo;
-        
+
+        static FastResourceLock m_createControlsLock = new FastResourceLock();
+
         public MyTerminalBlock()
         {
 #if XB1 // XB1_SYNC_NOREFLECTION
@@ -108,8 +125,11 @@ namespace Sandbox.Game.Entities.Cube
             m_showInTerminal = SyncType.CreateAndAddProp<bool>();
             m_showInToolbarConfig = SyncType.CreateAndAddProp<bool>();
 #endif // XB1
-            CreateTerminalControls();
-
+            //GR: due to parallelization we need this block running synchronized.
+            using (m_createControlsLock.AcquireExclusiveUsing())
+            {
+                CreateTerminalControls();
+            }
             DetailedInfo = new StringBuilder();
             CustomInfo = new StringBuilder();
             CustomNameWithFaction = new StringBuilder();
@@ -138,6 +158,7 @@ namespace Sandbox.Game.Entities.Cube
 
             ShowOnHUD = ob.ShowOnHUD;
             ShowInTerminal = ob.ShowInTerminal;
+            ShowInInventory = ob.ShowInInventory;
             ShowInToolbarConfig = ob.ShowInToolbarConfig;
             AddDebugRenderComponent(new MyDebugRenderComponentTerminal(this));
         }
@@ -148,6 +169,7 @@ namespace Sandbox.Game.Entities.Cube
             ob.CustomName = (DisplayNameText.CompareTo(BlockDefinition.DisplayNameText) != 0) ? DisplayNameText.ToString() : null;
             ob.ShowOnHUD = ShowOnHUD;
             ob.ShowInTerminal = ShowInTerminal;
+            ob.ShowInInventory = ShowInInventory;
             ob.ShowInToolbarConfig = ShowInToolbarConfig;
             return ob;
         }
@@ -241,6 +263,12 @@ namespace Sandbox.Game.Entities.Cube
         protected void RaiseShowInTerminalChanged()
         {
             var handler = ShowInTerminalChanged;
+            if (handler != null) handler(this);
+        }
+
+        protected void RaiseShowInInventoryChanged()
+        {
+            var handler = ShowInIventoryChanged;
             if (handler != null) handler(this);
         }
 
@@ -355,8 +383,10 @@ namespace Sandbox.Game.Entities.Cube
         /// that inherit MyTerminalBlock should put terminal control creation in a function called CreateTerminalControls, as MyTerminalControlFactory 
         /// will properly ensure their base classes' controls are added in.  I can't make this virtual because terminal controls don't deal with instances
         /// directly (this should probably change)
+        /// 
+        /// GR: Had to change this from static due to parallelization issues with multuple threads. Now it should run only once.
         /// </summary>
-        static void CreateTerminalControls()
+        protected virtual void CreateTerminalControls()
         {
             if (MyTerminalControlFactory.AreControlsCreated<MyTerminalBlock>())
                 return;
@@ -365,6 +395,12 @@ namespace Sandbox.Game.Entities.Cube
             show.Getter = (x) => x.m_showInTerminal;
             show.Setter = (x, v) => x.ShowInTerminal = v;
             MyTerminalControlFactory.AddControl(show);
+
+            var showInInventory = new MyTerminalControlOnOffSwitch<MyTerminalBlock>("ShowInInventory", MySpaceTexts.Terminal_ShowInInventory, MySpaceTexts.Terminal_ShowInInventoryToolTip);
+            showInInventory.Getter = (x) => x.m_showInInventory;
+            showInInventory.Setter = (x, v) => x.ShowInInventory = v;
+            showInInventory.Visible = (x) => x.HasInventory;
+            MyTerminalControlFactory.AddControl(showInInventory);
 
             var showConfig = new MyTerminalControlOnOffSwitch<MyTerminalBlock>("ShowInToolbarConfig", MySpaceTexts.Terminal_ShowInToolbarConfig, MySpaceTexts.Terminal_ShowInToolbarConfigToolTip);
             showConfig.Getter = (x) => x.m_showInToolbarConfig;

@@ -16,6 +16,7 @@ using VRageMath;
 using VRageRender;
 using VRage.ModAPI;
 using VRage;
+using VRage.Audio;
 using VRage.Library.Utils;
 using VRage.Game.Entity;
 using VRage.Game;
@@ -93,9 +94,9 @@ namespace Sandbox.Game.Entities.Cube
             }
         }
 
-        public override void Activate()
+        public override void Activate(Action callback = null)
         {
-            base.Activate();
+            base.Activate(callback);
             SetupDragDistance();
         }
 

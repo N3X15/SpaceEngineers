@@ -130,11 +130,11 @@ namespace Sandbox.Game.Entities.Cube
             m_otherQueue = new List<QueueItem>();
         }
 
-        static void CreateTerminalControls()
+        protected override void CreateTerminalControls()
         {
             if (MyTerminalControlFactory.AreControlsCreated<MyAssembler>())
                 return;
-
+            base.CreateTerminalControls();
             var slaveCheck = new MyTerminalControlCheckbox<MyAssembler>("slaveMode", MySpaceTexts.Assembler_SlaveMode, MySpaceTexts.Assembler_SlaveMode);
             slaveCheck.Getter = (x) => x.IsSlave;
             slaveCheck.Setter = (x, v) =>
@@ -152,6 +152,9 @@ namespace Sandbox.Game.Entities.Cube
 
         public override void Init(MyObjectBuilder_CubeBlock objectBuilder, MyCubeGrid cubeGrid)
         {
+            UpgradeValues.Add("Productivity", 0f);
+            UpgradeValues.Add("PowerEfficiency", 1f);
+
             base.Init(objectBuilder, cubeGrid);
             m_cubeGrid = cubeGrid;
             NeedsUpdate |= VRage.ModAPI.MyEntityUpdateEnum.EACH_100TH_FRAME;
@@ -204,9 +207,6 @@ namespace Sandbox.Game.Entities.Cube
             m_repeatDisassembleEnabled = builder.RepeatDisassembleEnabled;
             m_slave = builder.SlaveEnabled;
             UpdateInventoryFlags();
-
-            UpgradeValues.Add("Productivity", 0f);
-            UpgradeValues.Add("PowerEfficiency", 1f);
 
             m_baseIdleSound = BlockDefinition.PrimarySound;
             m_processSound = BlockDefinition.ActionSound;

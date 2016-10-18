@@ -1,6 +1,7 @@
 ﻿#region Using
 
 using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
@@ -217,6 +218,26 @@ namespace VRage.Game.Entity
             set
             {
                 m_isPreview = value;
+            }
+        }
+
+        bool m_isreadyForReplication = true;
+        public Action ReadyForReplicationAction;
+
+        // Indicates whether the entity finished initialization and can be replicated for clients
+        public bool IsReadyForReplication
+        {
+            get { return m_isreadyForReplication; }
+            set 
+            {
+                m_isreadyForReplication = value;
+
+                // Add your replicable to priority updates once done. Kind of hacky implementation. Should be remade when possible
+                if (m_isreadyForReplication && ReadyForReplicationAction != null)
+                {
+                    ReadyForReplicationAction();
+                    ReadyForReplicationAction = null;
+                }
             }
         }
 
@@ -854,8 +875,15 @@ namespace VRage.Game.Entity
                 VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
             }
 
+            // If this is just an Entity
+            if (GetType() == typeof(MyEntity))
+            {
+                Flags |= EntityFlags.Save | EntityFlags.IsGamePrunningStructureObject;
+                PositionComp.LocalVolume = new BoundingSphere(Vector3.Zero, 0.5f);
+            }
+
             VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("AddToGamePruningStructure");
-            if (Parent == null)
+            if (Parent == null || (Flags & EntityFlags.IsGamePrunningStructureObject) != 0)
                 AddToGamePruningStructureExtCallBack(this);
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
 
@@ -863,7 +891,10 @@ namespace VRage.Game.Entity
 
             foreach (var child in Hierarchy.Children)
             {
-                child.Container.Entity.OnAddedToScene(source);
+                if (!child.Container.Entity.InScene)
+                {
+                    child.Container.Entity.OnAddedToScene(source);
+                }
             }
 
             MyProceduralWorldGeneratorTrackEntityExtCallback(this);
@@ -871,7 +902,6 @@ namespace VRage.Game.Entity
             MyWeldingGroupsAddNodeExtCallback(this);
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
         }
-
 
         public virtual void OnRemovedFromScene(object source)
         {
@@ -1206,9 +1236,16 @@ namespace VRage.Game.Entity
         /// </summary>
         public void Delete()
         {
+            if(Closed)
+                return;
+
             Close();
             BeforeDelete();
-            GameLogic.Close();
+            if(GameLogic != null)
+            {
+                GameLogic.Close();
+            }
+
             //doesnt work in parallel update
             //Debug.Assert(MySandboxGame.IsMainThread(), "Entity.Close() called not from Main Thread!");
             Debug.Assert(MyEntitiesInterface.IsUpdateInProgress() == false, "Do not close entities directly in Update*, use MarkForClose() instead");
@@ -1529,5 +1566,8 @@ namespace VRage.Game.Entity
 
         // VRAGE TODO: Delegates helping us to move MyEntity to VRage.Game. See above.
         public static Action<MyComponentContainer, MyObjectBuilderType, MyStringHash, MyObjectBuilder_ComponentContainer> InitComponentsExtCallback = null;
+
+        // VRAGE TODO: Delegates helping us to move MyEntity to VRage.Game. See above.
+        public static Func<MyObjectBuilder_EntityBase, bool, MyEntity> MyEntitiesCreateFromObjectBuilderExtCallback = null; 
     }
 }

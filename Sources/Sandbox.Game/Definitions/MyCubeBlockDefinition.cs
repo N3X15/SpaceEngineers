@@ -253,6 +253,8 @@ namespace Sandbox.Definitions
         public float MaxIntegrity;
 
         public int? DamageEffectID = null;//defaults to no effect
+        public string DestroyEffect = "";//defaults to no effect
+        public MySoundPair DestroySound = MySoundPair.Empty;//defaults to no effect
         public CubeBlockEffectBase[] Effects;
 
         public MountPoint[] MountPoints;
@@ -457,6 +459,8 @@ namespace Sandbox.Definitions
             }
             if (ob.DamageEffectId != 0)
                 this.DamageEffectID = ob.DamageEffectId;
+            if (ob.DestroyEffect != null && ob.DestroyEffect.Length > 0)
+                this.DestroyEffect = ob.DestroyEffect;
 
             this.Points = ob.Points;
             InitEntityComponents(ob.EntityComponents);
@@ -648,8 +652,10 @@ namespace Sandbox.Definitions
 
             PrimarySound = new MySoundPair(ob.PrimarySound);
             ActionSound = new MySoundPair(ob.ActionSound);
-            if (ob.DamagedSound!=null)
+            if (ob.DamagedSound != null && ob.DamagedSound.Length > 0)
                 DamagedSound = new MySoundPair(ob.DamagedSound);
+            if (ob.DestroySound != null && ob.DestroySound.Length > 0)
+                DestroySound = new MySoundPair(ob.DestroySound);
 
         }
 
@@ -683,6 +689,7 @@ namespace Sandbox.Definitions
             ob.BuildMaterial = this.BuildMaterial;
             ob.GeneratedBlockType = this.GeneratedBlockType.ToString();
             ob.DamageEffectId = this.DamageEffectID.HasValue ? this.DamageEffectID.Value : 0;
+            ob.DestroyEffect = this.DestroyEffect.Length > 0 ? this.DestroyEffect : "";
             ob.CompoundTemplates = this.CompoundTemplates;
             ob.Icons = Icons;
             ob.Points = this.Points;
@@ -991,8 +998,8 @@ namespace Sandbox.Definitions
 				if(addedMounts != null)
 					addedMounts.Add(mpBuilder);
 				// shrink mount points a little to avoid overlaps when they are very close.
-				var mpStart = new Vector3((Vector2)mpBuilder.Start + OFFSET_CONST, THICKNESS_HALF);
-				var mpEnd = new Vector3((Vector2)mpBuilder.End - OFFSET_CONST, -THICKNESS_HALF);
+                var mpStart = new Vector3((Vector2)Vector2.Min(mpBuilder.Start, mpBuilder.End) + OFFSET_CONST, THICKNESS_HALF);
+                var mpEnd = new Vector3((Vector2)Vector2.Max(mpBuilder.Start, mpBuilder.End) - OFFSET_CONST, -THICKNESS_HALF);
 				var sideIdx = (int)mpBuilder.Side;
 				var mpNormal = Vector3I.Forward;
 				TransformMountPointPosition(ref mpStart, sideIdx, Size, out mpStart);

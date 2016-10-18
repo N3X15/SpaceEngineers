@@ -84,6 +84,11 @@ namespace Sandbox.Game.Weapons
             AddDebugRenderComponent(new MyDebugRenderComponentDrawConveyorEndpoint(m_conveyorEndpoint));
         }
 
+        public override bool IsStationary()
+        {
+            return true;
+        }
+
         public MySmallGatlingGun()
         {
 #if XB1 // XB1_SYNC_NOREFLECTION
@@ -117,11 +122,11 @@ namespace Sandbox.Game.Weapons
 #endif // !XB1
         }
 
-        static void CreateTerminalControls()
+        protected override void CreateTerminalControls()
         {
             if (MyTerminalControlFactory.AreControlsCreated<MySmallGatlingGun>())
                 return;
-
+            base.CreateTerminalControls();
             var useConvSystem = new MyTerminalControlOnOffSwitch<MySmallGatlingGun>("UseConveyor", MySpaceTexts.Terminal_UseConveyorSystem);
             useConvSystem.Getter = (x) => (x).UseConveyorSystem;
             useConvSystem.Setter = (x, v) => (x).UseConveyorSystem = v;

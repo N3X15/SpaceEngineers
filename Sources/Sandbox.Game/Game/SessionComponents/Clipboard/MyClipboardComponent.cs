@@ -29,6 +29,7 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
 using Sandbox.Game.Multiplayer;
+using VRage.Audio;
 using VRage.Profiler;
 
 namespace Sandbox.Game.SessionComponents.Clipboard
@@ -149,7 +150,7 @@ namespace Sandbox.Game.SessionComponents.Clipboard
             base.InitFromDefinition(definition);
 
             MyClipboardDefinition clipboardDefinition = definition as MyClipboardDefinition;
-            if(clipboardDefinition == null)
+            if (clipboardDefinition == null)
                 Debug.Fail("Wrong definition! Please check.");
 
             m_definition = clipboardDefinition;
@@ -168,15 +169,15 @@ namespace Sandbox.Game.SessionComponents.Clipboard
 
             if (m_clipboard != null)
             {
-                m_clipboard.Deactivate();
+            m_clipboard.Deactivate();
             }
             if (m_floatingObjectClipboard != null)
             {
-                m_floatingObjectClipboard.Deactivate();
+            m_floatingObjectClipboard.Deactivate();
             }
             if (m_voxelClipboard != null)
             {
-                m_voxelClipboard.Deactivate();
+            m_voxelClipboard.Deactivate();
             }
 
             Static = null;
@@ -256,8 +257,8 @@ namespace Sandbox.Game.SessionComponents.Clipboard
 
             if (this.HandleBlueprintInput())
                 return true;
-            
-            if (m_clipboard != null && m_clipboard.IsActive &&(MyControllerHelper.IsControl(context, MyControlsSpace.FREE_ROTATION) ||
+
+            if (m_clipboard != null && m_clipboard.IsActive && (MyControllerHelper.IsControl(context, MyControlsSpace.FREE_ROTATION) ||
                                         MyControllerHelper.IsControl(context, MyControlsSpace.SWITCH_BUILDING_MODE)))
             {
 
@@ -362,6 +363,7 @@ namespace Sandbox.Game.SessionComponents.Clipboard
             if (MyInput.Static.IsNewKeyPressed(MyKeys.V) && MyInput.Static.IsAnyCtrlKeyPressed() && !MyInput.Static.IsAnyShiftKeyPressed())
             {
                 bool handled = false;
+                MySession.Static.GameFocusManager.Clear();
                 if (m_clipboard.PasteGrid())
                 {
                     MySessionComponentVoxelHand.Static.Enabled = false;
@@ -375,7 +377,7 @@ namespace Sandbox.Game.SessionComponents.Clipboard
                     handled = true;
                 }
 
-                if(handled)
+                if (handled)
                 {
                     if (m_activated)
                         this.Deactivate();
@@ -401,7 +403,7 @@ namespace Sandbox.Game.SessionComponents.Clipboard
 
                 if (entity is MyCubeGrid && m_clipboard.IsActive == false)
                 {
-                    
+
                     MyGuiAudio.PlaySound(MyGuiSounds.HudClick);
 
                     bool cutGroup = !MyInput.Static.IsAnyShiftKeyPressed();
@@ -470,7 +472,7 @@ namespace Sandbox.Game.SessionComponents.Clipboard
                     handled = true;
                 }
 
-                if(handled)
+                if (handled)
                 {
                     return true;
                 }
@@ -497,9 +499,15 @@ namespace Sandbox.Game.SessionComponents.Clipboard
                         DeactivateCopyPasteFloatingObject(true);
 
                         if (!MyInput.Static.IsAnyShiftKeyPressed())
+                        {
                             m_clipboard.CopyGroup(grid, MyInput.Static.IsAnyAltKeyPressed() ? GridLinkTypeEnum.Physical : GridLinkTypeEnum.Logical);
+                            m_clipboard.Activate();
+                        }
                         else
+                        {
                             m_clipboard.CopyGrid(grid);
+                            m_clipboard.Activate();
+                        }
                         UpdatePasteNotification(MyCommonTexts.CubeBuilderPasteNotification);
                         handled = true;
                     }
@@ -513,7 +521,7 @@ namespace Sandbox.Game.SessionComponents.Clipboard
                         handled = true;
                     }
 
-                    if(handled)
+                    if (handled)
                     {
                         this.Activate();
                         return true;
@@ -906,7 +914,8 @@ namespace Sandbox.Game.SessionComponents.Clipboard
                 if (m_clipboard.IsActive)
                 {
                     m_clipboard.Show();
-                    m_clipboard.HideGridWhenColliding(m_collisionTestPoints);
+                    //GR: For now disable this functionallity. Issue with render not all blocks are hidden (Cubeblocks are not hidden)
+                    //m_clipboard.HideGridWhenColliding(m_collisionTestPoints);
                 }
                 else
                     m_clipboard.Hide();

@@ -84,11 +84,11 @@ namespace SpaceEngineers.Game.Entities.Blocks
             m_isCountingDown.ValidateNever();
         }
 
-        static void CreateTerminalControls()
+        protected override void CreateTerminalControls()
         {
             if (MyTerminalControlFactory.AreControlsCreated<MyTimerBlock>())
                 return;
-
+            base.CreateTerminalControls();
             var silent = new MyTerminalControlCheckbox<MyTimerBlock>("Silent", MySpaceTexts.BlockPropertyTitle_Silent, MySpaceTexts.ToolTipTimerBlock_Silent);
             silent.Getter = (x) => x.Silent;
             silent.Setter = (x, v) => x.Silent = v;
@@ -301,6 +301,10 @@ namespace SpaceEngineers.Game.Entities.Blocks
                     Toolbar.UpdateItem(i);
                     Toolbar.ActivateItemAtIndex(i);
                 }
+
+                //Visual scripting action
+                if (CubeGrid.Physics != null && MyVisualScriptLogicProvider.TimerBlockTriggered != null)
+                    MyVisualScriptLogicProvider.TimerBlockTriggered(CustomName.ToString());
             }
             UpdateEmissivity();
             DetailedInfo.Clear();

@@ -442,7 +442,6 @@ namespace Sandbox.Game.Entities
             orientation.Translation = localMatrix.Translation;
             localMatrix = orientation;
         }
-
         public virtual void Init(MyObjectBuilder_CubeBlock builder, MyCubeGrid cubeGrid)
         {
             //objectBuilder.PersistentFlags |= MyPersistentEntityFlags2.CastShadows;
@@ -451,6 +450,8 @@ namespace Sandbox.Game.Entities
                 EntityId = MyEntityIdentifier.AllocateId();
             else if (builder.EntityId != 0)
                 EntityId = builder.EntityId;
+
+            Name = builder.Name;
 
             NumberInGrid = cubeGrid.BlockCounter.GetNextNumber(builder.GetId());
             Render.ColorMaskHsv = builder.ColorMaskHSV;
@@ -553,6 +554,7 @@ namespace Sandbox.Game.Entities
             builder.Min = Min;
             builder.Owner = 0;
             builder.ShareMode = MyOwnershipShareModeEnum.None;
+            builder.Name = Name;
             if (m_IDModule != null)
             {
                 builder.Owner = m_IDModule.Owner;
@@ -576,6 +578,8 @@ namespace Sandbox.Game.Entities
             }
 
             builder.ComponentContainer = Components.Serialize(copy);
+            if(copy)
+                builder.Name = null;
 
             return builder;
         }

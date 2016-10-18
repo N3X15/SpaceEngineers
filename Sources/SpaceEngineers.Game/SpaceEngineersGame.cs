@@ -29,7 +29,7 @@ namespace SpaceEngineers.Game
 {
     public partial class SpaceEngineersGame : MySandboxGame
     {
-        const int SE_VERSION = 01155003;
+        const int SE_VERSION = 01157003;
         const int SECE_BUILD = 5; // SECE Release #
 
         #region Constructor
@@ -67,6 +67,7 @@ namespace SpaceEngineers.Game
             MySandboxGame.GameCustomInitialization = new MySpaceGameCustomInitialization();
             MyPerGameSettings.ShowObfuscationStatus = false;
             MyPerGameSettings.UseNewDamageEffects = true;
+            MyPerGameSettings.EnableResearch = true;
 
             //audio
             MyPerGameSettings.UseVolumeLimiter = MyFakes.ENABLE_NEW_SOUNDS && MyFakes.ENABLE_REALISTIC_LIMITER;
@@ -120,6 +121,7 @@ namespace SpaceEngineers.Game
             MyPerGameSettings.GUI.OptionsScreen = typeof(MyGuiScreenOptionsSpace);
             MyPerGameSettings.GUI.PerformanceWarningScreen = typeof(MyGuiScreenPerformanceWarnings);
             MyPerGameSettings.GUI.CreateFactionScreen = typeof(MyGuiScreenCreateOrEditFactionSpace);
+            MyPerGameSettings.GUI.MainMenu = typeof(MyGuiScreenMainMenu);
             MyPerGameSettings.DefaultGraphicsRenderer = MySandboxGame.DirectX11RendererKey;
 
             MyPerGameSettings.EnableWelderAutoswitch = true;

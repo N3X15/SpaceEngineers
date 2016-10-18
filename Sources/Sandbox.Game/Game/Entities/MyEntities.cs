@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 
 using VRage;
 using VRage.Collections;
@@ -34,8 +35,10 @@ using System.Text;
 using Sandbox.Game.Components;
 using ParallelTasks;
 using Sandbox.Definitions;
+using Sandbox.Game.Entities.Cube;
 using VRage.Game.Entity;
 using VRage.Game;
+using VRage.Game.VisualScripting;
 using VRage.Library;
 using VRage.Profiler;
 
@@ -72,7 +75,8 @@ namespace Sandbox.Game.Entities
         static List<IMySceneComponent> m_sceneComponents = new List<IMySceneComponent>();
 
         // Helper for remapping of entityIds to new values
-        static MyEntityIdRemapHelper m_remapHelper = new MyEntityIdRemapHelper();
+        [ThreadStatic]
+        static MyEntityIdRemapHelper m_remapHelper;
 
         // Count of objects editable in editor
         readonly static int MAX_ENTITIES_CLOSE_PER_UPDATE = 10;
@@ -89,10 +93,17 @@ namespace Sandbox.Game.Entities
 
         public static bool IgnoreMemoryLimits = false;
 
+        public static int PendingInits;
+        public static EventWaitHandle FinishedProcessingInits = new AutoResetEvent(false);
+
         #endregion
 
         static MyEntities()
         {
+            var typeOfBlankEntity = typeof(MyEntity);
+            var descriptor = typeOfBlankEntity.GetCustomAttribute<MyEntityTypeAttribute>(false);
+            MyEntityFactory.RegisterDescriptor(descriptor, typeOfBlankEntity);
+
 #if XB1 // XB1_ALLINONEASSEMBLY
             MyEntityFactory.RegisterDescriptorsFromAssembly(MyAssembly.AllInOneAssembly);
 #else // !XB1
@@ -330,7 +341,38 @@ namespace Sandbox.Game.Entities
                     MySession.Static.VoxelMaps.GetAllOverlappingWithSphere(ref boundingSphere, voxels);
 
                     if (voxels.Count == 0)
+                    {
                         return currentPos;
+                    }
+                    else
+                    {
+                        //GR: For planets GetAllOverlappingWithSphere is pretty inaccurate and covers large area of empty space
+                        //So do custom check for big voxels (planets) manually without raycast. Just check maximum radius of planet for current point
+                        //If for at least one planet we are below the maximum radius threshold then do not try to spawn.
+                        var ignoreAll = true;
+                        foreach (var voxel in voxels)
+                        {
+                            var planet = (MyPlanet)voxel;
+                            if (planet == null)
+                            {
+                                ignoreAll = false;
+                                break;
+                            }
+                            else
+                            {
+                                var distanceFromPlanet = (currentPos - planet.MaximumRadius).Length();
+                                if (distanceFromPlanet < planet.MaximumRadius)
+                                {
+                                    ignoreAll = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (ignoreAll)
+                        {
+                            return currentPos;
+                        }
+                    }
                 }
                 return null;
             }
@@ -605,7 +647,7 @@ namespace Sandbox.Game.Entities
         }
           */
         // Dictionary of entities where entity name is key
-        static public Dictionary<string, MyEntity> m_entityNameDictionary = new Dictionary<string, MyEntity>();
+        static public MyConcurrentDictionary<string, MyEntity> m_entityNameDictionary = new MyConcurrentDictionary<string, MyEntity>();
 
         static bool m_isLoaded = false;
         public static bool IsLoaded
@@ -753,10 +795,10 @@ namespace Sandbox.Game.Entities
 
             if (!string.IsNullOrEmpty(myEntity.Name))
             {
-                Debug.Assert(!m_entityNameDictionary.ContainsKey(myEntity.Name));
+                Debug.Assert(!m_entityNameDictionary.ContainsKey(myEntity.Name), "MyEntities: Entity names are conflicting. : " + newName);
                 if (!m_entityNameDictionary.ContainsKey(myEntity.Name))
                 {
-                    m_entityNameDictionary.Add(myEntity.Name, myEntity);
+                    m_entityNameDictionary.TryAdd(myEntity.Name, myEntity);
                 }
             }
 
@@ -1781,6 +1823,16 @@ namespace Sandbox.Game.Entities
                         MyRenderProxy.DebugDrawText2D(new Vector2(700.0f, 0.0f), "Grid number: " + MyCubeGrid.GridCounter, Color.Red, 1.0f, MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_TOP);
                     }
 
+                    // Add empty entities -- these cannot be classified as not visible by render proxy
+                    // no render id.
+                    foreach (var entity in m_entities)
+                    {
+                        if (entity.DefinitionId == null)
+                        {
+                            m_entitiesForDebugDraw.Add(entity);
+                        }
+                    }
+
                     foreach (IMyEntity entity in m_entitiesForDebugDraw)
                     {
                         if (MyDebugDrawSettings.ENABLE_DEBUG_DRAW)
@@ -1905,7 +1957,7 @@ namespace Sandbox.Game.Entities
                 if (retVal.EntityId == 0)
                 {
                     //If set to null a waning will be printed disabled that now cause got a lot fo Entities with EntityId = 0.
-                    //retVal = null;
+                    retVal = null;
                 }
                 else
                 {
@@ -2004,6 +2056,8 @@ namespace Sandbox.Game.Entities
 
         public static void RemapObjectBuilderCollection(IEnumerable<MyObjectBuilder_EntityBase> objectBuilders)
         {
+            if (m_remapHelper == null)
+                m_remapHelper = new MyEntityIdRemapHelper();
             foreach (var objectBuilder in objectBuilders)
                 objectBuilder.Remap(m_remapHelper);
             m_remapHelper.Clear();
@@ -2011,11 +2065,13 @@ namespace Sandbox.Game.Entities
 
         public static void RemapObjectBuilder(MyObjectBuilder_EntityBase objectBuilder)
         {
+            if (m_remapHelper == null)
+                m_remapHelper = new MyEntityIdRemapHelper();
             objectBuilder.Remap(m_remapHelper);
             m_remapHelper.Clear();
         }
 
-        public static MyEntity CreateFromObjectBuilderNoinit(MyObjectBuilder_EntityBase objectBuilder)
+        public static MyEntity CreateFromObjectBuilderNoinit(MyObjectBuilder_EntityBase objectBuilder, bool readyForReplication = true)
         {
             if ((objectBuilder.TypeId == typeof(MyObjectBuilder_CubeGrid) || objectBuilder.TypeId == typeof(MyObjectBuilder_VoxelMap)) && !MyEntities.IgnoreMemoryLimits && MemoryLimitReachedReport)
             {
@@ -2024,12 +2080,105 @@ namespace Sandbox.Game.Entities
                 return null;
             }
 
-            return MyEntityFactory.CreateEntity(objectBuilder);
+            return MyEntityFactory.CreateEntity(objectBuilder, readyForReplication);
         }
 
-        public static MyEntity CreateFromObjectBuilder(MyObjectBuilder_EntityBase objectBuilder)
+        /// <summary>
+        /// Holds data for asynchronous entity init
+        /// </summary>
+        public class InitEntityData : ParallelTasks.WorkData
         {
-            MyEntity entity = CreateFromObjectBuilderNoinit(objectBuilder);
+            MyObjectBuilder_EntityBase m_objectBuilder;
+            bool m_addToScene;
+            Action m_completionCallback;
+            MyEntity m_entity;
+
+            public InitEntityData(MyObjectBuilder_EntityBase objectBuilder, bool addToScene, Action completionCallback, MyEntity entity)
+            {
+                m_objectBuilder = objectBuilder;
+                m_addToScene = addToScene;
+                m_completionCallback = completionCallback;
+                m_entity = entity;
+            }
+
+            public void CallInitEntity()
+            {
+                try
+                {
+                    InitEntity(m_objectBuilder, ref m_entity);
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref PendingInits);
+                    if (PendingInits <= 0)
+                        FinishedProcessingInits.Set();
+                }
+            }
+
+            public void OnEntityInitialized()
+            {
+                if (m_addToScene)
+                {
+                    bool insertIntoScene = (int)(m_objectBuilder.PersistentFlags & MyPersistentEntityFlags2.InScene) > 0;
+                    if (m_entity != null && m_entity.EntityId != 0)
+                    {
+                        Add(m_entity, insertIntoScene);
+
+                        if (m_completionCallback != null)
+                            m_completionCallback();
+                        m_entity.IsReadyForReplication = true;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Create and asynchronously initialize and entity.
+        /// </summary>
+        /// <param name="completionCallback">Callback when the entity is initialized</param>
+        /// <param name="entity">Already created entity you only want to init</param>
+        public static MyEntity CreateFromObjectBuilderParallel(MyObjectBuilder_EntityBase objectBuilder, bool addToScene = false, Action completionCallback = null, MyEntity entity = null)
+        {
+            if (entity == null)
+            {
+                entity = CreateFromObjectBuilderNoinit(objectBuilder, false);
+                if (entity == null)
+                    return null;
+            }
+
+            InitEntityData initData = new InitEntityData(objectBuilder, addToScene, completionCallback, entity);
+            Interlocked.Increment(ref PendingInits);
+            Parallel.Start(CallInitEntity, OnEntityInitialized, initData);
+            return entity;
+        }
+
+        private static void CallInitEntity(WorkData workData)
+        {
+            
+            InitEntityData initData = workData as InitEntityData;
+            if (initData == null)
+            {
+                workData.FlagAsFailed();
+                return;
+            }
+            initData.CallInitEntity();
+        }
+
+        private static void OnEntityInitialized(WorkData workData)
+        {
+
+            InitEntityData initData = workData as InitEntityData;
+            if (initData == null)
+            {
+                workData.FlagAsFailed();
+                return;
+            }
+            initData.OnEntityInitialized();
+        }
+
+        public static MyEntity CreateFromObjectBuilder(MyObjectBuilder_EntityBase objectBuilder, bool readyForReplication = true)
+        {
+            MyEntity entity = CreateFromObjectBuilderNoinit(objectBuilder, readyForReplication);
             InitEntity(objectBuilder, ref entity);
             return entity;
         }
@@ -2098,7 +2247,7 @@ namespace Sandbox.Game.Entities
                         //if (objectBuilder.TypeId == MyObjectBuilderTypeEnum.CubeGrid && ((MyObjectBuilder_CubeGrid)objectBuilder).GridSizeEnum != MyCubeSize.Large)
                         //continue;
 
-                        var temporaryEntity = MyEntities.CreateFromObjectBuilderAndAdd(objectBuilder);
+                        var temporaryEntity = MyEntities.CreateFromObjectBuilderParallel(objectBuilder, true);
 
                         allEntitiesAdded &= temporaryEntity != null;
                     }
@@ -2129,45 +2278,11 @@ namespace Sandbox.Game.Entities
                     Debug.Assert(objBuilder != null, "Save flag specified returns nullable objectbuilder");
                     list.Add(objBuilder);
                 }
-
-                // recurse
-                var childrenObjectBuilders = GetObjectBuilders(entity.Hierarchy.Children);
-                if (childrenObjectBuilders != null) list.AddList(childrenObjectBuilders);
             }
 
             VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
 
             return list;
-        }
-
-
-        // Saves the whole hierarchy, but every type needs to resolve parent links on its own (probably in Link)
-        private static List<MyObjectBuilder_EntityBase> GetObjectBuilders(List<MyHierarchyComponentBase> components)
-        {
-            List<MyObjectBuilder_EntityBase> objectBuilders = null;
-            if (components != null)
-            {
-                objectBuilders = new List<MyObjectBuilder_EntityBase>();
-
-                foreach (var comp in components)
-                {
-                    var entity = comp.Container.Entity;
-                    if (entity.Save)
-                    {
-                        entity.BeforeSave();
-                        MyObjectBuilder_EntityBase objBuilder = entity.GetObjectBuilder();
-                        Debug.Assert(objBuilder != null, "Save flag specified returns nullable objectbuilder");
-                        objectBuilders.Add(objBuilder);
-                    }
-
-                    // recurse
-                    //var childrenObjectBuilders = GetObjectBuilders(entity.Children);
-                    //if (childrenObjectBuilders != null)
-                    //    objectBuilders.AddList(childrenObjectBuilders);
-                }
-            }
-
-            return objectBuilders;
         }
 
         private struct BoundingBoxDrawArgs
