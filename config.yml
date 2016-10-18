@@ -1,4 +1,10 @@
 #SECE: {} # See user-config.yml
+common:
+  xb1_only: &XB1_ONLY
+    Condition: "('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')"
+  pc_only: &PC_ONLY
+    Condition: "('$(Configuration)' != 'Debug_XB1') And ('$(Configuration)' != 'Release_XB1')"
+
 version:
     upstream:
         # const int SE_VERSION = 01146006;
@@ -16,10 +22,7 @@ reference-fixes:
     - HavokWrapper
     # Only used by KSH.
     - RakNet:
-        # You can uncomment the following, if you don't want RakNet in there at all.
-        #delete: true
-        # This directive sets the Condition attribute in the reference. Fixes some warnings.
-        Condition: "('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')"
+        *XB1_ONLY
     - SharpDX
     - SharpDX.D3DCompiler
     - SharpDX.DXGI
@@ -31,7 +34,10 @@ reference-fixes:
     - SharpDX.Mathematics
     - SharpDX.Toolkit
     - SharpDX.XAudio2
-    - SteamSDK
+    - SharpDX.XInput:
+        *XB1_ONLY
+    - SteamSDK:
+        *PC_ONLY
     - VRage.Native
     - RecastDetourWrapper
     # Roslyn shit.
@@ -39,3 +45,5 @@ reference-fixes:
     - Microsoft.CodeAnalysis.CSharp
     - System.Collections.Immutable
     - System.Reflection.Metadata
+    - Microsoft.CodeAnalysis.Workspaces
+    - InfinarioSDK

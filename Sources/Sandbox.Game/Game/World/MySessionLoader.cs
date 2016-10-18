@@ -480,7 +480,10 @@ namespace Sandbox.Game.World
             var newGameplayScreen = new MyGuiScreenGamePlay();
             newGameplayScreen.OnLoadingAction += loadingAction;
 
+            /* SECE
             var loadScreen = new MyGuiScreenLoading(newGameplayScreen, MyGuiScreenGamePlay.Static, customLoadingBackground, customLoadingtext);
+            */
+            var loadScreen = new CEGuiScreenLoading(newGameplayScreen, MyGuiScreenGamePlay.Static, customLoadingBackground, customLoadingtext);
             loadScreen.OnScreenLoadingFinished += delegate
             {
                 MyModAPIHelper.OnSessionLoaded();

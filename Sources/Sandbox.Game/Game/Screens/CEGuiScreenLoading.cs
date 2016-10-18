@@ -18,6 +18,7 @@ namespace Sandbox.Game.Gui
     using Sandbox.Game.Screens.Helpers;
     using Sandbox.Game.World;
     using Sandbox.Graphics;
+    using System.Diagnostics;
     using VRage;
     using VRage.Audio;
     using VRage.Input;
@@ -36,6 +37,7 @@ namespace Sandbox.Game.Gui
 
         string m_backgroundScreenTexture;
         string m_backgroundTextureFromConstructor;
+        string m_customTextFromConstructor;
         string m_rotatingWheelTexture;
         string m_gameLogoTexture;
         private MyLoadingScreenQuote m_currentQuote;
@@ -60,11 +62,13 @@ namespace Sandbox.Game.Gui
 
         private MyFontEnum m_fontId = MyFontEnum.LoadingScreen;
 
-        public CEGuiScreenLoading(MyGuiScreenGamePlay screenToLoad, MyGuiScreenGamePlay screenToUnload, string textureFromConstructor)
+        public CEGuiScreenLoading(MyGuiScreenGamePlay screenToLoad, MyGuiScreenGamePlay screenToUnload, string textureFromConstructor, string customText = null)
             : base(Vector2.Zero, null, null)
         {
             MyLoadingPerformance.Instance.StartTiming();
 
+            System.Diagnostics.Debug.Assert(Static == null);
+            Static = this;
 
             m_screenToLoad = screenToLoad;
             m_screenToUnload = screenToUnload;
@@ -83,6 +87,7 @@ namespace Sandbox.Game.Gui
 
             m_rotatingWheelTexture = MyGuiConstants.LOADING_TEXTURE_LOADING_SCREEN;
             m_backgroundTextureFromConstructor = textureFromConstructor;
+            m_customTextFromConstructor = customText;
 
             m_loadFinished = false;
 
@@ -137,6 +142,13 @@ namespace Sandbox.Game.Gui
                 false,
                 MyPerGameSettings.GUI.MultipleSpinningWheels);
 
+            StringBuilder contents;
+
+            if(!string.IsNullOrEmpty(m_customTextFromConstructor))
+                contents = new StringBuilder(m_customTextFromConstructor);
+            else
+                contents = MyTexts.Get(m_currentQuote.Text);
+
             m_quoteTextControl = new MyGuiControlMultilineText(
                 position: Vector2.One * 0.5f,
                 size: new Vector2(0.9f, 0.2f),
@@ -144,7 +156,7 @@ namespace Sandbox.Game.Gui
                 font: m_fontId,
                 textScale: 1.0f,
                 textAlign: MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_BOTTOM,
-                contents: MyTexts.Get(m_currentQuote.Text),
+                contents: contents,
                 drawScrollbar: false);
             m_quoteTextControl.BorderEnabled = false;
             m_quoteTextControl.OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM;
@@ -320,6 +332,7 @@ namespace Sandbox.Game.Gui
                 {
                     OnLoadException(e, MyTexts.Get(MyCommonTexts.WorldFileIsCorruptedAndCouldNotBeLoaded));
                     m_exceptionDuringLoad = true;
+                    Debug.Fail("Exception raised during Session loading: " + e.ToString());
                 }
             }
         }
@@ -342,7 +355,7 @@ namespace Sandbox.Game.Gui
 
             try
             {
-                MyGuiScreenMainMenu.UnloadAndExitToMenu();
+                MySessionLoader.UnloadAndExitToMenu();
             }
             catch (Exception ex)
             {
@@ -385,7 +398,7 @@ namespace Sandbox.Game.Gui
         static long lastEnvWorkingSet = 0;
         static long lastGc = 0;
         static long lastVid = 0;
-        private StringBuilder m_currentLoadingSB;
+        private StringBuilder m_currentLoadingSB; // SECE
 
         private bool DrawLoading()
         {
@@ -429,12 +442,17 @@ namespace Sandbox.Game.Gui
 
             // Draw quote
             {
-                var font = m_fontId;
-                var controlBottomLeft = m_quoteTextControl.GetPositionAbsoluteBottomLeft();
-                var textSize = m_quoteTextControl.TextSize;
-                var controlSize = m_quoteTextControl.Size;
-                var authorTopLeft = controlBottomLeft + new Vector2((controlSize.X - textSize.X) * 0.5f + 0.025f, 0.025f);
-                MyGuiManager.DrawString(font, m_authorWithDash, authorTopLeft, MyGuiSandbox.GetDefaultTextScaleWithLanguage());
+                if (string.IsNullOrEmpty(m_customTextFromConstructor))
+                {
+                    var font = m_fontId;
+                    var controlBottomLeft = m_quoteTextControl.GetPositionAbsoluteBottomLeft();
+                    var textSize = m_quoteTextControl.TextSize;
+                    var controlSize = m_quoteTextControl.Size;
+                    var authorTopLeft = controlBottomLeft +
+                                        new Vector2((controlSize.X - textSize.X)*0.5f + 0.025f, 0.025f);
+                    MyGuiManager.DrawString(font, m_authorWithDash, authorTopLeft,
+                        MyGuiSandbox.GetDefaultTextScaleWithLanguage());
+                }
                 m_quoteTextControl.Draw(1, 1);
             }
         }
@@ -447,8 +465,12 @@ namespace Sandbox.Game.Gui
 
         private void RefreshQuote()
         {
-            m_quoteTextControl.TextEnum = m_currentQuote.Text;
-            m_authorWithDash.Clear().Append("- ").AppendStringBuilder(MyTexts.Get(m_currentQuote.Author)).Append(" -");
+            if(string.IsNullOrEmpty(m_customTextFromConstructor))
+            {
+                m_quoteTextControl.TextEnum = m_currentQuote.Text;
+                m_authorWithDash.Clear().Append("- ").AppendStringBuilder(MyTexts.Get(m_currentQuote.Author)).Append(" -");
+                
+            }
         }
 
         public override void OnRemoved()
