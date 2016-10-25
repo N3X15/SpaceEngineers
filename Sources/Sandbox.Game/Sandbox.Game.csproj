@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="us-ascii"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -14,8 +14,10 @@
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <FileUpgradeFlags></FileUpgradeFlags>
-    <UpgradeBackupLocation></UpgradeBackupLocation>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
     <OldToolsVersion>4.0</OldToolsVersion>
     <_ResolveReferenceDependencies>true</_ResolveReferenceDependencies>
   </PropertyGroup>
@@ -1581,7 +1583,7 @@
       <LastGenOutput>MySpaceTexts.cs</LastGenOutput>
     </None>
     <None Include="..\SpaceEngineers\Content\Data\Localization\MyTexts.resx">
-      <Link>Game\Localization\MyTexts.resx</Link>
+      <Link>Game\Multiplayer\MyTexts.resx</Link>
       <SubType>Designer</SubType>
     </None>
     <None Include="Resources\cubeblocks.sbc" />
@@ -1680,5 +1682,6 @@
     <Exec Command="..\..\3rd\Utils\RunTemplate.bat &quot;$(ProjectDir)Game\Localization\MySpaceTexts&quot;" />
     <Exec Command="echo %time% Templates completed" />
   </Target>
-  <Target Name="AfterBuild"></Target>
+  <Target Name="AfterBuild">
+  </Target>
 </Project>

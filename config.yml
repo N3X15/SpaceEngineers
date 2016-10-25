@@ -39,11 +39,17 @@ reference-fixes:
     - SteamSDK:
         *PC_ONLY
     - VRage.Native
-    - RecastDetourWrapper
+    - RecastDetourWrapper:
+        Private: false
     # Roslyn shit.
-    - Microsoft.CodeAnalysis
-    - Microsoft.CodeAnalysis.CSharp
-    - System.Collections.Immutable
-    - System.Reflection.Metadata
-    - Microsoft.CodeAnalysis.Workspaces
+    - Microsoft.CodeAnalysis:
+        Private: false
+    - Microsoft.CodeAnalysis.CSharp:
+        Private: false
+    - System.Collections.Immutable:
+        Private: false
+    - System.Reflection.Metadata:
+        Private: false
+    - Microsoft.CodeAnalysis.Workspaces:
+        Private: false
     - InfinarioSDK

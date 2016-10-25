@@ -25211,6 +25211,51 @@
       <Public>false</Public>
     </Definition>
 
+    <Definition xsi:type="MyObjectBuilder_ProjectorDefinition">
+      <Id>
+        <TypeId>MyObjectBuilder_RepairProjector</TypeId>
+        <SubtypeId>LargeRepairProjector</SubtypeId>
+      </Id>
+      <DisplayName>DisplayName_Block_RepairProjector</DisplayName>
+      <Icon>Textures\GUI\Icons\Cubes\Projector.dds</Icon>
+      <CubeSize>Large</CubeSize>
+      <BlockTopology>TriangleMesh</BlockTopology>
+      <Size x="1" y="1" z="1" />
+      <ModelOffset x="0" y="0" z="0" />
+      <Model>Models\Cubes\Large\Projector.mwm</Model>
+      <Components>
+        <Component Subtype="SteelPlate" Count="11" />
+        <Component Subtype="Construction" Count="4" />
+        <Component Subtype="LargeTube" Count="20" />
+        <Component Subtype="Motor" Count="1" />
+        <Component Subtype="Computer" Count="2" />
+        <Component Subtype="SteelPlate" Count="10" />
+      </Components>
+      <CriticalComponent Subtype="Computer" Index="0" />
+      <MountPoints>
+        <MountPoint Side="Bottom" StartX="0.33" StartY="0.33" EndX="0.66" EndY="0.66" Default="true" />
+        <MountPoint Side="Back" StartX="0.33" StartY="0.33" EndX="0.66" EndY="0.66" />
+        <MountPoint Side="Front" StartX="0.33" StartY="0.33" EndX="0.66" EndY="0.66" />
+        <MountPoint Side="Left" StartX="0.33" StartY="0.33" EndX="0.66" EndY="0.66" />
+        <MountPoint Side="Right" StartX="0.33" StartY="0.33" EndX="0.66" EndY="0.66" />
+        <MountPoint Side="Top" StartX="0.33" StartY="0.33" EndX="0.66" EndY="0.66" />
+      </MountPoints>
+      <BuildProgressModels>
+        <Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\ProjectorConstruction_1.mwm" />
+        <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\ProjectorConstruction_2.mwm" />
+        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\ProjectorConstruction_3.mwm" />
+      </BuildProgressModels>
+      <BlockPairName>Projector</BlockPairName>
+      <EdgeType>Light</EdgeType>
+      <BuildTimeSeconds>20</BuildTimeSeconds>
+      <ResourceSinkGroup>Utility</ResourceSinkGroup>
+      <RequiredPowerInput>0.0002</RequiredPowerInput>
+      <Public>true</Public>
+      <DamageEffectId>214</DamageEffectId>
+      <DamagedSound>ParticleElectrical</DamagedSound>
+      <PrimarySound>BlockProjectorOn</PrimarySound>
+      <IdleSound>BlockProjectorOff</IdleSound>
+    </Definition>
   </CubeBlocks>
   <BlockPositions>
     <!-- Region Row 0-->

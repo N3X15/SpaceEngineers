@@ -9033,5 +9033,15 @@ namespace Sandbox.Game.Localization
         ///Show block in inventory screen. If you access the block directly it will be visible regardless of this setting.
         ///</summary>
         public static readonly MyStringId Terminal_ShowInInventoryToolTip = MyStringId.GetOrCompute("Terminal_ShowInInventoryToolTip");
+
+        ///<summary>
+        ///Capture Snapshot
+        ///</summary>
+        public static readonly MyStringId CaptureSnapshotButton = MyStringId.GetOrCompute("CaptureSnapshotButton");
+
+        ///<summary>
+        ///Repair Projector
+        ///</summary>
+        public static readonly MyStringId DisplayName_Block_RepairProjector = MyStringId.GetOrCompute("DisplayName_Block_RepairProjector");
     }
 }

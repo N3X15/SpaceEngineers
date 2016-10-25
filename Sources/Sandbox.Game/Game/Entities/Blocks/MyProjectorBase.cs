@@ -215,7 +215,7 @@ namespace Sandbox.Game.Entities.Blocks
             m_frameCount = 0;
         }
 
-        private void RemoveProjection(bool keepProjection)
+        protected void RemoveProjection(bool keepProjection)
         {
             m_hiddenBlock = null;
             m_clipboard.Deactivate();
@@ -251,7 +251,7 @@ namespace Sandbox.Game.Entities.Blocks
             clipboard.RotateAroundAxis(2, System.Math.Sign(rotation.Z), true, System.Math.Abs(rotation.Z * MathHelper.PiOver2));
         }
 
-        void OnBlueprintScreen_Closed(MyGuiScreenBase source)
+        protected void OnBlueprintScreen_Closed(MyGuiScreenBase source)
         {
             ResourceSink.Update();
             UpdateIsWorking();
@@ -603,12 +603,12 @@ namespace Sandbox.Game.Entities.Blocks
         #endregion
 
         #region Stats
-        int m_remainingBlocks = 0;
-        int m_totalBlocks = 0;
-        Dictionary<MyCubeBlockDefinition, int> m_remainingBlocksPerType = new Dictionary<MyCubeBlockDefinition, int>();
-        int m_remainingArmorBlocks = 0;
-        int m_buildableBlocksCount = 0;
-        bool m_statsDirty = false;
+        protected int m_remainingBlocks = 0;
+        protected int m_totalBlocks = 0;
+        protected Dictionary<MyCubeBlockDefinition, int> m_remainingBlocksPerType = new Dictionary<MyCubeBlockDefinition, int>();
+        protected int m_remainingArmorBlocks = 0;
+        protected int m_buildableBlocksCount = 0;
+        protected bool m_statsDirty = false;
 
         private void UpdateStats()
         {
@@ -828,7 +828,37 @@ namespace Sandbox.Game.Entities.Blocks
             UpdateEmissivity();
         }
 
-        void UpdateText()
+        protected virtual void UpdateDetailedInfoStats()
+        {
+            DetailedInfo.Append("\n");
+            if (m_buildableBlocksCount > 0)
+            {
+                DetailedInfo.Append("\n");
+            }
+            else
+            {
+                DetailedInfo.Append("WARNING! Projection out of bounds!\n");
+            }
+            DetailedInfo.Append("Build progress: " + (m_totalBlocks - m_remainingBlocks) + "/" + m_totalBlocks);
+            if (m_remainingArmorBlocks > 0 || m_remainingBlocksPerType.Count != 0)
+            {
+                DetailedInfo.Append("\nBlocks remaining:\n");
+
+                DetailedInfo.Append("Armor blocks: " + m_remainingArmorBlocks);
+
+                foreach (var entry in m_remainingBlocksPerType)
+                {
+                    DetailedInfo.Append("\n");
+                    DetailedInfo.Append(entry.Key.DisplayNameText + ": " + entry.Value);
+                }
+            }
+            else
+            {
+                DetailedInfo.Append("\nComplete!");
+            }
+        }
+
+        protected virtual void UpdateText()
         {
             if (m_instantBuildingEnabled)
             {
@@ -861,41 +891,13 @@ namespace Sandbox.Game.Entities.Blocks
 
                 UpdateBaseText();
 
-                if (m_clipboard.IsActive)
-                {
-                    DetailedInfo.Append("\n");
-                    if (m_buildableBlocksCount > 0)
-                    {
-                        DetailedInfo.Append("\n");
-                    }
-                    else
-                    {
-                        DetailedInfo.Append("WARNING! Projection out of bounds!\n");
-                    }
-                    DetailedInfo.Append("Build progress: " + (m_totalBlocks - m_remainingBlocks) + "/" + m_totalBlocks);
-                    if (m_remainingArmorBlocks > 0 || m_remainingBlocksPerType.Count != 0)
-                    {
-                        DetailedInfo.Append("\nBlocks remaining:\n");
-
-                        DetailedInfo.Append("Armor blocks: " + m_remainingArmorBlocks);
-
-                        foreach (var entry in m_remainingBlocksPerType)
-                        {
-                            DetailedInfo.Append("\n");
-                            DetailedInfo.Append(entry.Key.DisplayNameText + ": " + entry.Value);
-                        }
-                    }
-                    else
-                    {
-                        DetailedInfo.Append("\nComplete!");
-                    }
-                } 
+                UpdateDetailedInfoStats();
 
                 RaisePropertiesChanged();
             }
         }
 
-        void UpdateBaseText()
+        protected virtual void UpdateBaseText()
         {
             DetailedInfo.Clear();
             DetailedInfo.AppendStringBuilder(MyTexts.Get(MyCommonTexts.BlockPropertiesText_Type));

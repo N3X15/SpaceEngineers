@@ -101,6 +101,9 @@ namespace VRage.Game.Components
         {
             //MyEntities.Remove(child);  // if it's already in the world, remove it
 
+            // SECE BUGFIX:  Nulls somehow made it into the tree.
+            if (child == null) return;
+
             MyHierarchyComponentBase childHierarchy = child.Components.Get<MyHierarchyComponentBase>();
             childHierarchy.Parent = this;
 

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="us-ascii"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0" DefaultTargets="Build">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
@@ -237,6 +237,7 @@
     <Compile Include="ObjectBuilders\MyObjectBuilder_PistonBase.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_PistonTop.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_ProductionBlock.cs" />
+    <Compile Include="ObjectBuilders\MyObjectBuilder_RepairProjector.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_SpaceProjector.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_RadioAntenna.cs" />
     <Compile Include="ObjectBuilders\MyObjectBuilder_Reactor.cs" />
