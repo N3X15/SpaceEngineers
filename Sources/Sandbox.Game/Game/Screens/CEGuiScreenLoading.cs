@@ -60,7 +60,7 @@ namespace Sandbox.Game.Gui
 
         bool m_loadFinished;
 
-        private MyFontEnum m_fontId = MyFontEnum.LoadingScreen;
+        private string m_font = MyFontEnum.LoadingScreen;
 
         public CEGuiScreenLoading(MyGuiScreenGamePlay screenToLoad, MyGuiScreenGamePlay screenToUnload, string textureFromConstructor, string customText = null)
             : base(Vector2.Zero, null, null)
@@ -122,7 +122,7 @@ namespace Sandbox.Game.Gui
         {
             m_currentLoadingSB.Clear().Append(value);
 
-            Vector2 loadingTextSize = MyGuiManager.MeasureString(m_fontId,
+            Vector2 loadingTextSize = MyGuiManager.MeasureString(m_font,
                 m_currentLoadingSB, MyGuiConstants.LOADING_PLEASE_WAIT_SCALE);
             m_wheel.Position = MyGuiConstants.LOADING_PLEASE_WAIT_POSITION - new Vector2(0, 0.06f + loadingTextSize.Y);
             DrawLoading(); // Must be called to redraw UI.  Is there a Dirty marker I'm missing?
@@ -131,7 +131,7 @@ namespace Sandbox.Game.Gui
         {
             base.RecreateControls(constructor);
 
-            Vector2 loadingTextSize = MyGuiManager.MeasureString(m_fontId,
+            Vector2 loadingTextSize = MyGuiManager.MeasureString(m_font,
                 m_currentLoadingSB, MyGuiConstants.LOADING_PLEASE_WAIT_SCALE);
             m_wheel = new MyGuiControlRotatingWheel(
                 MyGuiConstants.LOADING_PLEASE_WAIT_POSITION - new Vector2(0, 0.06f + loadingTextSize.Y),
@@ -153,7 +153,7 @@ namespace Sandbox.Game.Gui
                 position: Vector2.One * 0.5f,
                 size: new Vector2(0.9f, 0.2f),
                 backgroundColor: Vector4.One,
-                font: m_fontId,
+                font: m_font,
                 textScale: 1.0f,
                 textAlign: MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_BOTTOM,
                 contents: contents,
@@ -436,7 +436,7 @@ namespace Sandbox.Game.Gui
             LastBackgroundTexture = m_backgroundScreenTexture;
 
             //  Loading Please Wait
-            MyGuiManager.DrawString(m_fontId, m_currentLoadingSB,
+            MyGuiManager.DrawString(m_font, m_currentLoadingSB,
                 MyGuiConstants.LOADING_PLEASE_WAIT_POSITION, MyGuiSandbox.GetDefaultTextScaleWithLanguage() * MyGuiConstants.LOADING_PLEASE_WAIT_SCALE, new Color(MyGuiConstants.LOADING_PLEASE_WAIT_COLOR * m_transitionAlpha),
                 MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM);
 
@@ -444,7 +444,7 @@ namespace Sandbox.Game.Gui
             {
                 if (string.IsNullOrEmpty(m_customTextFromConstructor))
                 {
-                    var font = m_fontId;
+                    var font = m_font;
                     var controlBottomLeft = m_quoteTextControl.GetPositionAbsoluteBottomLeft();
                     var textSize = m_quoteTextControl.TextSize;
                     var controlSize = m_quoteTextControl.Size;
