@@ -900,6 +900,10 @@ namespace Sandbox.Definitions
                 SECEUpdateLoadStatus("Loading physical items");
                 InitPhysicalItems(context, definitionSet.m_definitionsById, definitionSet.m_physicalItemDefinitions, objBuilder.PhysicalItems, failOnDebug);
             }
+            if (objBuilder.Fonts != null)
+            {
+                InitFonts(context, definitionSet.m_fontsById, objBuilder.Fonts, failOnDebug);
+            }
 
             if (objBuilder.TransparentMaterials != null)
             {
@@ -2071,6 +2075,18 @@ namespace Sandbox.Definitions
                 {
                     blueprintsByResult[blueprint.Results[0].Id] = blueprint;
                 }
+            }
+        }
+
+        private void InitFonts(MyModContext context,
+            Dictionary<MyDefinitionId, MyFontDefinition> output,
+            MyObjectBuilder_FontDefinition[] fonts, bool failOnDebug = true)
+        {
+            for (int i = 0; i < fonts.Length; ++i)
+            {
+                var font = InitDefinition<MyFontDefinition>(context, fonts[i]);
+                Check(!output.ContainsKey(font.Id), font.Id, failOnDebug);
+                output[font.Id] = font;
             }
         }
 
@@ -4023,6 +4039,25 @@ namespace Sandbox.Definitions
             {
                 definedContainers.Add(def.Key);
             }
+        }
+
+        public DictionaryValuesReader<MyDefinitionId, MyFontDefinition> GetFontDefinitions()
+        {
+            return new DictionaryValuesReader<MyDefinitionId, MyFontDefinition>(m_definitions.m_fontsById);
+        }
+
+        public MyFontDefinition GetFontSafe(string fontName)
+        {
+            var id = new MyDefinitionId(typeof(MyObjectBuilder_FontDefinition), fontName);
+            MyFontDefinition font;
+            if (!m_definitions.m_fontsById.TryGetValue(id, out font))
+            {
+                //Debug must be always provided
+                id = new MyDefinitionId(typeof(MyObjectBuilder_FontDefinition), "Debug");
+                font = m_definitions.m_fontsById[id];
+            }
+
+            return font;
         }
 
         #endregion

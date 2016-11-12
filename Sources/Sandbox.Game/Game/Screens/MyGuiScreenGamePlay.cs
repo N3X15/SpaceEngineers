@@ -647,6 +647,11 @@ namespace Sandbox.Game.Gui
                         }
                     }
                 }
+                else
+                {
+                    controlledObject.EndShoot(MyShootActionEnum.PrimaryAction);
+                    controlledObject.EndShoot(MyShootActionEnum.SecondaryAction);
+                }
 
                 if (MySandboxGame.IsPaused == false)
                 {
@@ -778,9 +783,9 @@ namespace Sandbox.Game.Gui
                 }
             }
 
-            if (MyInput.Static.IsNewGameControlPressed(MyControlsSpace.PAUSE_GAME))
+            if (MyInput.Static.IsNewGameControlPressed(MyControlsSpace.PAUSE_GAME) && Sync.Clients.Count < 2)
             {
-                MySandboxGame.UserPauseToggle();
+                MySandboxGame.PauseToggle();
             }
 
             if (MySession.Static != null)
@@ -1069,7 +1074,7 @@ namespace Sandbox.Game.Gui
             VRageRender.MyRenderProxy.UpdateFogSettings(ref fogSettings);
 
             MyRenderProxy.UpdateSSAOSettings(ref MySector.SSAOSettings);
-            MyRenderProxy.UpdateHBAOSettings(MySector.HBAOSettings);
+            MyRenderProxy.UpdateHBAOSettings(ref MySector.HBAOSettings);
 
             var gravityProviders = Sandbox.Game.GameSystems.MyGravityProviderSystem.NaturalGravityProviders;
             float planetFactor = 0;

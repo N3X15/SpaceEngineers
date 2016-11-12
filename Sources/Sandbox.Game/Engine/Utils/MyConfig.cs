@@ -90,6 +90,7 @@ namespace Sandbox.Engine.Utils
         readonly string SHIP_SOUNDS_SPEED = "ShipSoundsAreBasedOnSpeed";
         readonly string ANTIALIASING_MODE = "AntialiasingMode";
         readonly string SHADOW_MAP_RESOLUTION = "ShadowMapResolution";
+        readonly string AMBIENT_OCCLUSION_ENABLED = "AmbientOcclusionEnabled";
         readonly string MULTITHREADED_RENDERING = "MultithreadedRendering";
         //readonly string TONEMAPPING = "Tonemapping";
         readonly string TEXTURE_QUALITY = "TextureQuality";
@@ -100,6 +101,7 @@ namespace Sandbox.Engine.Utils
         readonly string GRAPHICS_RENDERER = "GraphicsRenderer";
         readonly string ENABLE_VOICE_CHAT = "VoiceChat";
         readonly string ENABLE_MUTE_WHEN_NOT_IN_FOCUS = "EnableMuteWhenNotInFocus";
+        readonly string ENABLE_REVERB = "EnableReverb";
         readonly string UI_TRANSPARENCY = "UiTransparency";
         readonly string UI_BK_TRANSPARENCY = "UiBkTransparency";
         readonly string TUTORIALS_FINISHED = "TutorialsFinished";
@@ -265,6 +267,12 @@ namespace Sandbox.Engine.Utils
         {
             get { return GetOptionalEnum<MyShadowsQuality>(SHADOW_MAP_RESOLUTION); }
             set { SetOptionalEnum(SHADOW_MAP_RESOLUTION, value); }
+        }
+
+        public bool? AmbientOcclusionEnabled
+        {
+            get { return MyUtils.GetBoolFromString(GetParameterValue(AMBIENT_OCCLUSION_ENABLED)); }
+            set { SetParameterValue(AMBIENT_OCCLUSION_ENABLED, value); }
         }
 
         public MyTextureQuality? TextureQuality
@@ -860,6 +868,12 @@ namespace Sandbox.Engine.Utils
         {
             get { return MyUtils.GetBoolFromString(GetParameterValue(SHIP_SOUNDS_SPEED), true); }
             set { SetParameterValue(SHIP_SOUNDS_SPEED, value); }
+        }
+
+        public bool EnableReverb
+        {
+            get { return MyUtils.GetBoolFromString(GetParameterValue(ENABLE_REVERB), true); }
+            set { SetParameterValue(ENABLE_REVERB, value); }
         }
 
         public MyStringId GraphicsRenderer

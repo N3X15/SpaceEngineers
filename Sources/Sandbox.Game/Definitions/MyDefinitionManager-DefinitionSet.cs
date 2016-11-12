@@ -155,6 +155,8 @@ namespace Sandbox.Definitions
                     m_physicalMaterialsByName = new Dictionary<string, MyPhysicalMaterialDefinition>();
                 }
 
+                m_fontsById = new DefinitionDictionary<MyFontDefinition>(16);
+
                 m_lootBagDefinition = null;
 
                 m_behaviourDefinitionsById = new DefinitionDictionary<SECEBehaviourDefinition>(100); // SECE
@@ -412,6 +414,11 @@ namespace Sandbox.Definitions
                 m_entityContainers.Merge(definitionSet.m_entityContainers);
 
                 m_lootBagDefinition = definitionSet.m_lootBagDefinition;
+
+                foreach (var font in definitionSet.m_fontsById)
+                {
+                    m_fontsById[font.Key] = font.Value;
+                }
                 m_behaviourDefinitionsById.Merge(definitionSet.m_behaviourDefinitionsById); // SECE
             }
 
@@ -445,6 +452,7 @@ namespace Sandbox.Definitions
             internal DefinitionDictionary<MyDefinitionBase> m_definitionsById;
             internal DefinitionDictionary<MyBlueprintDefinitionBase> m_blueprintsById;
             internal DefinitionDictionary<MyHandItemDefinition> m_handItemsById;
+            internal DefinitionDictionary<MyFontDefinition> m_fontsById;
 
             internal DefinitionDictionary<MyPhysicalItemDefinition> m_physicalItemsByHandItemId;
             internal DefinitionDictionary<MyHandItemDefinition> m_handItemsByPhysicalItemId;

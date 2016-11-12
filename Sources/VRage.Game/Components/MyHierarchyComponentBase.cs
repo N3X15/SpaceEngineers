@@ -13,7 +13,7 @@ namespace VRage.Game.Components
     public class MyHierarchyComponentBase : MyEntityComponentBase
     {
         protected List<MyHierarchyComponentBase> m_children = new List<MyHierarchyComponentBase>();
-        private readonly List<MyEntity> m_deserializedChildren = new List<MyEntity>(); 
+        protected readonly List<MyEntity> m_deserializedEntities = new List<MyEntity>();
 
         public event Action<IMyEntity> OnChildRemoved;
 
@@ -105,6 +105,13 @@ namespace VRage.Game.Components
             if (child == null) return;
 
             MyHierarchyComponentBase childHierarchy = child.Components.Get<MyHierarchyComponentBase>();
+
+            if (m_children.Contains(childHierarchy))
+            {
+                Debug.Fail("The child is already in the hierarchy.");
+                return;
+            }
+
             childHierarchy.Parent = this;
 
             if (preserveWorldPos)
@@ -211,12 +218,13 @@ namespace VRage.Game.Components
         {
             base.OnAddedToScene();
 
-            foreach (var child in m_deserializedChildren)
+            foreach (var child in m_children)
             {
-                AddChild(child, true, false);
+                if (!child.Entity.InScene)
+                {
+                    child.Entity.OnAddedToScene(Container.Entity);
+                }
             }
-
-            m_deserializedChildren.Clear();
         }
 
         public override MyObjectBuilder_ComponentBase Serialize(bool copy = false)
@@ -241,11 +249,16 @@ namespace VRage.Game.Components
 
             if (ob != null)
             {
-                m_deserializedChildren.Clear();
+                m_deserializedEntities.Clear();
                 foreach (var child in ob.Children)
                 {
                     var childEntity = MyEntity.MyEntitiesCreateFromObjectBuilderExtCallback(child, true);
-                    m_deserializedChildren.Add(childEntity);
+                    m_deserializedEntities.Add(childEntity);
+                }
+
+                foreach (var deserializedEntity in m_deserializedEntities)
+                {
+                    AddChild(deserializedEntity, true, false);
                 }
             }
         }

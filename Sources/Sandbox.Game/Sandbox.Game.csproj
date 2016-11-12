@@ -171,6 +171,7 @@
     <Reference Include="RecastDetourWrapper">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RecastDetourWrapper.dll</HintPath>
       <Private>false</Private>
+      <Private>false</Private>
     </Reference>
     <Reference Include="RakNet" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RakNet.dll</HintPath>
@@ -199,6 +200,7 @@
     <Compile Include="Definitions\MyBattleDefinition.cs" />
     <Compile Include="Definitions\MyBeaconDefinition.cs" />
     <Compile Include="Definitions\MyBlockBlueprintDefinition.cs" />
+    <Compile Include="Definitions\MyFontDefinition.cs" />
     <Compile Include="Definitions\MyCubeBlockStackSizeDefinition.cs" />
     <Compile Include="Definitions\MyComponentSubstitutionDefinition.cs" />
     <Compile Include="Definitions\MyDestructionDefinition.cs" />
@@ -1205,6 +1207,7 @@
     <Compile Include="ModAPI\MyVoxelShapes_ModAPI.cs" />
     <Compile Include="Game\EntityComponents\Renders\MyRenderComponentEnvironmentItems.cs" />
     <Compile Include="MyCommonProgramStartup.cs" />
+    <Compile Include="Game\SessionComponents\MyEnvironmentalParticles.cs" />
     <Compile Include="MyErrorConsumer.cs" />
     <Compile Include="MySplashScreen.cs">
       <SubType>Form</SubType>
