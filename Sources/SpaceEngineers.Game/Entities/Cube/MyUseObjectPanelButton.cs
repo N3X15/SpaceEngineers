@@ -39,7 +39,7 @@ namespace SpaceEngineers.Game.Entities.Cube
             if (m_index >= m_buttonPanel.BlockDefinition.ButtonCount)
             {
                 MyLog.Default.WriteLine(string.Format("{0} Button index higher than defined count.", m_buttonPanel.BlockDefinition.Id.SubtypeName));
-                Debug.Fail(string.Format("{0} Button index higher than defined count.", m_buttonPanel.BlockDefinition.Id.SubtypeName));
+                //Debug.Fail(string.Format("{0} Button index higher than defined count.", m_buttonPanel.BlockDefinition.Id.SubtypeName));
                 m_index = m_buttonPanel.BlockDefinition.ButtonCount - 1;
             }
         }

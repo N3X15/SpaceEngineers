@@ -15,6 +15,8 @@ using VRage;
 using VRage.Network;
 using VRage.Voxels;
 using VRageMath;
+using VRage.ObjectBuilders;
+using VRage.Game;
 
 namespace Entities.Blocks
 {
@@ -22,7 +24,7 @@ namespace Entities.Blocks
     public class MySpaceRepairProjector : MyProjectorBase
     {
         private bool m_needsAlignment = false;
-        private bool m_needsRotation = false;
+        //private bool m_needsRotation = false;
 
         public MySpaceRepairProjector():base()
         {
@@ -48,7 +50,7 @@ namespace Entities.Blocks
                 //Clipboard.Activate();
                 OnBlueprintScreen_Closed(null);
                 m_needsAlignment = true;
-                m_needsRotation = true;
+                // m_needsRotation = true;
             }
         }
 
@@ -57,12 +59,14 @@ namespace Entities.Blocks
             base.UpdateAfterSimulation100();
             if (Clipboard.IsActive && ProjectedGrid != null)
             {
+                /*
                 if (m_needsRotation)
                 {
                     m_needsRotation = false;
                     Autorotate();
                     return;
                 }
+                */
                 if (m_needsAlignment)
                 {
                     m_needsAlignment = false;
@@ -108,8 +112,10 @@ namespace Entities.Blocks
             OnOffsetsChanged();
         }
 
+        /*
         protected override void UpdateText()
         {
+            / *
             if (m_needsRotation)
             {
                 base.UpdateBaseText();
@@ -117,6 +123,7 @@ namespace Entities.Blocks
                 RaisePropertiesChanged();
                 return;
             }
+            * /
             if (m_needsAlignment)
             {
                 base.UpdateBaseText();
@@ -137,6 +144,7 @@ namespace Entities.Blocks
             DetailedInfo.AppendLine(string.Format("Projected Position: {0}", ProjectedBlock.WorldPosition));
             base.UpdateDetailedInfoStats();
         }
+        */
 
         protected override void CreateTerminalControls()
         {
@@ -253,6 +261,11 @@ namespace Entities.Blocks
             //return Enabled && base.CheckIsWorking();
 
             return base.CheckIsWorking();
+        }
+        public override void Init(MyObjectBuilder_CubeBlock objectBuilder, MyCubeGrid cubeGrid)
+        {
+            //(objectBuilder as MyObjectBuilder_RepairProjector).ProjectedGrid = null;
+            base.Init(objectBuilder, cubeGrid);
         }
     }
 }

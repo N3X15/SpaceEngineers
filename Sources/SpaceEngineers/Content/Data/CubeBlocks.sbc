@@ -3195,6 +3195,7 @@
       <DisplayName>DisplayName_Block_LightRoundedArmorSlope</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\RoundedArmorSlope.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -3378,6 +3379,7 @@
       <Icon>Textures\GUI\Icons\Cubes\RoundedArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -3550,6 +3552,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledArmorSlope.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -3681,6 +3684,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -3784,6 +3788,7 @@
       <DisplayName>DisplayName_Block_HeavyRoundedArmorSlope</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\RoundedHeavyArmorSlope.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -3969,6 +3974,7 @@
       <Icon>Textures\GUI\Icons\Cubes\RoundedHeavyArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -4143,6 +4149,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledHeavyArmorSlope.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -4276,6 +4283,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledHeavyArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -4381,6 +4389,7 @@
       <DisplayName>DisplayName_Block_LightRoundedArmorSlope</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\RoundedArmorSlope.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -4562,6 +4571,7 @@
       <Icon>Textures\GUI\Icons\Cubes\RoundedArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -4733,6 +4743,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledArmorSlope.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -4863,6 +4874,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -4965,6 +4977,7 @@
       <DisplayName>DisplayName_Block_HeavyRoundedArmorSlope</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\RoundedHeavyArmorSlope.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -5148,6 +5161,7 @@
       <Icon>Textures\GUI\Icons\Cubes\RoundedHeavyArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -5321,6 +5335,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledHeavyArmorSlope.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -5453,6 +5468,7 @@
       <Icon>Textures\GUI\Icons\Cubes\AngledHeavyArmorCorner.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -7186,6 +7202,7 @@
       <DisplayName>DisplayName_Block_LightArmorSlope2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\Slope2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -7362,6 +7379,7 @@
       <Icon>Textures\GUI\Icons\Cubes\Slope2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -7494,6 +7512,7 @@
       <DisplayName>DisplayName_Block_LightArmorCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\Corner2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -7637,6 +7656,7 @@
       <Icon>Textures\GUI\Icons\Cubes\Corner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -7741,6 +7761,7 @@
       <DisplayName>DisplayName_Block_LightArmorInvCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\InvCorner2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -7923,6 +7944,7 @@
       <Icon>Textures\GUI\Icons\Cubes\InvCorner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -8101,6 +8123,7 @@
       <DisplayName>DisplayName_Block_HeavyArmorSlope2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\HeavySlope2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -8278,6 +8301,7 @@
       <Icon>Textures\GUI\Icons\Cubes\HeavySlope2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -8411,6 +8435,7 @@
       <DisplayName>DisplayName_Block_HeavyArmorCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\HeavyCorner2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -8555,6 +8580,7 @@
       <Icon>Textures\GUI\Icons\Cubes\HeavyCorner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -8660,6 +8686,7 @@
       <DisplayName>DisplayName_Block_HeavyArmorInvCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\HeavyInvCorner2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -8843,6 +8870,7 @@
       <Icon>Textures\GUI\Icons\Cubes\HeavyInvCorner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Large</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -9022,6 +9050,7 @@
       <DisplayName>DisplayName_Block_LightArmorSlope2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\Slope2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -9197,6 +9226,7 @@
       <Icon>Textures\GUI\Icons\Cubes\Slope2x1x1BaseSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -9328,6 +9358,7 @@
       <DisplayName>DisplayName_Block_LightArmorCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\Corner2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -9470,6 +9501,7 @@
       <Icon>Textures\GUI\Icons\Cubes\Corner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0.2" y="0" z="0" />
@@ -9573,6 +9605,7 @@
       <DisplayName>DisplayName_Block_LightArmorInvCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\InvCorner2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -9754,6 +9787,7 @@
       <Icon>Textures\GUI\Icons\Cubes\InvCorner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -9931,6 +9965,7 @@
       <DisplayName>DisplayName_Block_HeavyArmorSlope2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\HeavySlope2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -10108,6 +10143,7 @@
       <Icon>Textures\GUI\Icons\Cubes\HeavySlope2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -10241,6 +10277,7 @@
       <DisplayName>DisplayName_Block_HeavyArmorCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\HeavyCorner2x1x1BaseSmooth.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -10385,6 +10422,7 @@
       <Icon>Textures\GUI\Icons\Cubes\HeavyCorner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0.2" y="0" z="0" />
@@ -10490,6 +10528,7 @@
       <DisplayName>DisplayName_Block_HeavyArmorInvCorner2BaseSmooth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\HeavyInvCorner2x1x1TipSmooth.dds</Icon>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -10672,6 +10711,7 @@
       <Icon>Textures\GUI\Icons\Cubes\HeavyInvCorner2x1x1TipSmooth.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
+      <Public>false</Public>
       <BlockTopology>Cube</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
@@ -22557,7 +22597,7 @@
       <Icon>Textures\GUI\Icons\Cubes\ConveyorSmall.dds</Icon>
       <CubeSize>Small</CubeSize>
       <GuiVisible>false</GuiVisible>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\conveyor.mwm</Model>
@@ -22904,7 +22944,7 @@
       <Icon>Textures\GUI\Icons\Cubes\ConveyorTubeSmall.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\ConveyorTube.mwm</Model>
@@ -22944,7 +22984,7 @@
       <Icon>Textures\GUI\Icons\Cubes\ConveyorTube.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="3" y="3" z="3" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\ConveyorTubeMedium.mwm</Model>
@@ -22992,7 +23032,7 @@
       <DisplayName>DisplayName_Block_ConveyorFrame</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\ConveyorFrameMedium.dds</Icon>
       <CubeSize>Small</CubeSize>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="3" z="3" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\ConveyorFrameMedium.mwm</Model>
@@ -23072,7 +23112,7 @@
       <Icon>Textures\GUI\Icons\Cubes\ConveyorCurveSmall.dds</Icon>
       <GuiVisible>false</GuiVisible>
       <CubeSize>Small</CubeSize>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\ConveyorTubeCurved.mwm</Model>
@@ -23104,7 +23144,7 @@
       <Icon>Textures\GUI\Icons\Cubes\ConveyorTubeCurved.dds</Icon>
       <CubeSize>Small</CubeSize>
       <GuiVisible>false</GuiVisible>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="3" y="3" z="3" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\ConveyorTurnMedium.mwm</Model>
@@ -23146,7 +23186,7 @@
       <Icon>Textures\GUI\Icons\Cubes\Conveyor.dds</Icon>
       <CubeSize>Small</CubeSize>
       <GuiVisible>false</GuiVisible>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="3" y="3" z="3" />
       <ModelOffset x="0" y="0" z="0" />
       <!--<Center x="1" y="1" z="1" />-->
@@ -23199,7 +23239,7 @@
       <DisplayName>DisplayName_Block_ConveyorSorter</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\ConveyorSorterLarge.dds</Icon>
       <CubeSize>Large</CubeSize>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Large\ConveyorSorter.mwm</Model>
@@ -23249,7 +23289,7 @@
       <DisplayName>DisplayName_Block_ConveyorSorter</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\ConveyorSorterMedium.dds</Icon>
       <CubeSize>Small</CubeSize>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="3" y="3" z="1" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\ConveyorSorterMedium.mwm</Model>
@@ -23290,7 +23330,7 @@
       <DisplayName>DisplayName_Block_SmallConveyorSorter</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\ConveyorSorterSmall.dds</Icon>
       <CubeSize>Small</CubeSize>
-      <BlockTopology>Cube</BlockTopology>
+      <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Cubes\Small\ConveyorSorterSmall.mwm</Model>
@@ -25245,7 +25285,7 @@
         <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\ProjectorConstruction_2.mwm" />
         <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\ProjectorConstruction_3.mwm" />
       </BuildProgressModels>
-      <BlockPairName>Projector</BlockPairName>
+      <BlockPairName>RepairProjector</BlockPairName>
       <EdgeType>Light</EdgeType>
       <BuildTimeSeconds>20</BuildTimeSeconds>
       <ResourceSinkGroup>Utility</ResourceSinkGroup>

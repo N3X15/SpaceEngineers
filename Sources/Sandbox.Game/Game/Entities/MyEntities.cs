@@ -2105,6 +2105,8 @@ namespace Sandbox.Game.Entities
             {
                 try
                 {
+                    string defID = m_objectBuilder.EntityDefinitionId.HasValue ? m_objectBuilder.EntityDefinitionId.Value.ToString() : m_objectBuilder.GetType().Name;
+                    MyLog.Default.Info("Calling Init on {0} ({1} left)", defID, PendingInits - 1);
                     InitEntity(m_objectBuilder, ref m_entity);
                 }
                 finally

@@ -46,15 +46,19 @@
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CodeAnalysis">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\Microsoft.CodeAnalysis.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="Microsoft.CodeAnalysis.CSharp">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="System.Collections.Immutable">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\System.Collections.Immutable.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="System.Reflection.Metadata">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\System.Reflection.Metadata.dll</HintPath>
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>

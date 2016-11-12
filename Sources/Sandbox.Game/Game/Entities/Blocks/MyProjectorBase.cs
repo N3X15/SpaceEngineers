@@ -498,6 +498,8 @@ namespace Sandbox.Game.Entities.Blocks
                 return;
             }
 
+            //if (objectBuilder is MyObjectBuilder_RepairProjector) return;
+
             var projectorBuilder = (MyObjectBuilder_ProjectorBase)objectBuilder;
             if (projectorBuilder.ProjectedGrid != null)
             {

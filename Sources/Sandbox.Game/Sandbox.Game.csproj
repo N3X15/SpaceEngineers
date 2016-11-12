@@ -14,10 +14,8 @@
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
+    <FileUpgradeFlags></FileUpgradeFlags>
+    <UpgradeBackupLocation></UpgradeBackupLocation>
     <OldToolsVersion>4.0</OldToolsVersion>
     <_ResolveReferenceDependencies>true</_ResolveReferenceDependencies>
   </PropertyGroup>
@@ -172,6 +170,7 @@
     </Reference>
     <Reference Include="RecastDetourWrapper">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RecastDetourWrapper.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="RakNet" Condition="('$(Configuration)' == 'Debug_XB1') Or ('$(Configuration)' == 'Release_XB1')">
       <HintPath>F:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64\RakNet.dll</HintPath>
@@ -1682,6 +1681,5 @@
     <Exec Command="..\..\3rd\Utils\RunTemplate.bat &quot;$(ProjectDir)Game\Localization\MySpaceTexts&quot;" />
     <Exec Command="echo %time% Templates completed" />
   </Target>
-  <Target Name="AfterBuild">
-  </Target>
+  <Target Name="AfterBuild"></Target>
 </Project>

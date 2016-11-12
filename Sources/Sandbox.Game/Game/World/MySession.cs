@@ -1431,10 +1431,19 @@ namespace Sandbox.Game.World
                 VoxelHandVolumeChanged = sector.VoxelHandVolumeChanged;
             }
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Initializing Character Toolbar");
+            //////////////
             MyToolbarComponent.InitCharacterToolbar(checkpoint.CharacterToolbar);
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Camera Controller");
+            //////////////
             LoadCameraControllerSettings(checkpoint);;
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Initializing Players");
+            //////////////
             Sync.Players.RespawnComponent.InitFromCheckpoint(checkpoint);
 
             MyPlayer.PlayerId savingPlayer = new MyPlayer.PlayerId();
@@ -1443,34 +1452,57 @@ namespace Sandbox.Game.World
             if (reuseSavingPlayerIdentity && !(IsScenario && Static.OnlineMode != MyOnlineModeEnum.OFFLINE))
                 savingPlayerNullable = savingPlayer;
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Identities");
+            //////////////
             // Identities have to be loaded before entities (because of ownership)
             if (Sync.IsServer || (!Battle && MyPerGameSettings.Game == GameEnum.ME_GAME) || (!IsScenario && MyPerGameSettings.Game == GameEnum.SE_GAME)
                 || (!IsScenario && MyPerGameSettings.Game == GameEnum.VRS_GAME))
                 Sync.Players.LoadIdentities(checkpoint, savingPlayerNullable);
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Toolbars");
+            //////////////
             Toolbars.LoadToolbars(checkpoint);
             MyEntities.PendingInits = 0;
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus(string.Format("Loading {0} Entities",sector.SectorObjects.Count));
+            //////////////
             if (!MyEntities.Load(sector.SectorObjects))
             {
                 ShowLoadingError();
             }
 
             // Wait until all entities are initialized
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus(string.Format("Waiting for {0} Entity Inits", MyEntities.PendingInits));
+            //////////////
             MyEntities.FinishedProcessingInits.Reset();
             if (MyEntities.PendingInits > 0)
                 MyEntities.FinishedProcessingInits.WaitOne();
 
             // Make sure everything is added to scene before we proceed
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus(string.Format("Running {0} Parallel Callbacks", ParallelTasks.Parallel.CallbackBuffer.Count));
+            //////////////
             ParallelTasks.Parallel.RunCallbacks();
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Running AfterEntitiesLoad");
+            //////////////
             MySandboxGame.Static.SessionCompatHelper.AfterEntitiesLoad(sector.AppVersion);
-
             if (checkpoint.Factions != null && (Sync.IsServer || (!Battle && MyPerGameSettings.Game == GameEnum.ME_GAME) || (!IsScenario && MyPerGameSettings.Game == GameEnum.SE_GAME)))
             {
+                //////////////
+                CEGuiScreenLoading.SECEUpdateLoadStatus("Initializing Factions");
+                //////////////
                 Static.Factions.Init(checkpoint.Factions);
             }
 
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Events");
+            //////////////
             MyGlobalEvents.LoadEvents(sector.SectorEvents);
             // Regenerate default events if they are empty (i.e. we are loading an old save)
 
@@ -1480,6 +1512,10 @@ namespace Sandbox.Game.World
             // MySpectator.Static.SpectatorCameraMovement = checkpoint.SpectatorCameraMovement;
             MySpectatorCameraController.Static.SetViewMatrix(MatrixD.Invert(checkpoint.SpectatorPosition.GetMatrix()));
 
+
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Connected Players");
+            //////////////
             if (MyPerGameSettings.Game == GameEnum.UNKNOWN_GAME || ((!Battle && MyPerGameSettings.Game == GameEnum.ME_GAME) || ((!IsScenario || Static.OnlineMode == MyOnlineModeEnum.OFFLINE) && MyPerGameSettings.Game == GameEnum.SE_GAME)
                 || ((!IsScenario || Static.OnlineMode == MyOnlineModeEnum.OFFLINE) && MyPerGameSettings.Game == GameEnum.VRS_GAME)))
             {
@@ -1537,7 +1573,15 @@ namespace Sandbox.Game.World
             if (MyFakes.ENABLE_MISSION_TRIGGERS)
                 MySessionComponentMissionTriggers.Static.Load(checkpoint.MissionTriggers);
 
+
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Encounters");
+            //////////////
             MyEncounterGenerator.Load(sector.Encounters);
+
+            //////////////
+            CEGuiScreenLoading.SECEUpdateLoadStatus("Loading Cull Structure");
+            //////////////
             MyRenderProxy.RebuildCullingStructure();
 
             Settings.ResetOwnership = false;

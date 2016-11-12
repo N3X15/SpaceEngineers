@@ -675,6 +675,8 @@ namespace Sandbox.Game.Entities
                     MyObjectBuilder_CubeBlock cubeBlock = builder.CubeBlocks[i];
 
                     Debug.Assert(cubeBlock.IntegrityPercent > 0.0f, "Block is in inconsistent state in grid initialization");
+
+                    MyLog.Default.Info("{0}/{1} - {2} - AddBlock()", i, builder.CubeBlocks.Count, cubeBlock.GetType().Name);
                     var block = AddBlock(cubeBlock, false);
                     //Debug.Assert(block != null, "Block was not added");
 
